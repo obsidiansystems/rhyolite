@@ -1,0 +1,52 @@
+name: rhyolite-common
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2018
+author: Obsidian Systems
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      aeson
+    , async
+    , attoparsec
+    , base
+    , bytestring
+    , constraints
+    , containers
+    , data-default
+    , http-types
+    , monad-control
+    , mtl
+    , network-uri
+    , reflex
+    , resource-pool
+    , template-haskell
+    , text
+    , time
+    , these
+    , transformers
+    , transformers-base
+    , vector
+
+  exposed-modules:
+      Data.MonoidMap
+    , Rhyolite.Account
+    , Rhyolite.Api
+    , Rhyolite.App
+    , Rhyolite.Concurrent
+    , Rhyolite.Schema
+    , Rhyolite.Sign
+    , Rhyolite.Request.Class
+    , Rhyolite.Request.Common
+    , Rhyolite.Request.TH
+    , Rhyolite.Route
+    , Rhyolite.WebSocket
+
+  other-extensions: TemplateHaskell
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

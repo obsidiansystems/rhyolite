@@ -1,0 +1,71 @@
+name: rhyolite-backend
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2018
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , clientsession
+    , constraints
+    , containers
+    , data-default
+    , directory
+    , gargoyle
+    , gargoyle-postgresql-nix
+    , groundhog
+    , groundhog-postgresql
+    , groundhog-th
+    , HaskellNet
+    , HaskellNet-SSL
+    , io-streams
+    , lens
+    , lifted-base
+    , mime-mail
+    , monad-control
+    , monad-logger
+    , monad-loops
+    , mtl
+    , network
+    , postgresql-simple
+    , reflex
+    , resource-pool
+    , rhyolite-common
+    , smtp-mail
+    , snap-core
+    , split
+    , stm
+    , template-haskell
+    , text
+    , time
+    , transformers
+    , websockets
+    , websockets-snap
+
+  exposed-modules:
+      Rhyolite.Backend
+    , Rhyolite.Backend.App
+    , Rhyolite.Backend.Account
+    , Rhyolite.Backend.DB
+    , Rhyolite.Backend.DB.LargeObjects
+    , Rhyolite.Backend.DB.PsqlSimple
+    , Rhyolite.Backend.Email
+    , Rhyolite.Backend.EmailWorker
+    , Rhyolite.Backend.Listen
+    , Rhyolite.Backend.Schema.TH
+    , Rhyolite.Backend.Schema.Class
+    , Rhyolite.Backend.Schema
+    , Rhyolite.Backend.Sign
+    , Rhyolite.Backend.WebSocket
+
+  other-extensions: TemplateHaskell
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

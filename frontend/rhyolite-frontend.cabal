@@ -1,0 +1,60 @@
+name: rhyolite-frontend
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2018
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      aeson
+    , base
+    , bifunctors
+    , binary
+    , bytestring
+    , constraints
+    , containers
+    , cookie
+    , data-default
+    , dependent-map
+    , dependent-sum
+    , exception-transformers
+    , filepath
+    , font-awesome-type
+    , ghcjs-dom
+    , http-types
+    , jsaddle
+    , lens
+    , mmorph
+    , monad-control
+    , mtl
+    , prim-uniq
+    , primitive
+    , raw-strings-qq
+    , ref-tf
+    , reflex-aeson-orphans
+    , reflex-dom-core
+    , reflex
+    , rhyolite-common
+    , safe
+    , semigroups
+    , template-haskell
+    , text
+    , these
+    , time
+    , timezone-olson
+    , timezone-series
+    , transformers-base
+    , transformers
+    , vector
+
+  exposed-modules:
+      Rhyolite.Frontend.App
+    , Rhyolite.Frontend.WebSocket
+
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts -fexpose-all-unfoldings
