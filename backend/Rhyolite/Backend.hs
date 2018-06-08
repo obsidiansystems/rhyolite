@@ -1,15 +1,15 @@
 module Rhyolite.Backend
-    ( withDb
-    ) where
+  ( withDb
+  ) where
 
-import Rhyolite.Backend.DB
-
+import qualified Data.ByteString.Char8 as BS
 import Data.Pool (Pool)
 import Database.Groundhog.Postgresql (Postgresql)
-import System.Directory (doesFileExist)
-import qualified Data.ByteString.Char8 as BS
 import Gargoyle
 import Gargoyle.PostgreSQL.Nix (postgresNix)
+import System.Directory (doesFileExist)
+
+import Rhyolite.Backend.DB
 
 -- | Connects to a database using information at the given filepath
 -- The given filepath can be either a folder (for a local db)

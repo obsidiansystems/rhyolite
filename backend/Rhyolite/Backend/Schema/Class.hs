@@ -5,6 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Rhyolite.Backend.Schema.Class where
 
 import Data.Proxy (Proxy)

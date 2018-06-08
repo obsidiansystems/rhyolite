@@ -12,12 +12,10 @@ module Rhyolite.Route where
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Base
-#ifdef USE_TEMPLATE_HASKELL
+#if defined(USE_TEMPLATE_HASKELL)
 import Control.Monad.Logger
 #endif
 import Data.Aeson
-import Data.Aeson.Parser (value')
-import qualified Data.Attoparsec.Lazy as LA
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
 import Data.Default
@@ -28,6 +26,7 @@ import Network.HTTP.Types.URI (renderQuery, parseQuery)
 import qualified Data.Map as Map
 import Data.Map (Map)
 
+import Rhyolite.Request.Common (decodeValue')
 
 class Monad m => MonadRoute r m | m -> r where
   routeToUrl :: r -> m URI
@@ -35,11 +34,12 @@ class Monad m => MonadRoute r m | m -> r where
 type RouteEnv = (String, String, String) -- (protocol, hostname, anything after hostname (e.g., port))
 
 newtype RouteT r m a = RouteT { unRouteT :: ReaderT RouteEnv m a }
-#ifdef USE_TEMPLATE_HASKELL
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadLogger)
-#else
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans)
+  deriving
+    ( Functor, Applicative, Monad, MonadIO, MonadTrans
+#if defined(USE_TEMPLATE_HASKELL)
+    , MonadLogger
 #endif
+    )
 
 
 instance MonadTransControl (RouteT r) where
@@ -94,7 +94,7 @@ instance MonadTrans (SubRouteT r r') where
   lift = SubRouteT . lift
 
 runSubRouteT :: SubRouteT r r' m a -> (r' -> r) -> m a
-runSubRouteT (SubRouteT a) f = runReaderT a f
+runSubRouteT (SubRouteT a) = runReaderT a
 
 routeToSubdomainUrl :: (MonadRoute r m) => String -> r -> m URI
 routeToSubdomainUrl sub x = fmap (addSubdomain sub) (routeToUrl x)
@@ -112,14 +112,3 @@ decodeRoute :: (FromJSON r) => T.Text -> Maybe r
 decodeRoute t = do
   Just v <- Map.lookup (encodeUtf8 "x") (Map.fromList (parseQuery (encodeUtf8 t)))
   decodeValue' (LBS.fromStrict v)
-
-decodeWith :: LA.Parser Value -> (Value -> Result a) -> LBS.ByteString -> Maybe a
-decodeWith p to s =
-  case LA.parse p s of
-    LA.Done _ v -> case to v of
-      Success a -> Just a
-      _ -> Nothing
-    _ -> Nothing
-
-decodeValue' :: (FromJSON a) => LBS.ByteString -> Maybe a
-decodeValue' = decodeWith value' fromJSON

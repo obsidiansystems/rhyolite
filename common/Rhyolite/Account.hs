@@ -11,10 +11,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-#ifdef USE_TEMPLATE_HASKELL
-{-# LANGUAGE QuasiQuotes #-}
+#if defined(USE_TEMPLATE_HASKELL)
 {-# LANGUAGE TemplateHaskell #-}
 #endif
+
 module Rhyolite.Account where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -25,6 +25,11 @@ import GHC.Generics (Generic)
 
 import Rhyolite.Schema (HasId, Email, Id)
 import Rhyolite.Sign (Signed)
+
+#if defined(USE_TEMPLATE_HASKELL)
+import Rhyolite.Request.TH (makeJson)
+#endif
+
 
 data Account = Account
   { account_email :: Email
@@ -54,10 +59,6 @@ deriving instance (FromJSON (f (Id Account))) => FromJSON (PasswordResetToken f)
 
 newtype AccountRoute f = AccountRoute_PasswordReset (Signed (PasswordResetToken f)) deriving (Show, Read, Eq, Ord)
 
-#ifdef USE_TEMPLATE_HASKELL
-makeJson ''AccountRoute
-#endif
-
 data LoginError
   = LoginError_UserNotFound
   | LoginError_InvalidPassword
@@ -68,3 +69,7 @@ instance ToJSON LoginError
 instance Show LoginError where
   show LoginError_UserNotFound = "The user is not recognized"
   show LoginError_InvalidPassword = "Please enter a valid password"
+
+#if defined(USE_TEMPLATE_HASKELL)
+makeJson ''AccountRoute
+#endif

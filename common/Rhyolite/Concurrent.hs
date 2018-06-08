@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Rhyolite.Concurrent where
 
 import Control.Concurrent (forkIO, killThread, threadDelay)

@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
---{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Rhyolite.Backend.Sign where
 
 import Control.Monad (guard)

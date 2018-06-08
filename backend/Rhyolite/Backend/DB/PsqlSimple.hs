@@ -9,6 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Rhyolite.Backend.DB.PsqlSimple
   ( PostgresRaw (..)
   , In (..), Only (..), Values (..)

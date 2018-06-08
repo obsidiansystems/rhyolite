@@ -11,8 +11,8 @@ let
   gargoyle-src = reflex-platform.nixpkgs.fetchFromGitHub {
     owner = "obsidiansystems";
     repo = "gargoyle";
-    rev = "80dfffb22aa399a08559db4191d6d9da8569386d";
-    sha256 = "17hhfm20k1d3p1alxgs7dm3nayivr362w3al38mz9v6rab3ywzjc";
+    rev = "2c19c569325ad76694526e9b688ccdbf148df980";
+    sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfyl";
   };
   groundhog-src = reflex-platform.nixpkgs.fetchFromGitHub {
     owner = "obsidiansystems";

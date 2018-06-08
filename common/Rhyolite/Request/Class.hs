@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+
 module Rhyolite.Request.Class where
 
 import Data.Aeson (FromJSON, ToJSON, Value, parseJSON, toJSON)

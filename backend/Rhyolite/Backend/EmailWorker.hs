@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Rhyolite.Backend.EmailWorker where
 
 import Control.Exception.Lifted (bracket)
@@ -143,6 +144,7 @@ withEmailWorker
   -> m a
   -> m a
 withEmailWorker i p e = bracket (emailWorker i p e) liftIO . const
+
 
 deriveJSON defaultOptions ''Mail.Address
 deriveJSON defaultOptions ''Mail.Encoding

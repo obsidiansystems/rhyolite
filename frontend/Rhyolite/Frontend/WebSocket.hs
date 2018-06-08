@@ -37,7 +37,11 @@ instance FromJS x (JSWebSocket x) where
   fromJS = return . JSWebSocket
 
 -- | Warning: Only one of these websockets may be opened on a given page in most browsers
-webSocket :: forall x t m. (HasJS x m, PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadJSM m, MonadJSM (Performable m), HasJSContext m) => Either WebSocketUrl Text -> WebSocketConfig t Text -> m (WebSocket t)
+webSocket
+  :: forall x t m. (HasJS x m, PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadJSM m, MonadJSM (Performable m), HasJSContext m)
+  => Either WebSocketUrl Text
+  -> WebSocketConfig t Text
+  -> m (WebSocket t)
 webSocket murl config
   | Left url <- murl =
     RDWS.webSocket (mconcat [ _websocket_protocol url, "://"
@@ -56,7 +60,12 @@ webSocket murl config
           _ -> pageHost
     RDWS.webSocket (wsProtocol <> "//" <> wsHost <> path) config
 
-rawWebSocket :: forall x t m. (HasJS x m, PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadJSM m, MonadJSM (Performable m), HasJSContext m) => Either WebSocketUrl Text -> WebSocketConfig t Text -> m (RawWebSocket t JSVal)
+#if defined(ghcjs_HOST_OS)
+rawWebSocket
+  :: forall x t m. (HasJS x m, PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadJSM m, MonadJSM (Performable m), HasJSContext m)
+  => Either WebSocketUrl Text
+  -> WebSocketConfig t Text
+  -> m (RawWebSocket t JSVal)
 rawWebSocket murl config
   | Left url <- murl
   = do
@@ -75,3 +84,4 @@ rawWebSocket murl config
           "file:" -> "localhost:8000"
           _ -> pageHost
     RDWS.webSocket' (wsProtocol <> "//" <> wsHost <> path) config (either (error "websocket': expected JSVal") return)
+#endif

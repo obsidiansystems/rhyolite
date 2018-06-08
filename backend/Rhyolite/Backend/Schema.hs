@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Rhyolite.Backend.Schema where
 
 import Data.Aeson (FromJSON, ToJSON, decode', eitherDecode', encode)

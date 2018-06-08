@@ -1,8 +1,8 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Rhyolite.Api where
 
 import Data.Aeson (ToJSON, FromJSON, parseJSON, toJSON)
@@ -10,7 +10,7 @@ import Data.Constraint (Dict (..))
 
 import Rhyolite.App (AppCredential, PublicRequest, PrivateRequest)
 import Rhyolite.Request.Class (Request, SomeRequest (..), requestToJSON, requestParseJSON, requestResponseToJSON, requestResponseFromJSON)
-import Rhyolite.Request.TH (HList (HNil, HCons))
+import Rhyolite.HList (HList (HNil, HCons))
 
 data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Public :: public a -> ApiRequest cred public private a

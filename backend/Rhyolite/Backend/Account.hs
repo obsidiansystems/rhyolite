@@ -16,6 +16,7 @@
   <no location info>: error:
   Failing due to -Werror.
 -}
+
 module Rhyolite.Backend.Account where
 
 import Database.Groundhog.Core (Migration, PersistBackend, TableAnalysis, migrate)

@@ -35,18 +35,23 @@ library
     , vector
 
   exposed-modules:
-      Data.MonoidMap
-    , Rhyolite.Account
-    , Rhyolite.Api
-    , Rhyolite.App
-    , Rhyolite.Concurrent
-    , Rhyolite.Schema
-    , Rhyolite.Sign
-    , Rhyolite.Request.Class
-    , Rhyolite.Request.Common
-    , Rhyolite.Request.TH
-    , Rhyolite.Route
-    , Rhyolite.WebSocket
+    Data.MonoidMap
+    Rhyolite.Account
+    Rhyolite.Api
+    Rhyolite.App
+    Rhyolite.Concurrent
+    Rhyolite.HList
+    Rhyolite.Request.Class
+    Rhyolite.Request.Common
+    Rhyolite.Request.TH
+    Rhyolite.Route
+    Rhyolite.Schema
+    Rhyolite.Sign
+    Rhyolite.WebSocket
 
-  other-extensions: TemplateHaskell
+  if !os(ios) && !arch(aarch64) && !arch(arm)
+    build-depends: monad-logger
+    other-extensions: TemplateHaskell
+    cpp-options: -DUSE_TEMPLATE_HASKELL
+
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

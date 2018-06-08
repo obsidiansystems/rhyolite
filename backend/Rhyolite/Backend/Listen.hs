@@ -18,6 +18,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
+
 module Rhyolite.Backend.Listen where
 
 import Control.Concurrent (forkIO, killThread)

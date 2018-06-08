@@ -17,6 +17,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 module Rhyolite.Frontend.App where
 
 import Control.Monad.Exception
@@ -67,7 +68,7 @@ deriving instance (q ~ (ViewSelector app SelectedCount)
                   , Monad m)
                   => MonadQuery t q (RhyoliteWidget app t m)
 
-#ifndef ghcjs_HOST_OS
+#if !defined(ghcjs_HOST_OS)
 instance MonadJSM m => MonadJSM (RhyoliteWidget app t m) where
   liftJSM' = lift . liftJSM'
 #endif
@@ -331,7 +332,7 @@ openWebSocket' :: forall app t x m.
               -> Dynamic t (ViewSelector app ()) -- ^ Authenticated listen requests (e.g., ViewSelector updates)
               -> m (AppWebSocket t app)
 openWebSocket' murl request vs = do
-#ifdef ghcjs_HOST_OS
+#if defined(ghcjs_HOST_OS)
   rec let platformDecode = jsonDecode . pFromJSVal
       ws <- rawWebSocket murl $ def
 #else
