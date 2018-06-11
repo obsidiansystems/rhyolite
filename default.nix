@@ -1,4 +1,4 @@
-{ frontend-only ? false }:
+{ frontend ? false }:
 let
   obelisk-src = (import <nixpkgs> {}).fetchFromGitHub {
     owner = "obsidiansystems";
@@ -61,7 +61,7 @@ in reflex-platform.project ({ pkgs, ... }: {
     heist = pkgs.haskell.lib.doJailbreak super.heist; # allow heist to use newer version of aeson
   };
   shells = rec {
-    ghc = (if frontend-only then [] else [
+    ghc = (if frontend then [] else [
       "rhyolite-backend"
       "rhyolite-backend-snap"
     ]) ++ ghcjs;
