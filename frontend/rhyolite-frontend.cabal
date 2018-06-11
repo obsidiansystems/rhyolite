@@ -33,6 +33,7 @@ library
     , mmorph
     , monad-control
     , mtl
+    , network-uri
     , prim-uniq
     , primitive
     , raw-strings-qq

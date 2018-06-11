@@ -29,15 +29,16 @@ import Control.Monad.State.Strict
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.ByteString.Lazy as LBS
-import Data.Coerce
-import Data.Constraint
-import Data.Default
+import Data.Coerce (coerce)
+import Data.Constraint (Dict (..))
+import Data.Default (Default)
 import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
-import Data.Semigroup
+import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
-import GHC.Generics
+import GHC.Generics (Generic)
+import Network.URI (URI)
 import qualified Reflex as R
 import Reflex.Aeson.Orphans ()
 import Reflex.Dom.Core hiding (MonadWidget, webSocket, Request)
@@ -394,11 +395,13 @@ instance ToJSON DeviceToken
 
 data FrontendConfig = FrontendConfig
   { _frontendConfig_registerDeviceForNotifications :: Maybe (DeviceToken -> IO ())
+  , _frontendConfig_uriCallback :: Maybe (URI -> IO ())
   , _frontendConfig_warpPort :: Int
   }
 
 instance Default FrontendConfig where
   def = FrontendConfig
     { _frontendConfig_registerDeviceForNotifications = Nothing
+    , _frontendConfig_uriCallback = Nothing
     , _frontendConfig_warpPort = 3911
     }
