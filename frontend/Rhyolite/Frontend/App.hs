@@ -43,18 +43,19 @@ import qualified Reflex as R
 import Reflex.Aeson.Orphans ()
 import Reflex.Dom.Core hiding (MonadWidget, webSocket, Request)
 import Reflex.Host.Class
-#if defined(ghcjs_HOST_OS)
-import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
-#else
-import GHCJS.DOM.Types (MonadJSM(..))
-#endif
 
 import Rhyolite.Api
 import Rhyolite.App
 import Rhyolite.Frontend.WebSocket
 import Rhyolite.Request.Class
-import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.WebSocket
+
+#if defined(ghcjs_HOST_OS)
+import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
+#else
+import GHCJS.DOM.Types (MonadJSM (..))
+import Rhyolite.Request.Common (decodeValue')
+#endif
 
 type RhyoliteWidgetInternal app t m = QueryT t (ViewSelector app SelectedCount) (RequesterT t (AppRequest app) Identity m)
 
