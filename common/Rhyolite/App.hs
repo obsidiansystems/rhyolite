@@ -1,5 +1,9 @@
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -12,7 +16,10 @@ import qualified Control.Category as Cat
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Align (Align)
 import Data.Semigroup (Semigroup)
+import qualified Data.Semigroup as Semigroup
 import Data.Functor.Identity (Identity)
+import GHC.Generics (Generic)
+import Data.Typeable (Typeable)
 
 import Data.AppendMap (AppendMap)
 import qualified Data.AppendMap as AppendMap
@@ -67,3 +74,32 @@ fmapMaybeFst :: FunctorMaybe f => (a -> Maybe b) -> f (a, c) -> f (b, c)
 fmapMaybeFst f = fmapMaybe $ \(a, c) -> case f a of
   Nothing -> Nothing
   Just b -> Just (b, c)
+
+
+
+-- | A view for a single piece of data, supporting update and delete.
+newtype Single t a = Single { unSingle :: Maybe (Semigroup.First (Maybe t), a) }
+  deriving (Eq, Ord, Show, Foldable, Traversable, Functor, Generic, Typeable)
+
+instance Semigroup a => Semigroup (Single t a) where
+  (<>) (Single Nothing) y = y
+  (<>) x (Single Nothing) = x
+  (<>) (Single (Just (t, a))) (Single (Just (_t, a'))) = Single $ Just (t, a Semigroup.<> a')
+
+instance Semigroup a => Monoid (Single t a) where
+  mempty = Single Nothing
+  mappend = (Semigroup.<>)
+
+instance FunctorMaybe (Single t) where
+  fmapMaybe f (Single (Just (t, x))) | Just y <- f x = Single (Just (t, y))
+  fmapMaybe _ _ = Single Nothing
+
+instance (FromJSON t, FromJSON a) => FromJSON (Single t a)
+instance (ToJSON t, ToJSON a) => ToJSON (Single t a)
+
+getSingle :: Single t a -> Maybe t
+getSingle (Single (Just (Semigroup.First (Just t), _))) = Just t
+getSingle _ = Nothing
+
+single :: Maybe t -> a -> Single t a
+single t a = Single $ Just (Semigroup.First t, a)
