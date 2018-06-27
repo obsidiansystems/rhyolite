@@ -26,7 +26,7 @@ Within an already initialized Obelisk project,add to the project's `default.nix`
 
 Here is a working example:
 ```
-system ? builtins.currentSystem
+{ system ? builtins.currentSystem
 , iosSdkVersion ? "10.2"
 }:
 let
@@ -34,12 +34,12 @@ let
 in
 obelisk.project ./. ({ pkgs, ... }:
   let
-        rhyolite-src = pkgs.fetchFromGitHub {
-                owner = "obsidiansystems";
-                repo = "rhyolite";
-                rev = "c8456661a6d6fa30efbef7c50394353c13c65e53";
-                sha256 = "0s8wmkq2ivr2wj6srp4qx4388ffrqfhhgxyfw42im8vfjyfp83ld";
-         };
+    rhyolite-src = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "rhyolite";
+      rev = "c8456661a6d6fa30efbef7c50394353c13c65e53";
+      sha256 = "0s8wmkq2ivr2wj6srp4qx4388ffrqfhhgxyfw42im8vfjyfp83ld";
+    };
   in {
 
     packages = {
