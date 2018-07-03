@@ -13,22 +13,26 @@ library
 
   build-depends:
       base
+    , attoparsec
     , bytestring
     , data-default
     , diagrams
     , diagrams-lib
     , diagrams-svg
     , filepath
+    , io-streams
     , lens
     , lucid
     , obelisk-asset-serve-snap
     , obelisk-snap-extras
     , raw-strings-qq
     , snap
+    , snap-core
     , svg-builder
     , text
 
   exposed-modules:
     Rhyolite.Backend.Snap
+    Rhyolite.Backend.Snap.Util.FileServe.Stream
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
