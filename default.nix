@@ -26,6 +26,8 @@ in reflex-platform.project ({ pkgs, ... }: {
     rhyolite-backend-snap = ./backend-snap;
     rhyolite-common = ./common;
     rhyolite-frontend = ./frontend;
+    rhyolite-datastructures = ./datastructures;
+    rhyolite-aeson-orphans  = ./aeson-orphans;
 
     groundhog = groundhog-src + /groundhog;
     groundhog-postgresql = groundhog-src + /groundhog-postgresql;

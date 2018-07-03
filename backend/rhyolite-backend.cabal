@@ -14,12 +14,16 @@ library
   build-depends:
       aeson
     , base
+    , blaze-html
     , bytestring
+    , bytestring-trie
     , clientsession
     , constraints
     , containers
     , data-default
     , directory
+    , exceptions
+    , fast-logger
     , gargoyle
     , gargoyle-postgresql-nix
     , groundhog
@@ -29,6 +33,7 @@ library
     , HaskellNet-SSL
     , io-streams
     , lens
+    , libsystemd-journal
     , lifted-base
     , mime-mail
     , monad-control
@@ -37,6 +42,7 @@ library
     , mtl
     , network
     , postgresql-simple
+    , pwstore-fast
     , reflex
     , resource-pool
     , rhyolite-common
@@ -48,6 +54,7 @@ library
     , text
     , time
     , transformers
+    , unordered-containers
     , websockets
     , websockets-snap
 
@@ -61,6 +68,7 @@ library
     , Rhyolite.Backend.Email
     , Rhyolite.Backend.EmailWorker
     , Rhyolite.Backend.Listen
+    , Rhyolite.Backend.Logging
     , Rhyolite.Backend.Schema.TH
     , Rhyolite.Backend.Schema.Class
     , Rhyolite.Backend.Schema

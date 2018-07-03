@@ -1,0 +1,31 @@
+Name: rhyolite-datastructures
+Version: 0.1
+Synopsis: Pure datastructures
+License: BSD3
+Author: Obsidian Systems LLC
+Maintainer: maintainer@obsidian.systems
+Stability: Experimental
+Category: Web
+Build-type: Simple
+Cabal-version: >=1.2
+
+library
+  hs-source-dirs: src
+
+  build-depends: base
+               , aeson
+               , containers
+               , data-default
+               , rhyolite-aeson-orphans
+               , reflex-aeson-orphans
+               , lens
+               , mtl
+               , reflex
+               , these
+
+  exposed-modules:
+      Rhyolite.AppendMap
+    , Rhyolite.SemiMap
+
+  other-extensions: TemplateHaskell
+  ghc-options: -threaded -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts
