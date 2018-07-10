@@ -1,8 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -46,17 +46,17 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson hiding (Error)
+import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Monoid
-import Data.Text.Encoding as TE
-import Data.Trie as Trie
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import qualified Data.Trie as Trie
 import GHC.Generics
 import System.Log.FastLogger
 import Systemd.Journal
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Map as M
-import qualified Data.Text as T
 
 import Rhyolite.Request.TH (makeJson)
 
@@ -93,10 +93,12 @@ instance ToJSON a => ToJSON (LoggingConfig a) where
   toEncoding = genericToEncoding loggingConfigJsonOption
 
 
+instance Semigroup LoggingEnv where
+  LoggingEnv x <> LoggingEnv y = LoggingEnv $ x <> y
+
 -- Bleh.  i can't say deriving newtype (Monoid) since i don't have DerivingStrateges yet.
 instance Monoid LoggingEnv where
   mempty = LoggingEnv mempty
-  (LoggingEnv x) `mappend` (LoggingEnv y) = LoggingEnv (x `mappend` y)
 
 data LoggingContext m = LoggingContext
   { _loggingContext_cleanup :: m ()
