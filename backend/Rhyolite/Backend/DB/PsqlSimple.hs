@@ -22,8 +22,8 @@ module Rhyolite.Backend.DB.PsqlSimple
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
-import Control.Monad.State as State
 import Control.Monad.Reader (ReaderT, ask)
+import Control.Monad.State as State
 import qualified Control.Monad.State.Strict as Strict
 import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Data.ByteString as BS
@@ -35,21 +35,22 @@ import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser, fromRow)
+import Database.PostgreSQL.Simple.SqlQQ (sql)
 import Database.PostgreSQL.Simple.ToField (ToField, toField)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
-import Database.PostgreSQL.Simple.Types (Binary, In (..), Only (..), PGArray (..), Query, Values (..), fromQuery, (:.))
-import Database.PostgreSQL.Simple.SqlQQ (sql)
+import Database.PostgreSQL.Simple.Types ((:.), Binary, In (..), Only (..), PGArray (..), Query, Values (..),
+                                         fromQuery)
 import Language.Haskell.TH (Exp, Name, Q, appE, mkName, tupE, varE)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
 
-import qualified Control.Monad.Trans.List
+import qualified Control.Monad.Trans.Cont
 import qualified Control.Monad.Trans.Except
 import qualified Control.Monad.Trans.Identity
-import qualified Control.Monad.Trans.Writer.Strict
-import qualified Control.Monad.Trans.Writer.Lazy
-import qualified Control.Monad.Trans.Cont
-import qualified Control.Monad.Trans.RWS.Strict
+import qualified Control.Monad.Trans.List
 import qualified Control.Monad.Trans.RWS.Lazy
+import qualified Control.Monad.Trans.RWS.Strict
+import qualified Control.Monad.Trans.Writer.Lazy
+import qualified Control.Monad.Trans.Writer.Strict
 -- transformers >= 0.5.3
 -- import qualified Control.Monad.Trans.Select
 -- import qualified Control.Monad.Trans.Accum
@@ -92,39 +93,39 @@ rethrowWithQuery_ psql err =
 
 class PostgresRaw m where
   execute :: ToRow q => Query -> q -> m Int64
-  default execute :: ( m ~ t n , MonadTrans t , Monad n , PostgresRaw n , ToRow q) => Query -> q -> t n Int64
+  default execute :: ( m ~ t n , MonadTrans t , Monad n , PostgresRaw n , ToRow q) => Query -> q -> m Int64
   execute psql qs = lift $ execute psql qs
 
   execute_ :: Query -> m Int64
-  default execute_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) =>  Query -> t n Int64
+  default execute_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) =>  Query -> m Int64
   execute_ = lift . execute_
 
   executeMany :: ToRow q => Query -> [q] -> m Int64
-  default executeMany :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> t n Int64
+  default executeMany :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m Int64
   executeMany psql qs = lift $ executeMany psql qs
 
   query :: (ToRow q, FromRow r) => Query -> q -> m [r]
-  default query :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> t n [r]
+  default query :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m [r]
   query psql qs = lift $ query psql qs
 
   query_ :: FromRow r => Query -> m [r]
-  default query_ :: (m ~ t n, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> t n [r]
+  default query_ :: (m ~ t n, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> m [r]
   query_ = lift . query_
 
   queryWith :: ToRow q => RowParser r -> Query -> q -> m [r]
-  default queryWith :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> q -> t n [r]
+  default queryWith :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> q -> m [r]
   queryWith parser psql qs = lift $ queryWith parser psql qs
 
   queryWith_ :: RowParser r -> Query -> m [r]
-  default queryWith_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> t n [r]
+  default queryWith_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> m [r]
   queryWith_ parser psql = lift $ queryWith_ parser psql
 
   formatQuery :: ToRow q => Query -> q -> m BS.ByteString
-  default formatQuery :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> t n BS.ByteString
+  default formatQuery :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m BS.ByteString
   formatQuery psql qs = lift $ formatQuery psql qs
 
   returning :: (ToRow q, FromRow r) => Query -> [q] -> m [r]
-  default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> t n [r]
+  default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
   returning psql qs = lift $ returning psql qs
 
 
@@ -152,9 +153,6 @@ liftWithConn :: MonadIO m
 liftWithConn f = DbPersist $ do
   (Postgresql conn) <- ask
   liftIO (f conn)
-
-instance Semigroup Query where
-  (<>) = mappend
 
 instance (Monad m, PostgresRaw m) => PostgresRaw (StateT s m)
 instance (Monad m, PostgresRaw m) => PostgresRaw (Strict.StateT s m)
