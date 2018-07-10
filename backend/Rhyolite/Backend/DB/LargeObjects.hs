@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -15,26 +16,27 @@ module Rhyolite.Backend.DB.LargeObjects
 
 import Control.Exception.Lifted (AssertionFailed (..), bracket, throwIO)
 import Control.Monad.Loops (whileJust_)
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.State as State
 import qualified Control.Monad.State.Strict as Strict
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString as BS
+import Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Lazy as LBS
-import Data.ByteString.Builder (Builder, byteString)
 import Data.IORef (modifyIORef, newIORef, readIORef)
 import Data.Semigroup ((<>))
 import Database.Groundhog.Core (DbPersist)
 import Database.Groundhog.Postgresql (Postgresql)
-import Database.PostgreSQL.Simple.LargeObjects (Oid(..), LoFd)
+import Database.PostgreSQL.Simple.LargeObjects (LoFd, Oid (..))
 import qualified Database.PostgreSQL.Simple.LargeObjects as Sql
-import System.IO (IOMode (WriteMode, ReadMode))
-import System.IO.Streams (OutputStream, makeOutputStream, InputStream)
+import System.IO (IOMode (ReadMode, WriteMode))
+import System.IO.Streams (InputStream, OutputStream, makeOutputStream)
 import qualified System.IO.Streams as Streams
 
-import Rhyolite.Schema (LargeObjectId (..))
 import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw (..), liftWithConn)
+import Rhyolite.Schema (LargeObjectId (..))
 
 
 class PostgresRaw m => PostgresLargeObject m where
@@ -168,6 +170,11 @@ instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (Strict.StateT 
 instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (MaybeT m) where
   withLargeObject oid mode f =
     MaybeT $ withLargeObject oid mode (\lofd -> runMaybeT (f lofd))
+
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (ReaderT r m) where
+  withLargeObject oid mode f = do
+    s <- ask
+    lift $ withLargeObject oid mode (\lofd -> runReaderT (f lofd) s)
 
 withStreamedLargeObject :: (PostgresLargeObject m, MonadIO m) => LargeObjectId -> (LBS.ByteString -> IO ()) -> m ()
 withStreamedLargeObject oid f = do
