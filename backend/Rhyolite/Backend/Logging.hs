@@ -50,7 +50,8 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Monoid
+import Data.Monoid (Monoid, mappend, mempty)
+import Data.Semigroup (Semigroup, (<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as Trie
@@ -94,11 +95,12 @@ instance ToJSON a => ToJSON (LoggingConfig a) where
 
 
 instance Semigroup LoggingEnv where
-  LoggingEnv x <> LoggingEnv y = LoggingEnv $ x <> y
+  LoggingEnv x <> LoggingEnv y = LoggingEnv $ x `mappend` y
 
 -- Bleh.  i can't say deriving newtype (Monoid) since i don't have DerivingStrateges yet.
 instance Monoid LoggingEnv where
   mempty = LoggingEnv mempty
+  mappend = (<>)
 
 data LoggingContext m = LoggingContext
   { _loggingContext_cleanup :: m ()

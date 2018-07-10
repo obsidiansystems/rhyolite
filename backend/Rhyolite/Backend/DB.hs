@@ -20,24 +20,24 @@ import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.ByteString (ByteString)
 import Data.Functor.Identity (Identity (..))
 import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, createPool, withResource)
 import Data.Semigroup ((<>))
 import Data.String (fromString)
 import Data.Time (UTCTime)
 import Database.Groundhog.Core
-import Database.Groundhog.Expression (Expression, Unifiable, ExpressionOf)
+import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, runDbConn)
-import Database.PostgreSQL.Simple (connectPostgreSQL, close)
-import qualified Data.Map as Map
+import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 
 import Data.AppendMap (AppendMap (..))
-import Rhyolite.Schema
-import Rhyolite.Backend.Schema.Class
-import Rhyolite.Backend.Schema
 import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.Schema
+import Rhyolite.Backend.Schema.Class
+import Rhyolite.Schema
 
 
 -- | Convenience function for getting the first result of a projection as a 'Maybe'
@@ -140,7 +140,7 @@ getSearchPath = do
   return searchPath
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
-setSearchPath sp = void $ execute_ $ "SET search_path TO " <> fromString sp
+setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
 
 setSchema :: (Monad m, PostgresRaw m) => SchemaName -> m ()
 setSchema schema = void $ execute [sql| SET search_path TO ?,"$user",public |] (Only schema)

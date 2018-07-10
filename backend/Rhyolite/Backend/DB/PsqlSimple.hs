@@ -29,7 +29,6 @@ import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Int (Int64)
-import Data.Semigroup (Semigroup, (<>))
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
 import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
