@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -33,7 +34,7 @@ import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, runDbConn)
 import Database.PostgreSQL.Simple (close, connectPostgreSQL)
 
-import Data.AppendMap (AppendMap (..))
+import Data.AppendMap (AppendMap, pattern AppendMap)
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.Class

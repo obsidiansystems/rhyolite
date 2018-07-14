@@ -306,7 +306,7 @@ transposeMonoidMap
      ( Ord k
      , Eq a
      , Monoid a
-     , Semigroup a'
+     , Monoid a'
      , Eq (q (MonoidMap k a))
      , Eq (QueryResult (q a))
      , Foldable qr
