@@ -5,7 +5,7 @@ import Data.AppendMap as X
 import qualified Data.Set as Set
 
 -- | Operator for creating a singleton 'Map'
-(=:) :: k -> a -> AppendMap k a
+(=:) :: Ord k => k -> a -> AppendMap k a
 k =: v = singleton k v
 infixr 7 =:
 

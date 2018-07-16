@@ -3,6 +3,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO this is necessary because of the lack of a Foldable instance for Alt
 
 module Rhyolite.SemiMap where
@@ -48,7 +50,7 @@ knownSubMap = \case
 
 deriving instance Foldable f => Foldable (Alt f)
 
-instance Ord k => Monoid (SemiMap k v) where
+instance (Ord k, (Monoid (First (Maybe v)))) => Monoid (SemiMap k v) where
   mempty = SemiMap_Partial mempty
   mappend new old = case new of
     SemiMap_Complete _ -> new
@@ -71,7 +73,7 @@ instance Ord k => Monoid (SemiMap k v) where
                 fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
 
-instance Ord k => Semigroup (SemiMap k v) where
+instance (Ord k, Monoid (First (Maybe v))) => Semigroup (SemiMap k v) where
   (<>) = mappend
 
 instance (ToJSON k, ToJSON v) => ToJSON (SemiMap k v)
