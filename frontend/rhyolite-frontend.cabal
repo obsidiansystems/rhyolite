@@ -10,6 +10,10 @@ cabal-version: >=1.2
 
 library
   hs-source-dirs: .
+  
+  if impl(ghcjs)
+    build-depends:
+      ghcjs-base
 
   build-depends:
       aeson

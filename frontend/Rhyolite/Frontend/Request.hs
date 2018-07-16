@@ -43,7 +43,7 @@ import Foreign.JavaScript.TH
 import Rhyolite.Request.Common (decodeValue')
 #ifdef __GHCJS__
 import GHCJS.Marshal.Pure
-import Rhyolite.JS.WebSocket (rawDecode)
+import Rhyolite.Frontend.WebSocket (rawDecode)
 #endif
 import GHCJS.DOM.Enums (XMLHttpRequestResponseType (..))
 import GHCJS.DOM.EventM (on)
