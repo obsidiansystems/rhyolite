@@ -225,6 +225,36 @@ type MonadWidget' t m =
   , Ref (Performable m) ~ Ref IO
   )
 
+runPrerenderedRhyoliteWidget
+   :: forall app m t b x.
+      ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
+      , HasView app
+      , HasRequest app
+      , Eq (ViewSelector app SelectedCount)
+      , PerformEvent t m
+      , TriggerEvent t m
+      , PostBuild t m, MonadHold t m
+      , MonadFix m
+      , Prerender x m
+      )
+   => Either WebSocketUrl Text
+   -> RhyoliteWidget app t m b
+   -> m b
+runPrerenderedRhyoliteWidget murl child = do
+  rec (notification :: Event t (View app ()), response) <- prerender (return (never, never)) $ do
+        appWebSocket :: AppWebSocket t app <- openWebSocket' murl request'' $ fmap (\_ -> ()) <$> nubbedVs
+        return ( _appWebSocket_notification appWebSocket
+               , _appWebSocket_response appWebSocket
+               )
+      (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
+      let request'' = fmap (fmapMaybe (\(t, v) -> case fromJSON v of
+            Success (v' :: (SomeRequest (AppRequest app))) -> Just $ TaggedRequest t v'
+            _ -> Nothing)) request'
+      ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
+      nubbedVs :: Dynamic t (ViewSelector app SelectedCount) <- holdUniqDyn $ incrementalToDynamic (vs :: Incremental t (AdditivePatch (ViewSelector app SelectedCount)))
+      view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
+  return a
+
 runRhyoliteWidget
    :: forall app m t b x.
       ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
