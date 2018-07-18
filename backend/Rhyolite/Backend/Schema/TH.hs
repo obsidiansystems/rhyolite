@@ -119,13 +119,3 @@ makePersistFieldNewtype t = do
           return ($(conE c) x, pv')
         dbType p $(conP c [varP xName]) = dbType p $(varE xName)
     |]
-
-conName :: Con -> Name
-conName c = case c of
-  NormalC n _ -> n
-  RecC n _ -> n
-  InfixC _ n _ -> n
-  ForallC _ _ c' -> conName c'
-  GadtC [n] _ _ -> n
-  RecGadtC [n] _ _ -> n
-  _ -> error "conName: GADT constructors with multiple names not yet supported"
