@@ -24,10 +24,7 @@ import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
 import Data.ByteString (ByteString)
-import Data.Default
-import Data.List.NonEmpty
 import Data.Maybe
-import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding
@@ -37,18 +34,13 @@ import Database.Groundhog hiding ((~>))
 import Database.Groundhog.Core hiding ((~>))
 import Database.Groundhog.Generic.Sql.Functions
 import Database.Groundhog.TH (defaultCodegenConfig, groundhog, mkPersist)
-import Text.Blaze.Html5 (Html)
-import qualified Text.Blaze.Html5 as H
-import Text.Blaze.Html5.Attributes as A
 
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.Email
 import Rhyolite.Backend.Listen
 import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.TH
 
 import Rhyolite.Account
-import Rhyolite.Route
 import Rhyolite.Schema
 import Rhyolite.Sign
 

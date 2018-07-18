@@ -119,7 +119,7 @@ runLoggingEnv :: LoggingEnv -> LoggingT m a -> m a
 runLoggingEnv = flip runLoggingT . unLoggingEnv
 
 logToFastLogger :: LoggerSet -> LoggingEnv
-logToFastLogger ls = LoggingEnv $ \loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
+logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
 
 logger2journald :: LogLevel -> JournalFields
 logger2journald = \case

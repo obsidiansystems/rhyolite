@@ -40,9 +40,7 @@ library
     , monad-logger
     , monad-loops
     , mtl
-    , mustache
     , network
-    , parsec
     , postgresql-simple
     , pwstore-fast
     , reflex
@@ -57,7 +55,6 @@ library
     , time
     , transformers
     , unordered-containers
-    , vector
     , websockets
     , websockets-snap
 

@@ -20,7 +20,6 @@ import Control.Monad
 import Control.Monad.State (mapStateT)
 import Data.Char (toLower)
 import Data.Int (Int64)
-import Data.Monoid
 import Database.Groundhog
 import Database.Groundhog.Core
 import Data.Semigroup ((<>))

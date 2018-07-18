@@ -23,7 +23,6 @@ library
     , http-types
     , filepath
     , file-embed
-    , mime-mail
     , monad-control
     , mtl
     , network-uri

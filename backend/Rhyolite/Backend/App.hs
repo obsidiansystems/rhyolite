@@ -17,7 +17,7 @@ import qualified Control.Category as Cat
 import Control.Concurrent (forkIO, killThread)
 import Control.Exception (bracket)
 import Control.Lens (imapM_)
-import Control.Monad (forever, when, void)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State.Strict (evalStateT, get, put)
 import Control.Monad.Trans (lift)
