@@ -2,15 +2,16 @@
 
 module Rhyolite.Request.TH where
 
+import Control.Monad (guard, replicateM)
+import Data.Aeson.Types
 import Data.Constraint (Dict (..))
 import Data.List (isPrefixOf)
 import Data.Semigroup ((<>))
-import Control.Monad (guard, replicateM)
-import Data.Aeson.Types
 import Language.Haskell.TH
 
-import Rhyolite.Request.Class
 import Rhyolite.HList (HList (HCons, HNil))
+import Rhyolite.Request.Class
+import Rhyolite.TH (conName)
 
 makeJson :: Name -> DecsQ
 makeJson n = do
@@ -77,16 +78,6 @@ conToJson modifyName c = do
   let tuple = foldr (\a b -> appsE [conE 'HCons, varE a, b]) (conE 'HNil) varNames
       body = [|toJSON (tag' :: String, toJSON $tuple)|]
   match (conP name $ map varP varNames) (normalB body) []
-
-conName :: Con -> Name
-conName c = case c of
-  NormalC n _ -> n
-  RecC n _ -> n
-  InfixC _ n _ -> n
-  ForallC _ _ c' -> conName c'
-  GadtC [n] _ _ -> n
-  RecGadtC [n] _ _ -> n
-  _ -> error "conName: GADT constructors with multiple names not yet supported"
 
 conArity :: Con -> Int
 conArity c = case c of

@@ -24,7 +24,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, createPool, withResource)
-import Data.Semigroup ((<>))
 import Data.String (fromString)
 import Data.Time (UTCTime)
 import Database.Groundhog.Core
