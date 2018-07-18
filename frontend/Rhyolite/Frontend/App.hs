@@ -146,16 +146,8 @@ instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWid
   newEventWithTrigger = RhyoliteWidget . newEventWithTrigger
   newFanEventWithTrigger a = RhyoliteWidget . lift $ newFanEventWithTrigger a
 
-instance forall js app t m. ( HasJS js m
-  , HasJS js (Performable m)
-  , MonadJSM m
-  , MonadJSM (Performable m)
-  , HasJSContext m
-  , HasJSContext (Performable m)
-  , MonadFix m
-  , MonadFix (Performable m)
-  ) => Prerender js (RhyoliteWidget app t m) where
-  prerenderClientDict = Just Dict
+instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
+  prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
 
 -- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
 type MonadRhyoliteFrontendWidget app t m =
