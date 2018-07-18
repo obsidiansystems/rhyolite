@@ -40,7 +40,9 @@ library
     , monad-logger
     , monad-loops
     , mtl
+    , mustache
     , network
+    , parsec
     , postgresql-simple
     , pwstore-fast
     , reflex
@@ -55,6 +57,7 @@ library
     , time
     , transformers
     , unordered-containers
+    , vector
     , websockets
     , websockets-snap
 
@@ -73,6 +76,7 @@ library
     , Rhyolite.Backend.Schema.Class
     , Rhyolite.Backend.Schema
     , Rhyolite.Backend.Sign
+    , Rhyolite.Backend.TH
     , Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell

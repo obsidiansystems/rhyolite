@@ -21,6 +21,9 @@ library
     , containers
     , data-default
     , http-types
+    , filepath
+    , file-embed
+    , mime-mail
     , monad-control
     , mtl
     , network-uri
@@ -47,6 +50,7 @@ library
     Rhyolite.Route
     Rhyolite.Schema
     Rhyolite.Sign
+    Rhyolite.TH
     Rhyolite.WebSocket
 
   if !os(ios) && !arch(aarch64) && !arch(arm)
