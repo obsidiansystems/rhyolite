@@ -7,13 +7,14 @@
 module Rhyolite.WebSocket where
 
 import Data.Aeson
-import Data.Typeable
+import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Typeable
+import GHC.Generics
 import Rhyolite.App
 import Rhyolite.Request.Class
 import Rhyolite.Route
-import GHC.Generics
 import Text.Read (readMaybe)
 
 data WebSocketUrl = WebSocketUrl
@@ -24,16 +25,19 @@ data WebSocketUrl = WebSocketUrl
   } deriving (Eq, Ord, Show, Read)
 
 websocketUrlFromRouteEnv :: RouteEnv -> WebSocketUrl
-websocketUrlFromRouteEnv (protocol, host, port) =
+websocketUrlFromRouteEnv = websocketUrlFromRouteEnv' "listen"
+
+websocketUrlFromRouteEnv' :: Text -> RouteEnv -> WebSocketUrl
+websocketUrlFromRouteEnv' path (protocol, host, port) =
   let  (wsProtocol, wsPortDef) = case protocol of
          "http:" -> ("ws", 80)
          "https:" -> ("wss", 443)
          "file:" -> ("ws", 80)
-         _ -> error "Unrecognized protocol"
+         p -> error $ "Unrecognized protocol: " <> p
        wsPort = case readMaybe . T.unpack =<< T.stripPrefix ":" (T.pack port) of
                      Nothing -> wsPortDef
                      Just n -> n
-  in WebSocketUrl wsProtocol (T.pack host) wsPort "listen"
+  in WebSocketUrl wsProtocol (T.pack host) wsPort path
 
 -- | Represents a WebSocket message from one of two channels: ViewSelector declarations or API requests
 data WebSocketRequest app r = WebSocketRequest_ViewSelector (ViewSelector app ())
