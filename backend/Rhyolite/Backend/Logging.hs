@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -57,7 +58,10 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as Trie
 import GHC.Generics
 import System.Log.FastLogger
+
+#ifdef linux_HOST_OS
 import Systemd.Journal
+#endif
 
 import Rhyolite.Request.TH (makeJson)
 
@@ -110,7 +114,9 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr
    | RhyoliteLogAppender_File FilePath
+#ifdef linux_HOST_OS
    | RhyoliteLogAppender_Journald T.Text -- journalctl log with syslogIdentifier specified.
+#endif
   deriving (Generic, Eq, Ord, Show)
 
 makeJson ''RhyoliteLogAppender
@@ -121,6 +127,7 @@ runLoggingEnv = flip runLoggingT . unLoggingEnv
 logToFastLogger :: LoggerSet -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
 
+#ifdef linux_HOST_OS
 logger2journald :: LogLevel -> JournalFields
 logger2journald = \case
   LevelWarn -> priority Warning
@@ -129,6 +136,7 @@ logger2journald = \case
   LevelError -> priority Error
   LevelOther level -> priority Error  -- Error because that makes this logger2journald monotone
     <> mkJournalField' "PRIORITY_OTHER" level
+#endif
 
 class LogAppender a where
   getLogContext :: MonadIO m => a -> m (LoggingContext m)
@@ -141,13 +149,16 @@ instance LogAppender RhyoliteLogAppender where
       RhyoliteLogAppender_File filename -> do
         logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
+#ifdef linux_HOST_OS
       RhyoliteLogAppender_Journald syslogId -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier syslogId))
+#endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
 configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
   return $ LoggingContext cleaner $ filterLog (fmap toLogLevel fs) logger
 
+#ifdef linux_HOST_OS
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
 
@@ -165,6 +176,7 @@ logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr -> sendMe
   , loc2jf loc
   , mkJournalField' "logsource" logSource
   ]
+#endif
 
 -- | match the LogSource on prefixes in m.  if found, log only the messages at equal or higher than the
 --   matched level.  if not found, log only LevelWarn or higher.   You can override the default with a zero length prefix, ie `"" := LevelDebug`

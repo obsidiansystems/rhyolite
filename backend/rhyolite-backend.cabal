@@ -33,7 +33,6 @@ library
     , HaskellNet-SSL
     , io-streams
     , lens
-    , libsystemd-journal
     , lifted-base
     , mime-mail
     , monad-control
@@ -57,6 +56,9 @@ library
     , unordered-containers
     , websockets
     , websockets-snap
+  if os(linux)
+    build-depends:
+      libsystemd-journal
 
   exposed-modules:
       Rhyolite.Backend
