@@ -24,7 +24,10 @@ import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
 import Data.ByteString (ByteString)
+import Data.Default
+import Data.List.NonEmpty
 import Data.Maybe
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding
@@ -34,13 +37,19 @@ import Database.Groundhog hiding ((~>))
 import Database.Groundhog.Core hiding ((~>))
 import Database.Groundhog.Generic.Sql.Functions
 import Database.Groundhog.TH (defaultCodegenConfig, groundhog, mkPersist)
+import Text.Blaze.Html5 (Html)
+import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html5.Attributes as A
 
 import Rhyolite.Backend.DB
+import Rhyolite.Backend.Email
 import Rhyolite.Backend.Listen
 import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.TH
 
 import Rhyolite.Account
+import Rhyolite.Email
+import Rhyolite.Route
 import Rhyolite.Schema
 import Rhyolite.Sign
 
@@ -75,6 +84,31 @@ ensureAccountExists email = do
           let aid' = toId aid
           notifyEntityId NotificationType_Insert aid'
           return (True, aid')
+
+-- Creates account if it doesn't already exist and sends pw email
+ensureAccountExistsEmail
+  :: (PersistBackend m, MonadSign m, SqlDb (PhantomDb m), Typeable f, ToJSON (f (Id Account)))
+  => (Id Account -> f (Id Account))
+  -> (Signed (PasswordResetToken f) -> Email -> m ()) -- pw reset email
+  -> Email
+  -> m (Bool, Id Account)
+ensureAccountExistsEmail = ensureAccountExistsEmail' ensureAccountExists
+
+-- Creates account if it doesn't already exist and sends pw email
+-- Allows the option for a custom "ensure account" creation function
+ensureAccountExistsEmail'
+  :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
+  => (Email -> m (Bool, Id Account))
+  -> (Id Account -> f (Id Account))
+  -> (Signed (PasswordResetToken f) -> Email -> m ()) -- pw reset email
+  -> Email
+  -> m (Bool, Id Account)
+ensureAccountExistsEmail' ensureAccount decorateAccountId pwEmail email = do
+  ret@(_, aid) <- ensureAccount email
+  mNonce <- generateAndSendPasswordResetEmail decorateAccountId pwEmail aid
+  forM_ mNonce $ \nonce -> do
+    update [Account_passwordResetNonceField =. Just nonce] (Account_emailField ==. email)
+  return ret
 
 generatePasswordResetToken :: ( PersistBackend m
                               , MonadSign m
@@ -147,3 +181,70 @@ loginByAccountId aid password = runExceptT $ do
   where
     maybeToEither b Nothing = Left b
     maybeToEither _ (Just a) = Right a
+
+generateAndSendPasswordResetEmail
+  :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
+  => (Id Account -> f (Id Account))
+  -> (Signed (PasswordResetToken f) -> Email -> m ())
+  -> Id Account
+  -> m (Maybe UTCTime)
+generateAndSendPasswordResetEmail decorateAccountId pwEmail aid = do
+  nonce <- getTime
+  prt <- sign $ PasswordResetToken (decorateAccountId aid, nonce)
+  ma <- get (fromId aid)
+  forM ma $ \a -> do
+    pwEmail prt (account_email a)
+    return nonce
+
+-- | Like 'generateAndSendPasswordResetEmail', but sets the nonce in the
+-- database instead of just returning it.
+generateAndSendPasswordResetEmailUpdateNonce
+  :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
+  => (Id Account -> f (Id Account))
+  -> (Signed (PasswordResetToken f) -> Email -> m ())
+  -> Id Account
+  -> m ()
+generateAndSendPasswordResetEmailUpdateNonce f g aid = do
+  nonce <- generateAndSendPasswordResetEmail f g aid
+  void $ update [Account_passwordResetNonceField =. nonce] $ AutoKeyField ==. fromId aid
+
+newAccountEmail :: (MonadRoute r m, Default r)
+                => Text
+                -> Text
+                -> (AccountRoute f -> r)
+                -> Signed (PasswordResetToken f)
+                -> m Html
+newAccountEmail productName productDescription f token = do
+  passwordResetLink <- routeToUrl $ f $ AccountRoute_PasswordReset token
+  emailTemplate productName
+                Nothing
+                (H.text $ "Welcome to " <> productName)
+                (H.a H.! A.href (fromString $ show passwordResetLink) $ H.text "Click here to verify your email")
+                (H.p $ H.text $ productDescription)
+
+sendNewAccountEmail :: (MonadRoute r m, Default r, MonadEmail m)
+                    => Text
+                    -> Text
+                    -> Text
+                    -> Text
+                    -> (AccountRoute f -> r) -- How to turn AccountRoute into a route for a specific app
+                    -> Signed (PasswordResetToken f)
+                    -> Email
+                    -> m ()
+sendNewAccountEmail senderName senderEmail productName productDescription f prt email = do
+  body <- newAccountEmail productName productDescription f prt
+  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Verification Email") body
+
+sendPasswordResetEmail :: (MonadEmail m, MonadRoute r m, Default r)
+                       => Text
+                       -> Text
+                       -> Text
+                       -> (AccountRoute f -> r)
+                       -> Signed (PasswordResetToken f)
+                       -> Email
+                       -> m ()
+sendPasswordResetEmail senderName senderEmail productName f prt email = do
+  passwordResetLink <- routeToUrl $ f $ AccountRoute_PasswordReset prt
+  let lead = "You have received this message because you requested that your " <> productName <> " password be reset. Click the link below to create a new password."
+      body = H.a H.! A.href (fromString $ show passwordResetLink) $ "Reset Password"
+  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body

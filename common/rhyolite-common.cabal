@@ -23,6 +23,7 @@ library
     , http-types
     , filepath
     , file-embed
+    , mime-mail
     , monad-control
     , mtl
     , network-uri
@@ -42,6 +43,7 @@ library
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
+    Rhyolite.Email
     Rhyolite.HList
     Rhyolite.Request.Class
     Rhyolite.Request.Common
