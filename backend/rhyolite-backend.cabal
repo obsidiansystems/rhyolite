@@ -65,16 +65,10 @@ library
       Rhyolite.Backend
     , Rhyolite.Backend.App
     , Rhyolite.Backend.Account
-    , Rhyolite.Backend.DB
-    , Rhyolite.Backend.DB.LargeObjects
-    , Rhyolite.Backend.DB.PsqlSimple
     , Rhyolite.Backend.Email
     , Rhyolite.Backend.EmailWorker
     , Rhyolite.Backend.Listen
     , Rhyolite.Backend.Logging
-    , Rhyolite.Backend.Schema.TH
-    , Rhyolite.Backend.Schema.Class
-    , Rhyolite.Backend.Schema
     , Rhyolite.Backend.Sign
     , Rhyolite.Backend.TH
     , Rhyolite.Backend.WebSocket
