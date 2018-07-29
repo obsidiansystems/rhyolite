@@ -21,11 +21,8 @@ library
     , constraints
     , containers
     , data-default
-    , directory
     , exceptions
     , fast-logger
-    , gargoyle
-    , gargoyle-postgresql-nix
     , groundhog
     , groundhog-postgresql
     , groundhog-th
@@ -62,8 +59,7 @@ library
     , websockets-snap
 
   exposed-modules:
-      Rhyolite.Backend
-    , Rhyolite.Backend.App
+      Rhyolite.Backend.App
     , Rhyolite.Backend.Account
     , Rhyolite.Backend.Email
     , Rhyolite.Backend.EmailWorker
