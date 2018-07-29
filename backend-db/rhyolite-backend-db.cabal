@@ -16,6 +16,9 @@ library
     , aeson
     , bytestring
     , containers
+    , directory
+    , gargoyle
+    , gargoyle-postgresql-nix
     , groundhog
     , groundhog-postgresql
     , groundhog-th
