@@ -16,6 +16,9 @@ library
     , aeson
     , bytestring
     , containers
+    , directory
+    , gargoyle
+    , gargoyle-postgresql-nix
     , groundhog
     , groundhog-postgresql
     , groundhog-th
@@ -30,6 +33,7 @@ library
     , resource-pool
     , rhyolite-common
     , template-haskell
+    , text
     , time
     , transformers
 
@@ -40,5 +44,6 @@ library
     Rhyolite.Backend.Schema
     Rhyolite.Backend.Schema.Class
     Rhyolite.Backend.Schema.TH
+    Database.Groundhog.Postgresql.Orphans
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
