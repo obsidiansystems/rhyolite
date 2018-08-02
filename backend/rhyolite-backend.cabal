@@ -43,6 +43,7 @@ library
     , pwstore-fast
     , reflex
     , resource-pool
+    , rhyolite-backend-db
     , rhyolite-common
     , smtp-mail
     , snap-core
