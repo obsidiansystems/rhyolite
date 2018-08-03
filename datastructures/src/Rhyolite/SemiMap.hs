@@ -50,9 +50,11 @@ knownSubMap = \case
 
 deriving instance Foldable f => Foldable (Alt f)
 
-instance (Ord k, (Monoid (First (Maybe v)))) => Monoid (SemiMap k v) where
+instance (Ord k) => Monoid (SemiMap k v) where
   mempty = SemiMap_Partial mempty
-  mappend new old = case new of
+
+instance (Ord k) => Semigroup (SemiMap k v) where
+  new <> old = case new of
     SemiMap_Complete _ -> new
     SemiMap_Partial p -> case old of
       SemiMap_Partial oldp -> SemiMap_Partial $ p <> oldp
@@ -71,10 +73,6 @@ instance (Ord k, (Monoid (First (Maybe v)))) => Monoid (SemiMap k v) where
                 fromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
                 fromRight (Right r) = r
                 fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
-
-
-instance (Ord k, Monoid (First (Maybe v))) => Semigroup (SemiMap k v) where
-  (<>) = mappend
 
 instance (ToJSON k, ToJSON v) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v) => FromJSON (SemiMap k v)
