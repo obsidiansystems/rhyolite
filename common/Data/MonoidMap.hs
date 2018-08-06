@@ -3,15 +3,16 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.MonoidMap where
 
-import Data.AppendMap (AppendMap)
 import Data.AppendMap as Map
+import Data.Map.Monoidal (MonoidalMap)
+import Data.Map.Monoidal as Map
 import Data.Semigroup (Semigroup, (<>))
 import Reflex (Query, QueryResult, crop)
 
-newtype MonoidMap k v = MonoidMap { unMonoidMap :: AppendMap k v }
+newtype MonoidMap k v = MonoidMap { unMonoidMap :: MonoidalMap k v }
   deriving (Show, Eq, Ord, Foldable)
 
-monoidMap :: (Ord k, Eq v, Monoid v) => AppendMap k v -> MonoidMap k v
+monoidMap :: (Ord k, Eq v, Monoid v) => MonoidalMap k v -> MonoidMap k v
 monoidMap = MonoidMap . Map.filter (/= mempty)
 
 instance (Eq (QueryResult q), Ord k, Query q) => Query (MonoidMap k q) where
