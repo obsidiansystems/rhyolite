@@ -1,14 +1,15 @@
-module Rhyolite.AppendMap (module X, (=:), restrictKeys) where
+module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
 import Data.AppendMap as X
+import Data.Map.Monoidal as X
 
 import qualified Data.Set as Set
 
 -- | Operator for creating a singleton 'Map'
-(=:) :: Ord k => k -> a -> AppendMap k a
+(=:) :: Ord k => k -> a -> MonoidalMap k a
 k =: v = singleton k v
 infixr 7 =:
 
 -- TODO: Use built-in implementation after upgrading 'containers'.
-restrictKeys :: Ord k => AppendMap k a -> Set.Set k -> AppendMap k a
+restrictKeys :: Ord k => MonoidalMap k a -> Set.Set k -> MonoidalMap k a
 restrictKeys m ks = filterWithKey (\k _ -> k `Set.member` ks) m
