@@ -22,24 +22,25 @@ import Data.Functor.Identity (Identity)
 import GHC.Generics (Generic)
 import Data.Typeable (Typeable)
 
-import Data.AppendMap (AppendMap)
-import qualified Data.AppendMap as AppendMap
+import Data.Map.Monoidal (MonoidalMap)
+import qualified Data.Map.Monoidal as MonoidalMap
 import Reflex.FunctorMaybe (FunctorMaybe, fmapMaybe)
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount, crop)
 import Reflex.Patch (Group, Additive)
+import qualified Data.AppendMap as MonoidalMap
 
 import Rhyolite.Account (AuthToken)
 import Rhyolite.Request.Class (Request)
 import Rhyolite.Sign (Signed)
 
-instance (Ord k, Query v) => Query (AppendMap k v) where
-  type QueryResult (AppendMap k v) = AppendMap k (QueryResult v)
-  crop q r = AppendMap.intersectionWith (flip crop) r q
+instance (Ord k, Query v) => Query (MonoidalMap k v) where
+  type QueryResult (MonoidalMap k v) = MonoidalMap k (QueryResult v)
+  crop q r = MonoidalMap.intersectionWith (flip crop) r q
 
-singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (AppendMap k q)
-singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = AppendMap.singleton k
-                                 , _queryMorphism_mapQueryResult = AppendMap.findWithDefault mempty k
+singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
+singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k
+                                 , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
                                  }
 
 instance Category QueryMorphism where

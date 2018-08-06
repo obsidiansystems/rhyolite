@@ -16,6 +16,7 @@ library
                , aeson
                , containers
                , data-default
+               , monoidal-containers
                , rhyolite-aeson-orphans
                , reflex-aeson-orphans
                , lens
@@ -24,7 +25,7 @@ library
                , these
 
   exposed-modules:
-      Rhyolite.AppendMap
+      Rhyolite.Map.Monoidal
     , Rhyolite.SemiMap
 
   other-extensions: TemplateHaskell

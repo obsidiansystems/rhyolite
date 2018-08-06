@@ -28,6 +28,7 @@ library
     , file-embed
     , mime-mail
     , monad-control
+    , monoidal-containers
     , mtl
     , network-uri
     , reflex

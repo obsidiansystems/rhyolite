@@ -36,6 +36,7 @@ library
     , monad-control
     , monad-logger
     , monad-loops
+    , monoidal-containers
     , mtl
     , network
     , parsec
@@ -45,6 +46,7 @@ library
     , resource-pool
     , rhyolite-backend-db
     , rhyolite-common
+    , rhyolite-datastructures
     , smtp-mail
     , snap-core
     , split
