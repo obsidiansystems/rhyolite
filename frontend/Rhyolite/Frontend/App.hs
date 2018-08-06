@@ -148,6 +148,10 @@ instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWid
 -- instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
 --   prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
 
+instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
+  type PrimState (RhyoliteWidget app t m) = PrimState m
+  primitive = lift . primitive
+
 -- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
 type MonadRhyoliteFrontendWidget app t m =
     ( MonadRhyoliteWidget app t m
