@@ -20,10 +20,10 @@ makeJson n = do
       modifyConName cn = if length cons == 1 then cn else if toBeStripped `isPrefixOf` cn then drop (length toBeStripped) cn else error $ "makeRequest: expecting name beginning with " <> show toBeStripped <> ", got " <> show cn
       cons = case x of
         TyConI d -> decCons d
-        _ -> error "undefined"
+        _ -> error $ "cant do constructor:" ++ show x
       typeNames = map tvbName $ case x of
         TyConI d -> decTvbs d
-        _ -> error "undefined"
+        _ -> error $ "cant do typename:" ++ show x
   let wild = match wildP (normalB [|fail "invalid message"|]) []
   [d|
     instance ToJSON $(foldl appT (conT n) $ map varT typeNames)   where
@@ -45,10 +45,31 @@ makeRequestForDataInstance n n' = do
                     (DataInstD _ _ (ConT m:_) _ xs _) <- dataInstances
                     guard $ m == n'
                     xs
-                  _ -> error "undefined"
+                  _ -> error $ "cant do family:" ++ show x
   let wild = match wildP (normalB [|fail "invalid message"|]) []
   [d|
     instance Request $(appT (conT n) (conT n')) where
+      requestToJSON r = $(caseE [|r|] $ map (conToJson modifyConName) cons)
+      requestParseJSON v = do
+        (tag', v') <- parseJSON v
+        $(caseE [|tag' :: String|] $ map (conParseJson modifyConName (\body -> [|SomeRequest <$> $body|]) [|v'|]) cons ++ [wild])
+      requestResponseToJSON r = $(caseE [|r|] $ map (\c -> match (conP (conName c) $ replicate (conArity c) wildP) (normalB [|Dict|]) []) cons)
+      requestResponseFromJSON r = $(caseE [|r|] $ map (\c -> match (conP (conName c) $ replicate (conArity c) wildP) (normalB [|Dict|]) []) cons)
+    |]
+
+makeRequestForData :: Name -> DecsQ
+makeRequestForData n = do
+  x <- reify n
+  let base = nameBase n
+      toBeStripped = base <> "_"
+      modifyConName cn = if length cons == 1 then cn else if toBeStripped `isPrefixOf` cn then drop (length toBeStripped) cn else error $ "makeRequest: expecting name beginning with " <> show toBeStripped <> ", got " <> show cn
+      cons ::[Con]
+      cons = case x of
+                  TyConI (DataD _ _ _ _ xs _) -> xs
+                  _ -> error $ "cant do data:" ++ show x
+  let wild = match wildP (normalB [|fail "invalid message"|]) []
+  [d|
+    instance Request $(conT n) where
       requestToJSON r = $(caseE [|r|] $ map (conToJson modifyConName) cons)
       requestParseJSON v = do
         (tag', v') <- parseJSON v
@@ -102,7 +123,7 @@ decCons :: Dec -> [Con]
 decCons d = case d of
   DataD _ _ _ _ cs _ -> cs
   NewtypeD _ _ _ _ c _ -> [c]
-  _ -> error "undefined"
+  _ -> error $ "not a data/newtype:" ++ show d
 
 -- | Extracts the name from a type variable binder.
 tvbName :: TyVarBndr -> Name
@@ -114,4 +135,4 @@ decTvbs :: Dec -> [TyVarBndr]
 decTvbs d = case d of
   DataD _ _ tvbs _ _ _ -> tvbs
   NewtypeD _ _ tvbs _ _ _ -> tvbs
-  _ -> error "undefined"
+  _ -> error $ "not a data/newtype:" ++ show d
