@@ -47,7 +47,6 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson hiding (Error)
-import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -59,7 +58,8 @@ import qualified Data.Trie as Trie
 import GHC.Generics
 import System.Log.FastLogger
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
+import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
 #endif
 
@@ -114,7 +114,7 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr
    | RhyoliteLogAppender_File FilePath
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
    | RhyoliteLogAppender_Journald T.Text -- journalctl log with syslogIdentifier specified.
 #endif
   deriving (Generic, Eq, Ord, Show)
@@ -127,7 +127,7 @@ runLoggingEnv = flip runLoggingT . unLoggingEnv
 logToFastLogger :: LoggerSet -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
 logger2journald :: LogLevel -> JournalFields
 logger2journald = \case
   LevelWarn -> priority Warning
@@ -149,8 +149,9 @@ instance LogAppender RhyoliteLogAppender where
       RhyoliteLogAppender_File filename -> do
         logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
-#ifdef linux_HOST_OS
-      RhyoliteLogAppender_Journald syslogId -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier syslogId))
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
+      RhyoliteLogAppender_Journald syslogId ->
+        return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier syslogId))
 #endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
@@ -158,7 +159,7 @@ configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
   return $ LoggingContext cleaner $ filterLog (fmap toLogLevel fs) logger
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
 
@@ -201,5 +202,4 @@ withLogging configs (LoggingT x) = do
   let cleaner = foldl' (>>) (pure ())  $ fmap _loggingContext_cleanup cleanersAndLoggers
   let (LoggingEnv logger) = foldMap _loggingContext_logger cleanersAndLoggers
   finally (x logger) cleaner
-
 
