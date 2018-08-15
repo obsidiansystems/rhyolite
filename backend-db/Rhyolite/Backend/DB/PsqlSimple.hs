@@ -18,7 +18,7 @@ module Rhyolite.Backend.DB.PsqlSimple
   , ToField (..), FromField (..)
   , Query (..), sql, traceQuery
   , liftWithConn
-  , queryQ, executeQ, sqlQ
+  , queryQ, executeQ, sqlQ, traceQueryQ
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
@@ -199,6 +199,13 @@ executeQ = QuasiQuoter
   , quoteDec  = error "executeQ: quasiquoter used in declaration context"
   }
 
+traceQueryQ :: QuasiQuoter
+traceQueryQ = QuasiQuoter
+  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
+  , quoteType = error "traceQueryQ: quasiquoter used in type context"
+  , quoteExp  = \s -> appE [| uncurry traceQuery |] (sqlQExp s)
+  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
+  }
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
 -- consisting of the Query string itself and a tuple of variables in corresponding order.
 --
