@@ -3,8 +3,8 @@ let
   obelisk-src = (import <nixpkgs> {}).fetchFromGitHub {
     owner = "obsidiansystems";
     repo = "obelisk";
-    rev = "6c38599615eddba1b9f8dfb845f7404f53ed8053";
-    sha256 = "0pqhppn2cb69v7r6wbg2zrx5ylxbgq7bl7qilarfbmyd9gcph9h4";
+    rev = "ffce7c5f17e164f64cdae15895b30cefebbd7095";
+    sha256 = "0hyhm9s52skmm7la06l1skg5casp3q0jympkg6k55qydh8ifshvx";
   };
   reflex-platform = (import obelisk-src {}).reflex-platform;
 
@@ -23,6 +23,7 @@ let
 in reflex-platform.project ({ pkgs, ... }: {
   packages = {
     # rhyolite-backend needs custom dependency configuration; see below.
+    rhyolite-backend-db = ./backend-db;
     rhyolite-backend-snap = ./backend-snap;
     rhyolite-common = ./common;
     rhyolite-frontend = ./frontend;
@@ -35,6 +36,13 @@ in reflex-platform.project ({ pkgs, ... }: {
 
     obelisk-asset-serve-snap = obelisk-src + /lib/asset/serve-snap;
     obelisk-snap-extras = obelisk-src + /lib/snap-extras;
+
+    constraints-extras = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "constraints-extras";
+      rev =  "abd1bab0738463657fc6303e606015a97b01c8a0";
+      sha256 = "0lpc3cy8a7h62zgqf214g5bf68dg8clwgh1fs8hada5af4ppxf0l";
+    };
   };
   overrides = self: super: {
     gargoyle = self.callCabal2nix "gargoyle" (gargoyle-src + /gargoyle) {};
@@ -64,8 +72,11 @@ in reflex-platform.project ({ pkgs, ... }: {
   };
   shells = rec {
     ghc = (if frontend then [] else [
+      "rhyolite-aeson-orphans"
       "rhyolite-backend"
+      "rhyolite-backend-db"
       "rhyolite-backend-snap"
+      "rhyolite-datastructures"
     ]) ++ ghcjs;
     ghcjs = [
       "rhyolite-common"

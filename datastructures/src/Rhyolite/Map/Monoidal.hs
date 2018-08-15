@@ -1,6 +1,5 @@
 module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
-import Data.AppendMap as X
 import Data.Map.Monoidal as X
 
 import qualified Data.Set as Set
