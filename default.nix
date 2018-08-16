@@ -37,6 +37,13 @@ in reflex-platform.project ({ pkgs, ... }: {
     obelisk-asset-serve-snap = obelisk-src + /lib/asset/serve-snap;
     obelisk-snap-extras = obelisk-src + /lib/snap-extras;
 
+    monoidal-containers = pkgs.fetchFromGitHub {
+      owner = "danbornside";
+      repo = "monoidal-containers";
+      rev = "f9bbf89b0f59ebcccbf116beefb26ce6d416cc69";
+      sha256 = "1pbhprjsg5yh9483hgspy32smv9mbrkh16zdgmpw0qm9vmlw95cx";
+    };
+
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "constraints-extras";

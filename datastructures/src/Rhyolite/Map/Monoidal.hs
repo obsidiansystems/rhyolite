@@ -1,11 +1,12 @@
 module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
+import Data.AppendMap as X
 import Data.Map.Monoidal as X
 
 import qualified Data.Set as Set
 
 -- | Operator for creating a singleton 'Map'
-(=:) :: Ord k => k -> a -> MonoidalMap k a
+(=:) :: k -> a -> MonoidalMap k a
 k =: v = singleton k v
 infixr 7 =:
 
