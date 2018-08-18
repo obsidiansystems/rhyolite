@@ -63,7 +63,7 @@ type Email = Text --TODO: Validation
 
 -- | Wrapper for storing objects as JSON in the DB. Import the instance from
 newtype Json a = Json { unJson :: a }
-  deriving (Eq, Ord, Show, Read, ToJSON, FromJSON)
+  deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
 -- | Newtype for referring to database large objects. This generally shouldn't have to go over the wire
 -- but I'm putting it here where it can be placed in types in the common schema, because often the Ids of
