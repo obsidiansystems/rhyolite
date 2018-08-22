@@ -35,11 +35,11 @@ import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser, fromRow)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
-import Database.PostgreSQL.Simple.ToField (ToField, toField)
+import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
 import Database.PostgreSQL.Simple.Types ((:.), Binary, In (..), Only (..), PGArray (..), Query, Values (..),
                                          fromQuery)
-import Language.Haskell.TH (Exp, Name, Q, appE, mkName, tupE, varE)
+import Language.Haskell.TH (Exp, Name, Q, appE, mkName, tupE, varE, listE, sigE)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
 
 import qualified Control.Monad.Trans.Cont
@@ -211,7 +211,7 @@ traceQueryQ = QuasiQuoter
 --
 -- For example: uncurry query [sqlv| SELECT * FROM 'Book' b WHERE b.title = ?title AND b.author = ?author |]
 --
--- will be equivalent to query [sql| SELECT * FROM 'Book' b WHERE b.title = ? AND b.author = ? |] (title,author)
+-- will be equivalent to query [sql| SELECT * FROM 'Book' b WHERE b.title = ? AND b.author = ? |] [toField title, toField author]
 sqlQ :: QuasiQuoter
 sqlQ = QuasiQuoter
   { quotePat  = error "sqlQ: quasiquoter used in pattern context"
@@ -223,9 +223,7 @@ sqlQ = QuasiQuoter
 sqlQExp :: String -> Q Exp
 sqlQExp s =
   let (s',vs) = extractVars s
-  in case vs of
-    [v] -> tupE [quoteExp sql s', appE [|Only|] (varE v)]
-    _ -> tupE [quoteExp sql s', tupE (map varE vs)]
+  in tupE [quoteExp sql s', sigE (listE $ map (appE (varE 'toField) . varE) vs) [t| [Action] |]]
 
 extractVars :: String -> (String, [Name])
 extractVars = extractVars'
