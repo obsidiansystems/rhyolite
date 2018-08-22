@@ -22,7 +22,7 @@ let
   };
 in reflex-platform.project ({ pkgs, ... }: {
   packages = {
-    # rhyolite-backend needs custom dependency configuration; see below.
+    rhyolite-backend = ./backend;
     rhyolite-backend-snap = ./backend-snap;
     rhyolite-common = ./common;
     rhyolite-frontend = ./frontend;
@@ -43,22 +43,12 @@ in reflex-platform.project ({ pkgs, ... }: {
       [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
     gargoyle-postgresql = self.callCabal2nix "gargoyle-postgresql" (gargoyle-src + /gargoyle-postgresql) {};
 
-    # NB: On the backend we depend on a fork of `websockets` which is used for `websockets-snap` as well.
-    rhyolite-backend = self.callCabal2nix "rhyolite-backend" ./backend { websockets = self.websockets-obsidian; };
-
-    websockets-obsidian = self.callCabal2nix "websockets-obsidian" (pkgs.fetchFromGitHub {
+    websockets = self.callCabal2nix "websockets" (pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "websockets";
-      rev = "62954d82401a9a2304a14a49973bd8c33db6a8f2";
-      sha256 = "1cglrx6pbl5mdgfcsds5w2y1s4i9j375b3xim33jydr5g6c9ss4z";
+      rev = "1493961d12c30c786b568df09d285582bc649fbc";
+      sha256 = "17gf1xpj57gskigczxl7pk6n5iz6lbq3p8395755v1kfl37cdb5a";
     }) {};
-    websockets-snap = self.callCabal2nix "websockets-snap" (pkgs.fetchFromGitHub {
-      owner = "obsidiansystems";
-      repo = "websockets-snap";
-      rev = "0587aaeab9f9005d45b221c8ccc08b42dde9f900";
-      sha256 = "0s07f9sdn98h88kxkv8jr455a559c43c8ybdyvbv5c94ipbz7pjj";
-    }) { websockets = self.websockets-obsidian; };
-
     # Needed?
     heist = pkgs.haskell.lib.doJailbreak super.heist; # allow heist to use newer version of aeson
   };
