@@ -18,13 +18,17 @@ library
     , base
     , bytestring
     , constraints
+    , constraints-extras
     , containers
     , data-default
+    , dependent-sum
+    , dependent-map
     , http-types
     , filepath
     , file-embed
     , mime-mail
     , monad-control
+    , monoidal-containers
     , mtl
     , network-uri
     , reflex
@@ -38,6 +42,7 @@ library
     , vector
 
   exposed-modules:
+    Data.Aeson.GADT
     Data.MonoidMap
     Rhyolite.Account
     Rhyolite.Api

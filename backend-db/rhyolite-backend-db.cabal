@@ -1,0 +1,50 @@
+name: rhyolite-backend-db
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2018
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      base
+    , aeson
+    , bytestring
+    , containers
+    , directory
+    , gargoyle
+    , gargoyle-postgresql-nix
+    , groundhog
+    , groundhog-postgresql
+    , groundhog-th
+    , io-streams
+    , lens
+    , lifted-base
+    , monad-control
+    , monad-loops
+    , monoidal-containers
+    , mtl
+    , postgresql-simple
+    , resource-pool
+    , rhyolite-common
+    , template-haskell
+    , text
+    , time
+    , transformers
+
+  exposed-modules:
+    Rhyolite.Backend.DB
+    Rhyolite.Backend.DB.LargeObjects
+    Rhyolite.Backend.DB.PsqlSimple
+    Rhyolite.Backend.DB.PsqlSimple.Orphans
+    Rhyolite.Backend.Schema
+    Rhyolite.Backend.Schema.Class
+    Rhyolite.Backend.Schema.TH
+    Database.Groundhog.Postgresql.Orphans
+
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

@@ -28,7 +28,7 @@ setPermanentCookie doc cookie = do
 
 -- | Make a cookie with sensible defaults
 defaultCookie
-  :: (MonadJSM m, HasJSContext m)  -- TODO: verify
+  :: MonadJSM m
   => Text  -- ^ Cookie key
   -> Maybe Text  -- ^ Cookie value (Nothing clears it)
   -> m SetCookie

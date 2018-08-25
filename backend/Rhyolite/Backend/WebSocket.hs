@@ -6,6 +6,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
 import qualified Network.WebSockets as WS
 import qualified Network.WebSockets.Connection as WS
+import qualified Network.WebSockets.Stream as WS
 import Network.WebSockets.Snap
 import Snap.Core (MonadSnap)
 
@@ -18,14 +19,14 @@ withWebsocketsConnection f = runWebSocketsSnap $ \pc -> do
     handleSomeException = handle $ \(SomeException e) -> putStrLn $ "withWebsocketsConnection: " <> displayException e
     handleConnectionException pc = handle $ \e -> case e of
       WS.ConnectionClosed -> return ()
-      WS.CloseRequest _ _ -> print e >> WS.pendingStreamClose pc >> throwIO e
+      WS.CloseRequest _ _ -> print e >> WS.close (WS.pendingStream pc) >> throwIO e
       _ -> do putStr $ "withWebsocketsConnection: Exception: " <> displayException e
               throwIO e
 
 -- | Attempts to json decode a websockets data message
 decodeWebsocketsDataMessage :: FromJSON a => WS.DataMessage -> Either String a
 decodeWebsocketsDataMessage dm = eitherDecode' $ case dm of
-  WS.Text r' -> r'
+  WS.Text r' _ -> r'
   WS.Binary r' -> r'
 
 -- | Parse and process a single websocket data message
@@ -50,4 +51,4 @@ sendEncodedDataMessage
   => WS.Connection
   -> a
   -> IO ()
-sendEncodedDataMessage conn = WS.sendDataMessage conn . WS.Text . encode
+sendEncodedDataMessage conn = WS.sendDataMessage conn . (\x -> WS.Text x Nothing) . encode

@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO this is necessary because of the lack of a Foldable instance for Alt
 
@@ -13,24 +13,23 @@ import Data.Aeson
 import Data.Coerce
 import Data.Either
 import Data.Maybe
-import Data.Monoid hiding ((<>), First (..))
+import Data.Monoid hiding (First (..), (<>))
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.AppendMap (AppendMap (..))
-import qualified Data.AppendMap as Map
-import Rhyolite.Aeson.Orphans ()
 import GHC.Generics
+import Rhyolite.Aeson.Orphans ()
+import Rhyolite.Map.Monoidal as Map
 
 data SemiMap k v
-   = SemiMap_Complete (AppendMap k v)
-   | SemiMap_Partial (AppendMap k (First (Maybe v)))
+   = SemiMap_Complete (MonoidalMap k v)
+   | SemiMap_Partial (MonoidalMap k (First (Maybe v)))
    deriving (Show, Read, Eq, Ord, Foldable, Functor, Generic)
 
 isComplete :: SemiMap k v -> Bool
 isComplete = isJust . getComplete
 
-getComplete :: SemiMap k v -> Maybe (AppendMap k v)
+getComplete :: SemiMap k v -> Maybe (MonoidalMap k v)
 getComplete = \case
   SemiMap_Complete m -> Just m
   SemiMap_Partial _ -> Nothing
@@ -43,7 +42,7 @@ knownKeysSet = \case
 knownKeys :: SemiMap k v -> [k]
 knownKeys = Set.toList . knownKeysSet
 
-knownSubMap :: SemiMap k v -> AppendMap k v
+knownSubMap :: SemiMap k v -> MonoidalMap k v
 knownSubMap = \case
   SemiMap_Complete m -> m
   SemiMap_Partial m -> Map.mapMaybe getFirst m
@@ -51,28 +50,30 @@ knownSubMap = \case
 deriving instance Foldable f => Foldable (Alt f)
 
 instance (Ord k) => Monoid (SemiMap k v) where
-  mempty = SemiMap_Partial mempty
-
-instance (Ord k) => Semigroup (SemiMap k v) where
-  new <> old = case new of
+  mempty = SemiMap_Partial Map.empty
+  mappend new old = case new of
     SemiMap_Complete _ -> new
     SemiMap_Partial p -> case old of
       SemiMap_Partial oldp -> SemiMap_Partial $ p <> oldp
       SemiMap_Complete oldc -> SemiMap_Complete $ applyMap (coerce p) (coerce oldc)
       where
-        applyMap :: Ord k => AppendMap k (Maybe v) -> AppendMap k v -> AppendMap k v
+        applyMap :: Ord k => MonoidalMap k (Maybe v) -> MonoidalMap k v -> MonoidalMap k v
         applyMap patch old' = Map.unionWith const insertions (old' `Map.difference` deletions)
           where (deletions, insertions) = mapPartitionEithers $ maybeToEither <$> patch
                 maybeToEither = \case
                   Nothing -> Left ()
                   Just r -> Right r
-        mapPartitionEithers :: AppendMap k (Either a b) -> (AppendMap k a, AppendMap k b)
+        mapPartitionEithers :: MonoidalMap k (Either a b) -> (MonoidalMap k a, MonoidalMap k b)
         mapPartitionEithers m = (fromLeft <$> ls, fromRight <$> rs)
           where (ls, rs) = Map.partition isLeft m
                 fromLeft (Left l) = l
                 fromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
                 fromRight (Right r) = r
                 fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
+
+
+instance (Ord k) => Semigroup (SemiMap k v) where
+  (<>) = mappend
 
 instance (ToJSON k, ToJSON v) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v) => FromJSON (SemiMap k v)

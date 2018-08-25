@@ -22,8 +22,8 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State.Strict (evalStateT, get, put)
 import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON, toJSON)
-import Data.AppendMap (AppendMap)
-import qualified Data.AppendMap as Map
+import Data.Map.Monoidal (MonoidalMap)
+import qualified Rhyolite.Map.Monoidal as Map
 import Data.Foldable (fold)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.MonoidMap (MonoidMap (..), monoidMap)
@@ -107,9 +107,9 @@ fanQuery
   :: forall k q. (Ord k, Monoid (QueryResult q))
   => (k -> IO (Recipient q IO))
     -- ^ Look up a recipient
-  -> QueryHandler (AppendMap k q) IO
+  -> QueryHandler (MonoidalMap k q) IO
     -- ^ A 'QueryHandler' for multiple clients
-  -> ( Recipient (AppendMap k q) IO
+  -> ( Recipient (MonoidalMap k q) IO
        -- Used to notify recipients of new 'QueryResult' data
      , k -> QueryHandler q IO
        -- Used by 'multiplexQuery' to lookup the 'QueryHandler' for a given client
@@ -139,7 +139,7 @@ multiplexQuery
         , Recipient q m -> IO (QueryHandler q m, m ())
         )
 multiplexQuery lookupQueryHandler = do
-  clients <- newIORef (ClientKey 0, Map.empty :: AppendMap ClientKey (Recipient q m, q))
+  clients <- newIORef (ClientKey 0, Map.empty :: MonoidalMap ClientKey (Recipient q m, q))
   let
     lookupRecipient k = do
       (_, cs) <- readIORef clients
@@ -246,9 +246,9 @@ connectPipelineToWebsockets
   => Text
   -> RequestHandler app IO
   -- ^ API handler
-  -> QueryHandler (AppendMap ClientKey (ViewSelector app SelectedCount)) IO
+  -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
   -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (AppendMap ClientKey (ViewSelector app SelectedCount)) IO, Snap ())
+  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, Snap ())
   -- ^ A way to send data to many consumers and a handler for websockets connections
 connectPipelineToWebsockets ver rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
@@ -258,8 +258,8 @@ connectPipelineToWebsockets ver rh qh = do
 -- be used to construct a handler for a particular client
 connectPipelineToWebsockets'
   :: (Monoid (QueryResult q), Group q)
-  => QueryHandler (AppendMap ClientKey q) IO
-  -> IO (Recipient (AppendMap ClientKey q) IO, Registrar q)
+  => QueryHandler (MonoidalMap ClientKey q) IO
+  -> IO (Recipient (MonoidalMap ClientKey q) IO, Registrar q)
   -- ^ A way to send data to many consumers, and a way to register new consumers
 connectPipelineToWebsockets' qh = do
   rec (lookupRecipient, registerRecipient) <- multiplexQuery clientQueryHandler
@@ -278,7 +278,7 @@ extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
 serveDbOverWebsockets
   :: ( HasRequest app
      , HasView app
-     , q ~ AppendMap ClientKey (ViewSelector app SelectedCount)
+     , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
      , Monoid q', Semigroup q' )
   => Pool Postgresql
   -> RequestHandler app IO
@@ -295,7 +295,7 @@ serveDbOverWebsockets db handleApi handleNotify handleQuery pipe = do
 
 -------------------------------------------------------------------------------
 
-monoidMapQueryMorphism :: (Eq q, Ord k, Monoid q) => QueryMorphism (AppendMap k q) (MonoidMap k q)
+monoidMapQueryMorphism :: (Eq q, Ord k, Monoid q) => QueryMorphism (MonoidalMap k q) (MonoidMap k q)
 monoidMapQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = monoidMap
   , _queryMorphism_mapQueryResult = unMonoidMap
@@ -373,12 +373,12 @@ instance Query q => Query (Unverified q) where
 verifyQuery
   :: (Monoid (QueryResult q), Typeable cred, FromJSON cred)
   => CS.Key
-  -> Recipient (AppendMap (Signed cred) (Unverified q)) IO
-  -> QueryHandler (AppendMap (Signed cred) (Verified cred q)) IO
+  -> Recipient (MonoidalMap (Signed cred) (Unverified q)) IO
+  -> QueryHandler (MonoidalMap (Signed cred) (Verified cred q)) IO
   -- ^ A way to look up more information
-  -> ( Recipient (AppendMap (Signed cred) (Verified cred q)) IO
+  -> ( Recipient (MonoidalMap (Signed cred) (Verified cred q)) IO
       -- Used by the outside world to tell us there is more data
-     , QueryHandler (AppendMap (Signed cred) (Unverified q)) IO
+     , QueryHandler (MonoidalMap (Signed cred) (Unverified q)) IO
      -- Used by individual clients to indicate that they want more data
      )
 verifyQuery csk sender vsHandler =

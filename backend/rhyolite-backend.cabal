@@ -21,11 +21,8 @@ library
     , constraints
     , containers
     , data-default
-    , directory
     , exceptions
     , fast-logger
-    , gargoyle
-    , gargoyle-postgresql-nix
     , groundhog
     , groundhog-postgresql
     , groundhog-th
@@ -39,6 +36,7 @@ library
     , monad-control
     , monad-logger
     , monad-loops
+    , monoidal-containers
     , mtl
     , network
     , parsec
@@ -46,7 +44,9 @@ library
     , pwstore-fast
     , reflex
     , resource-pool
+    , rhyolite-backend-db
     , rhyolite-common
+    , rhyolite-datastructures
     , smtp-mail
     , snap-core
     , split
@@ -62,19 +62,12 @@ library
     , websockets-snap
 
   exposed-modules:
-      Rhyolite.Backend
-    , Rhyolite.Backend.App
+      Rhyolite.Backend.App
     , Rhyolite.Backend.Account
-    , Rhyolite.Backend.DB
-    , Rhyolite.Backend.DB.LargeObjects
-    , Rhyolite.Backend.DB.PsqlSimple
     , Rhyolite.Backend.Email
     , Rhyolite.Backend.EmailWorker
     , Rhyolite.Backend.Listen
     , Rhyolite.Backend.Logging
-    , Rhyolite.Backend.Schema.TH
-    , Rhyolite.Backend.Schema.Class
-    , Rhyolite.Backend.Schema
     , Rhyolite.Backend.Sign
     , Rhyolite.Backend.TH
     , Rhyolite.Backend.WebSocket
