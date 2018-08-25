@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Rhyolite.Frontend.Cookie where
 
+import Control.Monad ((<=<))
 import Data.Aeson as Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
@@ -17,18 +18,27 @@ import qualified GHCJS.DOM.Document as DOM
 import Reflex.Dom.Core
 import Web.Cookie
 
-setPermanentCookie :: (MonadJSM m, HasJSContext m) => DOM.Document -> Text -> Maybe Text -> m ()
-setPermanentCookie doc = setPermanentCookieWithLocation doc Nothing
+-- | Set or clear the given cookie permanently
+--
+-- Example:
+-- > setPermanentCookie doc =<< defaultCookie "key" (Just "value")
+setPermanentCookie :: (MonadJSM m, HasJSContext m) => DOM.Document -> SetCookie -> m ()
+setPermanentCookie doc cookie = do
+  DOM.setCookie doc $ decodeUtf8 $ LBS.toStrict $ toLazyByteString $ renderSetCookie cookie
 
-setPermanentCookieWithLocation :: (MonadJSM m, HasJSContext m) => DOM.Document -> Maybe ByteString -> Text -> Maybe Text -> m ()
-setPermanentCookieWithLocation doc loc key mv = do
+-- | Make a cookie with sensible defaults
+defaultCookie
+  :: (MonadJSM m, HasJSContext m)  -- TODO: verify
+  => Text  -- ^ Cookie key
+  -> Maybe Text  -- ^ Cookie value (Nothing clears it)
+  -> m SetCookie
+defaultCookie key mv = do
   currentProtocol <- Reflex.Dom.Core.getLocationProtocol
-  DOM.setCookie doc . decodeUtf8 . LBS.toStrict . toLazyByteString . renderSetCookie $ case mv of
+  pure $ case mv of
     Nothing -> def
       { setCookieName = encodeUtf8 key
       , setCookieValue = ""
       , setCookieExpires = Just $ posixSecondsToUTCTime 0
-      , setCookieDomain = loc
       }
     Just val -> def
       { setCookieName = encodeUtf8 key
@@ -45,8 +55,16 @@ setPermanentCookieWithLocation doc loc key mv = do
       , setCookieSameSite = if currentProtocol == "file:"
           then Nothing
           else Just sameSiteLax
-      , setCookieDomain = loc
       }
+
+defaultCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => Text -> Maybe v -> m SetCookie
+defaultCookieJson k = defaultCookie k . fmap (decodeUtf8 . LBS.toStrict . encode)
+
+{-# DEPRECATED setPermanentCookieWithLocation "Use defaultCookie instead" #-}
+setPermanentCookieWithLocation :: (MonadJSM m, HasJSContext m) => DOM.Document -> Maybe ByteString -> Text -> Maybe Text -> m ()
+setPermanentCookieWithLocation doc loc key mv = do
+  cookie <- defaultCookie key mv
+  setPermanentCookie doc $ cookie { setCookieDomain = loc }
 
 -- | Retrieve the current auth token from the given cookie
 getCookie :: MonadJSM m => DOM.Document -> Text -> m (Maybe Text)
@@ -54,9 +72,9 @@ getCookie doc key = do
   cookieString <- DOM.getCookie doc
   return $ lookup key $ parseCookiesText $ encodeUtf8 cookieString
 
+{-# DEPRECATED setPermanentCookieJson "Use defaultCookieJson instead" #-}
 setPermanentCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => DOM.Document -> Text -> Maybe v -> m ()
-setPermanentCookieJson d k v =
-  setPermanentCookie d k (fmap (decodeUtf8 . LBS.toStrict . encode) v)
+setPermanentCookieJson d k = setPermanentCookie d <=< defaultCookieJson k
 
 getCookieJson :: (FromJSON v, MonadJSM m) => DOM.Document -> Text -> m (Maybe (Either String v))
 getCookieJson d k =
