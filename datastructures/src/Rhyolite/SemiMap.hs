@@ -86,3 +86,14 @@ fromKnownAbsent = SemiMap_Partial . Map.fromSet (\_ -> First Nothing)
 
 fromKnownComplete :: Set k -> SemiMap k ()
 fromKnownComplete = SemiMap_Complete . Map.fromSet (\_ -> ())
+
+-- | A SemiMap that knows whether a particular item is present, but doesn't know
+-- anything about the presence or absence of other items.
+singleKnownPresence
+  :: a -- ^ The item
+  -> Bool -- ^ Whether it is present
+  -> SemiSet a
+singleKnownPresence a b = f $ Set.singleton a
+  where f = case b of
+          False -> fromKnownAbsent
+          True -> fromKnown
