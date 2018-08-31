@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO this is necessary because of the lack of a Foldable instance for Alt
 
@@ -13,13 +13,13 @@ import Data.Aeson
 import Data.Coerce
 import Data.Either
 import Data.Maybe
-import Data.Monoid hiding ((<>), First (..))
+import Data.Monoid hiding (First (..), (<>))
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
+import GHC.Generics
 import Rhyolite.Aeson.Orphans ()
 import Rhyolite.Map.Monoidal as Map
-import GHC.Generics
 
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
@@ -75,8 +75,8 @@ instance (Ord k) => Monoid (SemiMap k v) where
 instance (Ord k) => Semigroup (SemiMap k v) where
   (<>) = mappend
 
-instance (ToJSON k, ToJSON v) => ToJSON (SemiMap k v)
-instance (Ord k, FromJSON k, FromJSON v) => FromJSON (SemiMap k v)
+instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
+instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
 
 type SemiSet k = SemiMap k ()
 
@@ -88,4 +88,3 @@ fromKnownAbsent = SemiMap_Partial . Map.fromSet (\_ -> First Nothing)
 
 fromKnownComplete :: Set k -> SemiMap k ()
 fromKnownComplete = SemiMap_Complete . Map.fromSet (\_ -> ())
-

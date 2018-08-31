@@ -10,7 +10,7 @@ cabal-version: >=1.2
 
 library
   hs-source-dirs: .
-  
+
   if impl(ghcjs)
     build-depends:
       ghcjs-base
@@ -42,7 +42,6 @@ library
     , primitive
     , raw-strings-qq
     , ref-tf
-    , reflex-aeson-orphans
     , reflex-dom-core
     , reflex
     , rhyolite-common

@@ -1,18 +1,21 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.Aeson.GADT where
@@ -20,18 +23,18 @@ module Data.Aeson.GADT where
 import Control.Monad
 import Data.Aeson
 import Data.Constraint.Forall
+import Data.Functor.Classes
 import Data.GADT.Compare
 import Language.Haskell.TH
-import Data.Functor.Classes
 
-import Data.Constraint.Extras
 import Data.Constraint
-import Data.Dependent.Sum
+import Data.Constraint.Extras
 import Data.Dependent.Map (DMap)
 import qualified Data.Dependent.Map as DMap
+import Data.Dependent.Sum
 import Data.Functor.Identity
 
-import Data.Some (Some(..))
+import Data.Some (Some (..))
 
 decCons :: Dec -> [Con]
 decCons = \case
@@ -176,7 +179,7 @@ instance FromJSONFactor f g => FromJSON (DSum f g) where
     return $ parsedTag :=> val'
 
 instance ToJSONFactor f g => ToJSON (DMap f g) where
-    toJSON = toJSON . DMap.toList
+  toJSON = toJSON . DMap.toList
 
 instance FromJSONFactor f g => FromJSON (DMap f g) where
-    parseJSON = fmap DMap.fromList . parseJSON
+  parseJSON = fmap DMap.fromList . parseJSON

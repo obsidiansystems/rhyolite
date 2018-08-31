@@ -18,7 +18,6 @@ library
                , data-default
                , monoidal-containers
                , rhyolite-aeson-orphans
-               , reflex-aeson-orphans
                , lens
                , mtl
                , reflex

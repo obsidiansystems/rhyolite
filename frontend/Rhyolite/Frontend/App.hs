@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -40,8 +40,7 @@ import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
 import Network.URI (URI)
 import qualified Reflex as R
-import Reflex.Aeson.Orphans ()
-import Reflex.Dom.Core hiding (MonadWidget, webSocket, Request)
+import Reflex.Dom.Core hiding (MonadWidget, Request, webSocket)
 import Reflex.Host.Class
 
 import Rhyolite.Api
