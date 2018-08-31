@@ -209,7 +209,7 @@ traceQueryQ = QuasiQuoter
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
 -- consisting of the Query string itself and a tuple of variables in corresponding order.
 --
--- For example: uncurry query [sqlv| SELECT * FROM 'Book' b WHERE b.title = ?title AND b.author = ?author |]
+-- For example: uncurry query [sqlQ| SELECT * FROM 'Book' b WHERE b.title = ?title AND b.author = ?author |]
 --
 -- will be equivalent to query [sql| SELECT * FROM 'Book' b WHERE b.title = ? AND b.author = ? |] [toField title, toField author]
 sqlQ :: QuasiQuoter
