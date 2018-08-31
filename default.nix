@@ -45,6 +45,7 @@ let
       rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
+      rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
       rhyolite-backend-snap = ./backend-snap;
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
@@ -100,6 +101,7 @@ let
         ghc = [
           "rhyolite-backend"
           "rhyolite-backend-db"
+          "rhyolite-backend-db-gargoyle"
           "rhyolite-backend-snap"
         ] ++ ghcjs;
         ghcjs = [

@@ -1,0 +1,27 @@
+name: rhyolite-backend-db-gargoyle
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2018
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      base
+    , bytestring
+    , directory
+    , gargoyle
+    , gargoyle-postgresql-nix
+    , groundhog-postgresql
+    , postgresql-simple
+    , resource-pool
+
+  exposed-modules:
+    Rhyolite.Backend.DB.Gargoyle
+
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
