@@ -84,8 +84,8 @@ let
       obeliskImpl = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "obelisk";
-        rev = "ffce7c5f17e164f64cdae15895b30cefebbd7095";
-        sha256 = "0hyhm9s52skmm7la06l1skg5casp3q0jympkg6k55qydh8ifshvx";
+        rev = "da0bf59df1ca0cd68b574c3c813c1ac32f96267d";
+        sha256 = "10mlz3y9qwlb1lcvf2fvvmr6wayx81ml4qsky706rp7nd46ianqd";
       };
       reflex-platform = (import obeliskImpl {}).reflex-platform;
     in reflex-platform.project ({ pkgs, ... }@args: {
