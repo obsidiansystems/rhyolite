@@ -73,8 +73,8 @@ instance (Ord k) => Semigroup (SemiMap k v) where
                 fromRight (Right r) = r
                 fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
-instance (ToJSON k, ToJSON v) => ToJSON (SemiMap k v)
-instance (Ord k, FromJSON k, FromJSON v) => FromJSON (SemiMap k v)
+instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
+instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
 
 type SemiSet k = SemiMap k ()
 
