@@ -1,15 +1,19 @@
-{-# LANGUAGE TemplateHaskell, FlexibleInstances, TypeFamilies, UndecidableInstances #-}
-module Rhyolite.Backend.TH where
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-import Language.Haskell.TH
-import Control.Monad.State (mapStateT)
-import Database.Groundhog
+module Rhyolite.Backend.DB.TH where
+
 import Control.Monad
+import Control.Monad.State (mapStateT)
 import Data.Monoid
+import Database.Groundhog
+import Language.Haskell.TH
 
 deriveNewtypePersistBackend :: (TypeQ -> TypeQ) -> (TypeQ -> TypeQ) -> Name -> Name -> DecsQ
 deriveNewtypePersistBackend toT fromT to from =
-  liftM (:[]) $ liftM3 (InstanceD Nothing) (cxt [appT (conT ''PersistBackend) (fromT m), appT (conT ''Monad) m]) (appT (conT ''PersistBackend) (toT m)) $ liftM2 (<>) typeInstances functions
+  fmap (:[]) $ liftM3 (InstanceD Nothing) (cxt [appT (conT ''PersistBackend) (fromT m), appT (conT ''Monad) m]) (appT (conT ''PersistBackend) (toT m)) $ liftM2 (<>) typeInstances functions
   where
     m = varT $ mkName "m"
     typeInstances = do
@@ -17,7 +21,7 @@ deriveNewtypePersistBackend toT fromT to from =
       tableAnalysisInst <- tySynInstD ''TableAnalysis $ tySynEqn [toT m] $ appT (conT ''TableAnalysis) (fromT m)
       return [phantomDbInst, tableAnalysisInst]
     n =: e = valD (varP n) (normalB e) []
-    functions = sequence $
+    functions = sequence
       [ 'insert =: [| $(conE to) . insert |]
       , 'insert_ =: [| $(conE to) . insert_ |]
       , 'insertBy =: [| \u v -> $(conE to) $ insertBy u v |]

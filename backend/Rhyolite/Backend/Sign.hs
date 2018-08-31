@@ -12,23 +12,23 @@ module Rhyolite.Backend.Sign where
 
 import Control.Monad (guard)
 import Control.Monad.Base
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
-import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Maybe
 import Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Typeable (Typeable, typeOf)
-import Database.Groundhog
+import Database.Groundhog (DbPersist)
 import qualified Web.ClientSession as CS
 
-import Rhyolite.Backend.TH
+import Rhyolite.Backend.DB.TH (deriveNewtypePersistBackend)
 import Rhyolite.Email (MonadEmail)
 import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
-import Rhyolite.Sign (Signed (..), MonadSign(..))
+import Rhyolite.Sign (MonadSign (..), Signed (..))
 
 signWithKey :: (Typeable b, ToJSON b, MonadIO m) => CS.Key -> b -> m (Signed a)
 signWithKey k (v :: b) =

@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -33,8 +34,8 @@ import qualified Data.Text as T
 import Data.Text.Encoding
 import Data.Time
 import Data.Typeable
-import Database.Groundhog hiding ((~>))
-import Database.Groundhog.Core hiding ((~>))
+import Database.Groundhog
+import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql.Functions
 import Database.Groundhog.TH (defaultCodegenConfig, groundhog, mkPersist)
 import Text.Blaze.Html5 (Html)
@@ -220,7 +221,7 @@ newAccountEmail productName productDescription f token = do
                 Nothing
                 (H.text $ "Welcome to " <> productName)
                 (H.a H.! A.href (fromString $ show passwordResetLink) $ H.text "Click here to verify your email")
-                (H.p $ H.text $ productDescription)
+                (H.p $ H.text productDescription)
 
 sendNewAccountEmail :: (MonadRoute r m, Default r, MonadEmail m)
                     => Text
