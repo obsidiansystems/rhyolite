@@ -69,6 +69,7 @@ library
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
+    Rhyolite.Backend.TH
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
