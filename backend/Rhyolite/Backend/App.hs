@@ -33,12 +33,13 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Debug.Trace (trace)
 import Database.Groundhog.Postgresql (Postgresql)
-import Reflex (FunctorMaybe (..))
+import Reflex.FunctorMaybe (FunctorMaybe (..))
 import Reflex.Patch (Group, negateG, (~~))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
+import Network.WebSockets as WS
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
@@ -47,7 +48,7 @@ import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
 import Rhyolite.Request.Class (SomeRequest (..))
 import Rhyolite.Backend.Sign (readSignedWithKey)
-import Rhyolite.WebSocket
+import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
 
 -- | Handle API requests for a given app
 --
@@ -57,7 +58,14 @@ handleAppRequests
   :: (MonadSnap m, HasRequest app)
   => (forall a. AppRequest app a -> IO a)
   -> m ()
-handleAppRequests f = withWebsocketsConnection $ \conn -> forever $ do
+handleAppRequests f = withWebsocketsConnection $ forever . handleAppRequest f
+
+handleAppRequest
+  :: (HasRequest app)
+  => (forall a. AppRequest app a -> IO a)
+  -> WS.Connection
+  -> IO ()
+handleAppRequest f conn = do
   (TaggedRequest reqId (SomeRequest req)) <- getDataMessage conn
   a <- f req
   sendEncodedDataMessage conn $ TaggedResponse reqId (toJSON a)
