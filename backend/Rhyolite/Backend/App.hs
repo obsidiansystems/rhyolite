@@ -189,7 +189,7 @@ multiplexQuery lookupQueryHandler = do
 
   return (lookupRecipient, registerRecipient)
 
--- | Handles a websocket connection
+-- | Like 'handleWebsocketConnection' but customized for 'Snap'.
 handleWebsocket
   :: forall app.
      ( HasView app
@@ -199,7 +199,20 @@ handleWebsocket
   -> RequestHandler app IO -- ^ Handler for API requests
   -> Registrar (ViewSelector app SelectedCount)
   -> Snap ()
-handleWebsocket v rh register = withWebsocketsConnection $ \conn -> do
+handleWebsocket v rh register = withWebsocketsConnection (handleWebsocketConnection v rh register)
+
+-- | Handles a websocket connection given a raw connection.
+handleWebsocketConnection
+  :: forall app.
+    ( HasView app
+    , HasRequest app
+    , Eq (ViewSelector app SelectedCount) )
+  => Text -- ^ Version
+  -> RequestHandler app IO -- ^ Handler for API requests
+  -> Registrar (ViewSelector app SelectedCount)
+  -> WS.Connection
+  -> IO ()
+handleWebsocketConnection v rh register conn = do
   let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (void a) :: WebSocketResponse app)
   sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse app)
   bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> flip evalStateT mempty $ forever $ do
