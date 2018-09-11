@@ -39,7 +39,7 @@ import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
-import Network.WebSockets as WS
+import qualified Network.WebSockets as WS
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
@@ -275,13 +275,13 @@ connectPipelineToWebsockets = connectPipelineToWebsocketsRaw withWebsocketsConne
 
 connectPipelineToWebsocketsRaw
   :: (HasView app, HasRequest app, Eq (ViewSelector app SelectedCount))
-  => ((WS.Connection -> IO ()) -> m ()) -- ^ Websocket handler
+  => ((WS.Connection -> IO ()) -> m a) -- ^ Websocket handler
   -> Text -- ^ Version
   -> RequestHandler app IO
   -- ^ API handler
   -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
   -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, m ())
+  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, m a)
   -- ^ A way to send data to many consumers and a handler for websockets connections
 connectPipelineToWebsocketsRaw withWsConn ver rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
@@ -326,13 +326,13 @@ serveDbOverWebsocketsRaw
      , HasView app
      , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
      , Monoid q', Semigroup q' )
-  => ((WS.Connection -> IO ()) -> m ())
+  => ((WS.Connection -> IO ()) -> m a)
   -> Pool Postgresql
   -> RequestHandler app IO
   -> (NotifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO q q'
-  -> IO (m (), IO ())
+  -> IO (m a, IO ())
 serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe = do
   (getNextNotification, finalizeListener) <- startNotificationListener db
   rec (qh, finalizeFeed) <- feedPipeline (handleNotify <$> getNextNotification) handleQuery r
