@@ -10,7 +10,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Rhyolite.Backend.App where
+module Rhyolite.Backend.App
+  ( module Rhyolite.Backend.App
+  -- re-export
+  , Postgresql
+  ) where
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
@@ -32,7 +36,8 @@ import Data.Semigroup (Semigroup, (<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Debug.Trace (trace)
-import Database.Groundhog.Postgresql (Postgresql)
+import Database.Groundhog.Postgresql (Postgresql (..))
+import qualified Database.PostgreSQL.Simple as Pg
 import Reflex.FunctorMaybe (FunctorMaybe (..))
 import Reflex.Patch (Group, negateG, (~~))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
@@ -40,6 +45,7 @@ import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
 import qualified Network.WebSockets as WS
+import Data.Coerce (coerce)
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
@@ -339,6 +345,9 @@ serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe =
       (qh', r) <- unPipeline pipe qh r'
       (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn "" handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
+
+convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
+convertPostgresPool = coerce
 
 
 -------------------------------------------------------------------------------
