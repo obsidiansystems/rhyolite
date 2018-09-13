@@ -59,8 +59,6 @@ import GHC.Generics
 import System.Log.FastLogger
 import Systemd.Journal
 
-import Rhyolite.Request.TH (makeJson)
-
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
 data RhyoliteLogLevel
@@ -70,7 +68,8 @@ data RhyoliteLogLevel
   | RhyoliteLogLevel_Error
   deriving (Eq, Ord, Show, Generic, Enum)
 
-makeJson ''RhyoliteLogLevel
+instance ToJSON RhyoliteLogLevel
+instance FromJSON RhyoliteLogLevel
 
 toLogLevel :: RhyoliteLogLevel -> LogLevel
 toLogLevel RhyoliteLogLevel_Debug = LevelDebug
@@ -113,7 +112,8 @@ data RhyoliteLogAppender
    | RhyoliteLogAppender_Journald T.Text -- journalctl log with syslogIdentifier specified.
   deriving (Generic, Eq, Ord, Show)
 
-makeJson ''RhyoliteLogAppender
+instance ToJSON RhyoliteLogAppender
+instance FromJSON RhyoliteLogAppender
 
 runLoggingEnv :: LoggingEnv -> LoggingT m a -> m a
 runLoggingEnv = flip runLoggingT . unLoggingEnv

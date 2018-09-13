@@ -7,6 +7,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -17,20 +18,26 @@ import qualified Control.Category as Cat
 import Control.Concurrent (forkIO, killThread)
 import Control.Exception (bracket)
 import Control.Lens (imapM_)
-import Control.Monad (forever, void, when)
+import Control.Monad (forever, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State.Strict (evalStateT, get, put)
 import Control.Monad.Trans (lift)
-import Data.Aeson (FromJSON, toJSON)
+import Data.Aeson (FromJSON, toJSON, ToJSON)
+import Data.Constraint.Extras
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Rhyolite.Map.Monoidal as Map
 import Data.Foldable (fold)
+import Data.Functor.Const
+import Data.Functor.Identity
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.MonoidMap (MonoidMap (..), monoidMap)
 import Data.Pool (Pool)
+import Data.Proxy
 import Data.Semigroup (Semigroup, (<>))
+import Data.Some as Some
 import Data.Text (Text)
 import Data.Typeable (Typeable)
+import Data.Vessel
 import Debug.Trace (trace)
 import Database.Groundhog.Postgresql (Postgresql)
 import Reflex (FunctorMaybe (..))
@@ -40,12 +47,10 @@ import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
 
-import Rhyolite.Api (AppRequest)
-import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
+import Rhyolite.App
 import Rhyolite.Backend.Listen (NotifyMessage, startNotificationListener)
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Rhyolite.Request.Class (SomeRequest (..))
 import Rhyolite.Backend.Sign (readSignedWithKey)
 import Rhyolite.WebSocket
 
@@ -54,19 +59,19 @@ import Rhyolite.WebSocket
 -- The request format expected here is 'TaggedRequest'
 -- The response format expected here is 'TaggedResponse'
 handleAppRequests
-  :: (MonadSnap m, HasRequest app)
-  => (forall a. AppRequest app a -> IO a)
+  :: (MonadSnap m, Request req)
+  => (forall a. req a -> IO a)
   -> m ()
 handleAppRequests f = withWebsocketsConnection $ \conn -> forever $ do
-  (TaggedRequest reqId (SomeRequest req)) <- getDataMessage conn
+  (TaggedRequest reqId (Some.This req)) <- getDataMessage conn
   a <- f req
-  sendEncodedDataMessage conn $ TaggedResponse reqId (toJSON a)
+  sendEncodedDataMessage conn $ TaggedResponse reqId (has @ToJSON req (toJSON a))
 
 -------------------------------------------------------------------------------
 
 -- | Handles API requests
-newtype RequestHandler app m = RequestHandler
-  { runRequestHandler :: forall a. AppRequest app a -> m a }
+newtype RequestHandler req m = RequestHandler
+  { runRequestHandler :: forall a. req a -> m a }
 
 -------------------------------------------------------------------------------
 
@@ -183,33 +188,39 @@ multiplexQuery lookupQueryHandler = do
 
 -- | Handles a websocket connection
 handleWebsocket
-  :: forall app.
-     ( HasView app
-     , HasRequest app
-     , Eq (ViewSelector app SelectedCount) )
+  :: forall (v :: (* -> *) -> *) q q0 req.
+     ( View v
+     , Group (v (Const SelectedCount))
+     , q ~ v (Const SelectedCount)
+     , q0 ~ v Proxy
+     , QueryResult q ~ v Identity
+     , ToJSON (v Identity)
+     , FromJSON (v Proxy)
+     , Request req
+     )
   => Text -- ^ Version
-  -> RequestHandler app IO -- ^ Handler for API requests
-  -> Registrar (ViewSelector app SelectedCount)
+  -> RequestHandler req IO -- ^ Handler for API requests
+  -> Registrar q
   -> Snap ()
 handleWebsocket v rh register = withWebsocketsConnection $ \conn -> do
-  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (void a) :: WebSocketResponse app)
-  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse app)
+  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View a :: WebSocketResponse q)
+  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse q)
   bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> flip evalStateT mempty $ forever $ do
-    (wsr :: WebSocketRequest app (AppRequest app)) <- liftIO $ getDataMessage conn
+    (wsr :: WebSocketRequest q0 r) <- liftIO $ getDataMessage conn
     case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (SomeRequest req)) -> lift $ do
+      WebSocketRequest_Api (TaggedRequest reqId (Some.This req)) -> lift $ do
         a <- runRequestHandler rh req
         sendEncodedDataMessage conn
-          (WebSocketResponse_Api $ TaggedResponse reqId (toJSON a) :: WebSocketResponse app)
+          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse q)
       WebSocketRequest_ViewSelector new -> do
         old <- get
-        let new' = SelectedCount 1 <$ new
+        let new' = mapV (const (Const (SelectedCount 1))) new
             vsDiff = new' ~~ old
-        when (vsDiff /= mempty) $ do
+        when (not (nullV vsDiff)) $ do
           qr <- lift $ runQueryHandler vsHandler vsDiff
           put new'
-          when (qr /= mempty) $ lift $
-            sendEncodedDataMessage conn (WebSocketResponse_View (void qr) :: WebSocketResponse app)
+          when (not (nullV qr)) $ lift $
+            sendEncodedDataMessage conn (WebSocketResponse_View qr :: WebSocketResponse q)
 
 -------------------------------------------------------------------------------
 
@@ -242,13 +253,21 @@ feedPipeline getNextNotification qh r = do
 
 -- | Connects the pipeline to websockets consumers
 connectPipelineToWebsockets
-  :: (HasView app, HasRequest app, Eq (ViewSelector app SelectedCount))
+  :: ( View v
+     , q ~ v (Const SelectedCount)
+     , QueryResult q ~ v Identity
+     , Group q
+     , Monoid (v Identity)
+     , ToJSON (v Identity)
+     , FromJSON (v Proxy)
+     , Request req
+     )
   => Text
-  -> RequestHandler app IO
+  -> RequestHandler req IO
   -- ^ API handler
-  -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
+  -> QueryHandler (MonoidalMap ClientKey q) IO
   -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, Snap ())
+  -> IO (Recipient (MonoidalMap ClientKey q) IO, Snap ())
   -- ^ A way to send data to many consumers and a handler for websockets connections
 connectPipelineToWebsockets ver rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
@@ -276,12 +295,17 @@ extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
 -------------------------------------------------------------------------------
 
 serveDbOverWebsockets
-  :: ( HasRequest app
-     , HasView app
-     , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
-     , Monoid q', Semigroup q' )
+  :: ( q ~ MonoidalMap ClientKey (v (Const SelectedCount))
+     , QueryResult (v (Const SelectedCount)) ~ v Identity
+     , Monoid q', Semigroup q'
+     , Has FromJSON r, Has ToJSON r
+     , View v, Group (v (Const SelectedCount)), Monoid (v Identity)
+     , FromJSON (v Proxy)
+     , FromJSON (Some r)
+     , ToJSON (v Identity)
+     , ToJSON (Some r) )
   => Pool Postgresql
-  -> RequestHandler app IO
+  -> RequestHandler r IO
   -> (NotifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO q q'
