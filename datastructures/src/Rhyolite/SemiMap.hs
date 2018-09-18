@@ -19,7 +19,8 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics
 import Rhyolite.Aeson.Orphans ()
-import Rhyolite.Map.Monoidal as Map
+import Data.Map.Monoidal as Map
+import GHC.Generics
 
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
