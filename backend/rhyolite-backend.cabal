@@ -21,7 +21,6 @@ library
     , constraints
     , containers
     , data-default
-    , dependent-sum
     , exceptions
     , fast-logger
     , groundhog
@@ -59,7 +58,6 @@ library
     , transformers-base
     , unordered-containers
     , vector
-    , vessel
     , websockets
     , websockets-snap
 
@@ -72,7 +70,6 @@ library
     , Rhyolite.Backend.Logging
     , Rhyolite.Backend.Sign
     , Rhyolite.Backend.TH
-    , Rhyolite.Backend.Vessel
     , Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
