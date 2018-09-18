@@ -29,7 +29,7 @@ import qualified Network.Mail.Mime as Mail
 import qualified Network.HaskellNet.SMTP as SMTP
 
 import Rhyolite.Concurrent
-import qualified Rhyolite.Map.Monoidal as Map
+import qualified Data.Map.Monoidal as Map
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.LargeObjects

@@ -3,7 +3,6 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.MonoidMap where
 
-import Data.AppendMap as Map
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Map.Monoidal as Map
 import Data.Semigroup (Semigroup, (<>))

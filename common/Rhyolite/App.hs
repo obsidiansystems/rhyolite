@@ -28,7 +28,6 @@ import Reflex.FunctorMaybe (FunctorMaybe, fmapMaybe)
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount, crop)
 import Reflex.Patch (Group, Additive)
-import qualified Data.AppendMap as MonoidalMap
 
 import Rhyolite.Account (AuthToken)
 import Rhyolite.Request.Class (Request)
