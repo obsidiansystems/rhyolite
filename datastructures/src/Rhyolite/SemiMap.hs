@@ -50,8 +50,10 @@ knownSubMap = \case
 deriving instance Foldable f => Foldable (Alt f)
 
 instance (Ord k) => Monoid (SemiMap k v) where
-  mempty = SemiMap_Partial Map.empty
-  mappend new old = case new of
+  mempty = SemiMap_Partial mempty
+
+instance (Ord k) => Semigroup (SemiMap k v) where
+  new <> old = case new of
     SemiMap_Complete _ -> new
     SemiMap_Partial p -> case old of
       SemiMap_Partial oldp -> SemiMap_Partial $ p <> oldp
@@ -71,10 +73,6 @@ instance (Ord k) => Monoid (SemiMap k v) where
                 fromRight (Right r) = r
                 fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
-
-instance (Ord k) => Semigroup (SemiMap k v) where
-  (<>) = mappend
-
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
 
@@ -88,3 +86,14 @@ fromKnownAbsent = SemiMap_Partial . Map.fromSet (\_ -> First Nothing)
 
 fromKnownComplete :: Set k -> SemiMap k ()
 fromKnownComplete = SemiMap_Complete . Map.fromSet (\_ -> ())
+
+-- | A SemiMap that knows whether a particular item is present, but doesn't know
+-- anything about the presence or absence of other items.
+singleKnownPresence
+  :: a -- ^ The item
+  -> Bool -- ^ Whether it is present
+  -> SemiSet a
+singleKnownPresence a b = f $ Set.singleton a
+  where f = case b of
+          False -> fromKnownAbsent
+          True -> fromKnown

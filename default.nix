@@ -10,20 +10,8 @@ let
       groundhog = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "groundhog";
-        rev = "c2f18be45e3233f6268c8468eb0732dd6b2e8009";
-        sha256 = "1r9i78bsnm6idbvp87gjklnr10g7c83nsbnrffkyrn1wmd7zzqdn";
-      };
-      reflex = pkgs.fetchFromGitHub {
-        owner = "reflex-frp";
-        repo = "reflex";
-        rev = "273bc3a019b479cc4c0ec522ca1d79207c339c8a";
-        sha256 = "0j5251g0mqwqap3cls0pbnm1qk2nrsq5d4n59x550wihbiknpjsp";
-      };
-      reflex-dom = pkgs.fetchFromGitHub {
-        owner = "reflex-frp";
-        repo = "reflex-dom";
-        rev = "56aa06e94e5c9c6c2eb19cd988ed8de0d76cae38";
-        sha256 = "0di64r4pl6kbxiayl1wp2vi9rfbzyj6mkyfs6qnm49kx6fm1zp4a";
+        rev = "febd6c12a676693b1d7339e54a4d107c4a67fcc3";
+        sha256 = "1q05nrqdzh26r17wsd53sdj106dxh3qlg66pqr3jsi8d63iyaq8k";
       };
     };
 
@@ -51,15 +39,6 @@ let
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
 
-      monoidal-containers = pkgs.fetchFromGitHub {
-        owner = "obsidiansystems";
-        repo = "monoidal-containers";
-        rev = "597c331238f9654541f567232d018c64d3ea147b";
-        sha256 = "16qjpi9nr534fsxvnxzjv2sdg04874g16lf076m63jp92qx09yih";
-      };
-
-      reflex = libSelf.repos.reflex;
-
       websockets = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "websockets";
@@ -71,7 +50,6 @@ let
     haskellOverrides = pkgs.lib.composeExtensions
       (self: super: pkgs.lib.mapAttrs (name: path: self.callCabal2nix name path {}) libSelf.srcs)
       (self: super: {
-        inherit (import libSelf.repos.reflex-dom self pkgs) reflex-dom reflex-dom-core;
         gargoyle-postgresql-nix = pkgs.haskell.lib.addBuildTools
           (self.callCabal2nix "gargoyle-postgresql-nix" (libSelf.repos.gargoyle + /gargoyle-postgresql-nix) {})
           [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
