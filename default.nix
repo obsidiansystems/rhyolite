@@ -10,8 +10,8 @@ let
       groundhog = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "groundhog";
-        rev = "c2f18be45e3233f6268c8468eb0732dd6b2e8009";
-        sha256 = "1r9i78bsnm6idbvp87gjklnr10g7c83nsbnrffkyrn1wmd7zzqdn";
+        rev = "febd6c12a676693b1d7339e54a4d107c4a67fcc3";
+        sha256 = "1q05nrqdzh26r17wsd53sdj106dxh3qlg66pqr3jsi8d63iyaq8k";
       };
     };
 
