@@ -35,7 +35,7 @@ let
       rhyolite-backend-db = ./backend-db;
       rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
       rhyolite-backend-snap = ./backend-snap;
-      rhyolite-common = ./common;
+      # rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
 
@@ -50,6 +50,8 @@ let
     haskellOverrides = pkgs.lib.composeExtensions
       (self: super: pkgs.lib.mapAttrs (name: path: self.callCabal2nix name path {}) libSelf.srcs)
       (self: super: {
+        monad-logger = if (self.ghc.isGhcjs or false) then null else super.monad-logger;
+        rhyolite-common = self.callPackage ./common {};
         gargoyle-postgresql-nix = pkgs.haskell.lib.addBuildTools
           (self.callCabal2nix "gargoyle-postgresql-nix" (libSelf.repos.gargoyle + /gargoyle-postgresql-nix) {})
           [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
