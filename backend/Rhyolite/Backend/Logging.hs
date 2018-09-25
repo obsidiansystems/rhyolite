@@ -54,7 +54,7 @@ import Data.Monoid (Monoid, mappend, mempty)
 import Data.Semigroup (Semigroup, (<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import qualified Data.Trie as Trie
+import qualified Data.Trie.BigEndianPatricia.Base as Trie
 import GHC.Generics
 import System.Log.FastLogger
 import Systemd.Journal
