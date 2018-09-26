@@ -4,9 +4,8 @@
 module Data.MonoidMap where
 
 import Data.Align
-import Data.AppendMap as Map
 import Data.Map.Monoidal (MonoidalMap)
---import Data.Map.Monoidal as Map
+import Data.Map.Monoidal as Map
 import Data.Semigroup (Semigroup, (<>))
 import Reflex (Query, QueryResult, crop, FunctorMaybe (..))
 

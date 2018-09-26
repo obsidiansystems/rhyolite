@@ -25,7 +25,7 @@ import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON, toJSON, ToJSON)
 import Data.Constraint.Extras
 import Data.Map.Monoidal (MonoidalMap)
-import qualified Rhyolite.Map.Monoidal as Map
+import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
 import Data.Functor.Const
 import Data.Functor.Identity

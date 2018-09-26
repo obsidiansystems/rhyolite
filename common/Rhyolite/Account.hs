@@ -10,10 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-
-#if defined(USE_TEMPLATE_HASKELL)
 {-# LANGUAGE TemplateHaskell #-}
-#endif
 
 module Rhyolite.Account where
 
