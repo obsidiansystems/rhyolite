@@ -28,6 +28,7 @@ library
     , file-embed
     , mime-mail
     , monad-control
+    , monad-logger
     , monoidal-containers
     , mtl
     , network-uri
@@ -58,10 +59,5 @@ library
     Rhyolite.Sign
     Rhyolite.TH
     Rhyolite.WebSocket
-
-  if !os(ios) && !arch(aarch64) && !arch(arm)
-    build-depends: monad-logger
-    other-extensions: TemplateHaskell
-    cpp-options: -DUSE_TEMPLATE_HASKELL
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

@@ -10,10 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-
-#if defined(USE_TEMPLATE_HASKELL)
 {-# LANGUAGE TemplateHaskell #-}
-#endif
 
 module Rhyolite.Account where
 
@@ -25,10 +22,7 @@ import GHC.Generics (Generic)
 
 import Rhyolite.Schema (HasId, Email, Id)
 import Rhyolite.Sign (Signed)
-
-#if defined(USE_TEMPLATE_HASKELL)
 import Rhyolite.Request.TH (makeJson)
-#endif
 
 
 data Account = Account
@@ -70,6 +64,4 @@ instance Show LoginError where
   show LoginError_UserNotFound = "The user is not recognized"
   show LoginError_InvalidPassword = "Please enter a valid password"
 
-#if defined(USE_TEMPLATE_HASKELL)
 makeJson ''AccountRoute
-#endif
