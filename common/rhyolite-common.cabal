@@ -28,7 +28,6 @@ library
     , file-embed
     , mime-mail
     , monad-control
-    , monad-logger
     , monoidal-containers
     , mtl
     , network-uri
