@@ -12,9 +12,6 @@ module Rhyolite.Route where
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Control.Monad.Base
-#if defined(USE_TEMPLATE_HASKELL)
-import Control.Monad.Logger
-#endif
 import Data.Aeson
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
@@ -35,11 +32,7 @@ type RouteEnv = (String, String, String) -- (protocol, hostname, anything after 
 
 newtype RouteT r m a = RouteT { unRouteT :: ReaderT RouteEnv m a }
   deriving
-    ( Functor, Applicative, Monad, MonadIO, MonadTrans
-#if defined(USE_TEMPLATE_HASKELL)
-    , MonadLogger
-#endif
-    )
+    ( Functor, Applicative, Monad, MonadIO, MonadTrans )
 
 
 instance MonadTransControl (RouteT r) where
