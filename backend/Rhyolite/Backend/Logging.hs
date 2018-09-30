@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -46,7 +47,6 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson hiding (Error)
-import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -57,7 +57,10 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Trie as Trie
 import GHC.Generics
 import System.Log.FastLogger
+#if defined(JOURNAL)
+import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
+#endif
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
@@ -121,15 +124,6 @@ runLoggingEnv = flip runLoggingT . unLoggingEnv
 logToFastLogger :: LoggerSet -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
 
-logger2journald :: LogLevel -> JournalFields
-logger2journald = \case
-  LevelWarn -> priority Warning
-  LevelDebug -> priority Debug
-  LevelInfo -> priority Info
-  LevelError -> priority Error
-  LevelOther level -> priority Error  -- Error because that makes this logger2journald monotone
-    <> mkJournalField' "PRIORITY_OTHER" level
-
 class LogAppender a where
   getLogContext :: MonadIO m => a -> m (LoggingContext m)
 
@@ -141,12 +135,26 @@ instance LogAppender RhyoliteLogAppender where
       RhyoliteLogAppender_File filename -> do
         logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
+#if defined(JOURNAL)
       RhyoliteLogAppender_Journald syslogId -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier syslogId))
+#else
+      RhyoliteLogAppender_Journald _ -> error "Rhyolite.Backend.Logging.getLogContext: built without systemd journal support"
+#endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
 configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
   return $ LoggingContext cleaner $ filterLog (fmap toLogLevel fs) logger
+
+#if defined(JOURNAL)
+logger2journald :: LogLevel -> JournalFields
+logger2journald = \case
+  LevelWarn -> priority Warning
+  LevelDebug -> priority Debug
+  LevelInfo -> priority Info
+  LevelError -> priority Error
+  LevelOther level -> priority Error  -- Error because that makes this logger2journald monotone
+    <> mkJournalField' "PRIORITY_OTHER" level
 
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
@@ -165,6 +173,7 @@ logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr -> sendMe
   , loc2jf loc
   , mkJournalField' "logsource" logSource
   ]
+#endif
 
 -- | match the LogSource on prefixes in m.  if found, log only the messages at equal or higher than the
 --   matched level.  if not found, log only LevelWarn or higher.   You can override the default with a zero length prefix, ie `"" := LevelDebug`
