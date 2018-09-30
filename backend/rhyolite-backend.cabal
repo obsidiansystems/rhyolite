@@ -11,6 +11,11 @@ cabal-version: >=1.2
 library
   hs-source-dirs: .
 
+  flag journal
+    description: systemd journal support
+    default: False
+    manual: True
+
   build-depends:
       aeson
     , base
@@ -30,7 +35,6 @@ library
     , HaskellNet-SSL
     , io-streams
     , lens
-    , libsystemd-journal
     , lifted-base
     , mime-mail
     , monad-control
@@ -60,6 +64,10 @@ library
     , vector
     , websockets
     , websockets-snap
+  if flag(journal)
+    build-depends:
+      libsystemd-journal
+    cpp-options: -DJOURNAL
 
   exposed-modules:
       Rhyolite.Backend.App

@@ -51,6 +51,9 @@ in reflex-platform.project ({ pkgs, ... }: {
     }) {};
     # Needed?
     heist = pkgs.haskell.lib.doJailbreak super.heist; # allow heist to use newer version of aeson
+    rhyolite-backend = with (pkgs.haskell.lib); if self.ghc.stdenv.isLinux
+      then addBuildDepend (enableCabalFlag super.rhyolite-backend "journal") self.libsystemd-journal
+      else super.rhyolite-backend;
   };
   shells = rec {
     ghc = (if frontend then [] else [
