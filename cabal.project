@@ -1,6 +1,7 @@
 packages:
   aeson-orphans/
   backend-db/
+  backend-db-gargoyle
   backend-snap/
   backend/
   common/

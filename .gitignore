@@ -1,4 +1,6 @@
 dist/
 dist-newstyle/
 result
+result-*
 *.project.local
+.ghc.*
