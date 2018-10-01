@@ -8,14 +8,13 @@ stability: Experimental
 build-type: Simple
 cabal-version: >=1.2
 
+flag journal
+  description: systemd journal support
+  default: False
+  manual: True
+
 library
   hs-source-dirs: .
-
-  flag journal
-    description: systemd journal support
-    default: False
-    manual: True
-
   build-depends:
       aeson
     , base
