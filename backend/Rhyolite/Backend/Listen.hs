@@ -46,7 +46,6 @@ import Rhyolite.Backend.DB (getSearchPath)
 import Rhyolite.Backend.Schema (fromId, toId)
 import Rhyolite.Backend.Schema.Class (DefaultKeyId)
 import Rhyolite.Request.Common (decodeValue')
-import Rhyolite.Request.TH (makeJson)
 import Rhyolite.Schema (SchemaName (..), Id, IdData)
 
 
@@ -63,8 +62,10 @@ instance ToJSON NotifyMessage
 data NotificationType = NotificationType_Insert
                       | NotificationType_Update
                       | NotificationType_Delete
-  deriving (Show, Read, Eq, Ord, Enum, Bounded)
+  deriving (Show, Read, Eq, Ord, Enum, Bounded, Generic)
 
+instance ToJSON NotificationType
+instance FromJSON NotificationType
 
 -- | The channel name used for insert/update/delete notifications
 notifyChannel :: String
@@ -170,6 +171,3 @@ notifyEntities nt aid = do
                                    }
   _ <- executeRaw False cmd [PersistString $ T.unpack $ decodeUtf8 $ LBS.toStrict $ encode notification]
   return ()
-
-
-makeJson ''NotificationType

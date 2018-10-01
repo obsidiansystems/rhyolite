@@ -20,9 +20,6 @@
 
 module Rhyolite.Frontend.WebSocket where
 
-import Control.Exception (SomeException, try)
-import Data.Aeson (FromJSON, decodeStrict', encode, fromJSON)
-import qualified Data.Aeson as Aeson
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -30,6 +27,9 @@ import Language.Javascript.JSaddle.Types
 import Reflex.Dom.Core
 import qualified Reflex.Dom.WebSocket as RDWS
 #if defined(ghcjs_HOST_OS)
+import Control.Exception
+import qualified Data.Aeson as Aeson
+import Data.Aeson.Types
 import GHCJS.Marshal
 import GHCJS.Types (JSVal)
 import System.IO.Unsafe

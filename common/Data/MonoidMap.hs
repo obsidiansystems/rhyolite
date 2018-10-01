@@ -3,11 +3,11 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.MonoidMap where
 
-import Data.AppendMap as Map
+import Data.Align
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Map.Monoidal as Map
 import Data.Semigroup (Semigroup, (<>))
-import Reflex (Query, QueryResult, crop)
+import Reflex (Query, QueryResult, crop, FunctorMaybe (..))
 
 newtype MonoidMap k v = MonoidMap { unMonoidMap :: MonoidalMap k v }
   deriving (Show, Eq, Ord, Foldable)
@@ -33,3 +33,16 @@ instance (Monoid a, Eq a, Ord k) => Semigroup (MonoidMap k a) where
 instance (Ord k, Monoid a, Eq a) => Monoid (MonoidMap k a) where
   mempty = MonoidMap Map.empty
   mappend = (<>)
+
+instance (Ord k) => Functor (MonoidMap k) where
+  fmap f (MonoidMap x) = MonoidMap (fmap f x)
+
+instance (Ord k) => FunctorMaybe (MonoidMap k) where
+  fmapMaybe f (MonoidMap m) = MonoidMap $ Map.mapMaybe f m
+
+instance (Ord k) => Align (MonoidMap k) where
+  nil = MonoidMap nil
+  align (MonoidMap x) (MonoidMap y) = MonoidMap (align x y)
+  alignWith f (MonoidMap x) (MonoidMap y) = MonoidMap (alignWith f x y)
+
+instance (Ord k) => Unalign (MonoidMap k)
