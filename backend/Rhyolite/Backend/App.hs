@@ -37,7 +37,6 @@ import Data.Semigroup (Semigroup, (<>))
 import Data.Some as Some
 import Data.Text (Text)
 import Data.Typeable (Typeable)
-import Data.Vessel
 import Debug.Trace (trace)
 import Database.Groundhog.Postgresql (Postgresql)
 import Reflex (FunctorMaybe (..))

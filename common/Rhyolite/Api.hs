@@ -12,7 +12,6 @@ import Data.Aeson (ToJSON, FromJSON, parseJSON, toJSON)
 import Data.Constraint.Extras
 import Data.Some as Some
 
--- TODO: Make a Vessel key for this kind of thing and use VSum for such requests.
 data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Public :: public a -> ApiRequest cred public private a
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a

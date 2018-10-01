@@ -42,7 +42,6 @@ import Data.Semigroup ((<>))
 import Data.Some as Some
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
-import Data.Vessel
 import GHC.Generics (Generic)
 import Network.URI (URI)
 import qualified Reflex as R

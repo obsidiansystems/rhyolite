@@ -58,7 +58,6 @@ library
     , transformers-base
     , transformers
     , vector
-    , vessel
 
   exposed-modules:
       Rhyolite.Frontend.App

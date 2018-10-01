@@ -60,7 +60,6 @@ library
     , transformers-base
     , unordered-containers
     , vector
-    , vessel
     , websockets
     , websockets-snap
 
