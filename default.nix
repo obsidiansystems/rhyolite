@@ -19,12 +19,6 @@ let
         rev = "27117ef4f9f01f70904f6e8007d33785c4fe300b";
         sha256 = "103fqr710pddys3bqz4d17skgqmwiwrjksn2lbnc3w7s01kal98a";
       };
-      # monoidal-containers = pkgs.fetchFromGitHub {
-      #   owner = "obsidiansystems";
-      #   repo = "monoidal-containers";
-      #   rev = "e0302a475a4a22b74cbcbd9bfc5371cc3cd5a8f2";
-      #   sha256 = "023rwfjs58v2sc9vrwg3s4960vywilsilkxghamvncb34288a0y2";
-      # };
     };
 
     srcs = {
@@ -42,14 +36,11 @@ let
       groundhog-postgresql = libSelf.repos.groundhog + /groundhog-postgresql;
       groundhog-th = libSelf.repos.groundhog + /groundhog-th;
 
-      # monoidal-containers = libSelf.repos.monoidal-containers;
-
       rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
       rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
       rhyolite-backend-snap = ./backend-snap;
-      # rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
 
@@ -64,20 +55,23 @@ let
     haskellOverrides = pkgs.lib.composeExtensions
       (self: super: pkgs.lib.mapAttrs (name: path: self.callCabal2nix name path {}) libSelf.srcs)
       (self: super: {
-        monad-logger = if (self.ghc.isGhcjs or false) then null else super.monad-logger;
-        rhyolite-common = self.callPackage ./common {};
-
-        gargoyle = pkgs.haskell.lib.doJailbreak             (self.callCabal2nix "gargoyle" (libSelf.repos.gargoyle + /gargoyle) {});
-        gargoyle-postgresql = pkgs.haskell.lib.doJailbreak  (self.callCabal2nix "gargoyle-postgresql" (libSelf.repos.gargoyle + /gargoyle-postgresql) {});
-        gargoyle-nix = pkgs.haskell.lib.doJailbreak         (self.callCabal2nix "gargoyle-nix" (libSelf.repos.gargoyle + /gargoyle-nix) {});
-
         bytestring-trie = pkgs.haskell.lib.dontCheck (self.callCabal2nix "bytestring-trie" libSelf.repos.bytestring-trie {});
-
+        gargoyle = pkgs.haskell.lib.doJailbreak             (self.callCabal2nix "gargoyle" (libSelf.repos.gargoyle + /gargoyle) {});
+        gargoyle-nix = pkgs.haskell.lib.doJailbreak         (self.callCabal2nix "gargoyle-nix" (libSelf.repos.gargoyle + /gargoyle-nix) {});
+        gargoyle-postgresql = pkgs.haskell.lib.doJailbreak  (self.callCabal2nix "gargoyle-postgresql" (libSelf.repos.gargoyle + /gargoyle-postgresql) {});
         gargoyle-postgresql-nix = pkgs.haskell.lib.doJailbreak (pkgs.haskell.lib.addBuildTools
           (self.callCabal2nix "gargoyle-postgresql-nix" (libSelf.repos.gargoyle + /gargoyle-postgresql-nix) {})
           [ pkgs.postgresql ]); # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
         heist = pkgs.haskell.lib.doJailbreak super.heist;
+        monad-logger = if (self.ghc.isGhcjs or false) then null else super.monad-logger;
         pipes-binary = pkgs.haskell.lib.doJailbreak super.pipes-binary;
+        reflex = pkgs.haskell.lib.dontCheck (self.callCabal2nix "reflex" (pkgs.fetchFromGitHub {
+          owner = "xplat";
+          repo = "reflex";
+          rev = "201970734c944a0cdb6654947f233c5bfe3e5bbb";
+          sha256 = "10rx4ajfp20l33bpbw2dss6i3s8ck8ny5zm6b2ams0bs17f8w17b";
+        }) {});
+        rhyolite-common = self.callPackage ./common {};
       });
   });
 
