@@ -9,25 +9,25 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | typically useful config file:
+-- | typically useful config file, which logs everything to stderr and warnings to journald.
 --
---  [
---      { "logger":["Stderr",[]]
---      , "filters":
---          { "SQL":["Error",[]]}
---      } ,
---      { "logger": ["Journald",["<myAppName>"]]
---      , "filters": {"":["Warn",[]]}
---      }
---  ]
---
--- you could also add:
---     { "logger":["File",["sql.log"]}
+-- [
+--     { "logger":{"Stderr":{}}
 --     , "filters":
---         { "":["Error",[]]
---         , "SQL":["Debug",[]]
+--         { "SQL":"Error"
+--         , "" : "Debug"
 --         }
---     } ,
+--     }
+--     }
+-- ,   { "logger": {"Journald":{"syslogIdentifier":"<myAppName>"}}
+--     }
+-- ]
+--
+-- groundhog/postgresql-simple also use monad-logger, so you could also add:
+--
+-- ,   { "logger":{"File":{"file":"sql.log"}}
+--     , "filters":{"SQL":"Debug"}
+--     }
 
 module Rhyolite.Backend.Logging
   ( withLogging
@@ -39,6 +39,7 @@ module Rhyolite.Backend.Logging
   , getLogContext
   , RhyoliteLogAppender(..)
   , RhyoliteLogLevel(..)
+  , example
   ) where
 
 import Control.Monad
@@ -46,6 +47,8 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson hiding (Error)
+import Data.Aeson.TH
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
@@ -59,7 +62,6 @@ import GHC.Generics
 import System.Log.FastLogger
 import Systemd.Journal
 
-import Rhyolite.Request.TH (makeJson)
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
@@ -70,8 +72,6 @@ data RhyoliteLogLevel
   | RhyoliteLogLevel_Error
   deriving (Eq, Ord, Show, Generic, Enum)
 
-makeJson ''RhyoliteLogLevel
-
 toLogLevel :: RhyoliteLogLevel -> LogLevel
 toLogLevel RhyoliteLogLevel_Debug = LevelDebug
 toLogLevel RhyoliteLogLevel_Info = LevelInfo
@@ -80,18 +80,8 @@ toLogLevel RhyoliteLogLevel_Error = LevelError
 
 data LoggingConfig a = LoggingConfig
   { _loggingConfig_logger :: a
-  , _loggingConfig_filters :: Map T.Text RhyoliteLogLevel
+  , _loggingConfig_filters :: Maybe (Map T.Text RhyoliteLogLevel)
   } deriving (Eq, Ord, Show, Generic, Functor, Foldable, Traversable)
-
-loggingConfigJsonOption :: Options
-loggingConfigJsonOption = defaultOptions {fieldLabelModifier = drop ((length @ []) "_loggingConfig_")}
-
-instance FromJSON a => FromJSON (LoggingConfig a) where
-  parseJSON = genericParseJSON loggingConfigJsonOption
-
-instance ToJSON a => ToJSON (LoggingConfig a) where
-  toJSON = genericToJSON loggingConfigJsonOption
-  toEncoding = genericToEncoding loggingConfigJsonOption
 
 
 instance Semigroup LoggingEnv where
@@ -108,12 +98,39 @@ data LoggingContext m = LoggingContext
   }
 
 data RhyoliteLogAppender
-   = RhyoliteLogAppender_Stderr
-   | RhyoliteLogAppender_File FilePath
-   | RhyoliteLogAppender_Journald T.Text -- journalctl log with syslogIdentifier specified.
+   = RhyoliteLogAppender_Stderr   RhyoliteLogAppenderStderr
+   | RhyoliteLogAppender_File     RhyoliteLogAppenderFile
+   | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald
   deriving (Generic, Eq, Ord, Show)
 
-makeJson ''RhyoliteLogAppender
+data RhyoliteLogAppenderStderr = RhyoliteLogAppenderStderr
+  { _rhyoliteLogAppenderStderr_placeholder :: Maybe ()  -- force json encoding to be a record; i'd use Maybe Void, but Void has no FromJSON, but `Maybe Void` would overlap.
+  } deriving (Generic, Eq, Ord, Show)
+
+data RhyoliteLogAppenderFile = RhyoliteLogAppenderFile
+  { _rhyoliteLogAppenderFile_file :: !FilePath
+  } deriving (Generic, Eq, Ord, Show)
+
+data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
+  { _rhyoliteLogAppenderJournald_syslogIdentifier :: T.Text -- journalctl log with syslogIdentifier specified.
+  } deriving (Generic, Eq, Ord, Show)
+
+
+-- derive a little differently from `Rhyolite.Request.makeJson` so that more
+-- things end up as records, so that new fields don't break old configs
+fmap concat $ traverse (deriveJSON defaultOptions
+    { sumEncoding = ObjectWithSingleField
+    , constructorTagModifier = dropWhile ('_' ==) . dropWhile ('_' /=)
+    , fieldLabelModifier = dropWhile ('_' ==) . dropWhile ('_' /=) . dropWhile ('_' ==)
+    , omitNothingFields = True
+    })
+  [ ''RhyoliteLogLevel
+  , ''RhyoliteLogAppender
+  , ''RhyoliteLogAppenderStderr
+  , ''RhyoliteLogAppenderFile
+  , ''RhyoliteLogAppenderJournald
+  , ''LoggingConfig
+  ]
 
 runLoggingEnv :: LoggingEnv -> LoggingT m a -> m a
 runLoggingEnv = flip runLoggingT . unLoggingEnv
@@ -135,18 +152,19 @@ class LogAppender a where
 
 instance LogAppender RhyoliteLogAppender where
   getLogContext = \case
-      RhyoliteLogAppender_Stderr -> do
+      RhyoliteLogAppender_Stderr _ -> do
         logSet <- liftIO $ newStderrLoggerSet defaultBufSize
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
-      RhyoliteLogAppender_File filename -> do
+      RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) -> do
         logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
-      RhyoliteLogAppender_Journald syslogId -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier syslogId))
+      RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
+
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
 configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
-  return $ LoggingContext cleaner $ filterLog (fmap toLogLevel fs) logger
+  return $ LoggingContext cleaner $ filterLog (fmap toLogLevel $ maybe M.empty id fs) logger
 
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
@@ -190,4 +208,15 @@ withLogging configs (LoggingT x) = do
   let (LoggingEnv logger) = foldMap _loggingContext_logger cleanersAndLoggers
   finally (x logger) cleaner
 
+example :: FilePath -> IO ()
+example f = do
+  putStrLn $ T.unpack $ TE.decodeUtf8 $ LBS.toStrict $ encode
+    [ LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) Nothing
+    , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
+    , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
+    , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
+    ]
+  confs :: [LoggingConfig RhyoliteLogAppender] <- either (error . (("JSON decode error while reading file " <> f <> ":") <>)) id . eitherDecode' <$> LBS.readFile f
 
+  withLogging confs $ do
+    $(logDebug) "Hello World"
