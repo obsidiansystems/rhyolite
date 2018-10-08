@@ -66,6 +66,8 @@ instance (ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
 instance ToJSON a => ToField (Json a) where
   toField (Json j) = toField $ Binary $ encode j
 
+instance NeverNull (Json a)
+
 instance (Typeable a, FromJSON a) => FromField (Json a) where
   fromField f mb = do
     (Binary v) <- fromField f mb
