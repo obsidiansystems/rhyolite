@@ -65,11 +65,14 @@ let
         heist = pkgs.haskell.lib.doJailbreak super.heist;
         monad-logger = if (self.ghc.isGhcjs or false) then null else super.monad-logger;
         pipes-binary = pkgs.haskell.lib.doJailbreak super.pipes-binary;
-        reflex = pkgs.haskell.lib.dontCheck (self.callCabal2nix "reflex" (pkgs.fetchFromGitHub {
-          owner = "xplat";
+        reflex = pkgs.haskell.lib.dontCheck (self.callPackage (pkgs.fetchFromGitHub {
+          #owner = "xplat";
           repo = "reflex";
-          rev = "201970734c944a0cdb6654947f233c5bfe3e5bbb";
-          sha256 = "10rx4ajfp20l33bpbw2dss6i3s8ck8ny5zm6b2ams0bs17f8w17b";
+          #rev = "201970734c944a0cdb6654947f233c5bfe3e5bbb";
+          #sha256 = "10rx4ajfp20l33bpbw2dss6i3s8ck8ny5zm6b2ams0bs17f8w17b";
+          owner = "reflex-frp";
+          rev = "59ef31edc761109dbe1fc9489af6c620e6bea31e";
+          sha256 = "16i8f2407gpr6c29bcxv5fgxlbl4qh2hb6a9d8sag355149wslmq";
         }) {});
         rhyolite-common = self.callPackage ./common {};
       });
@@ -80,8 +83,8 @@ let
       obeliskImpl = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "obelisk";
-        rev = "a9ef07b769a1c5dc30e981895df0d1ec7ca2ff0f";
-        sha256 = "004j1ipnds68pmcydkf13nq5zhlw86g8rp4fi1syq0b6z45dv5wj";
+        rev = "ede7d566b7e9362e2bf55a9ea291f2ca2a3ea9d4";
+        sha256 = "07l9acq0hyr6af7jc48s5fzvfbvn6m81h1ln3ha5wvrgzmx3dbsh";
       };
       reflex-platform = (import obeliskImpl {}).reflex-platform;
     in reflex-platform.project ({ pkgs, ... }@args: {
