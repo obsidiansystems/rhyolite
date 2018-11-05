@@ -66,13 +66,10 @@ let
         monad-logger = if (self.ghc.isGhcjs or false) then null else super.monad-logger;
         pipes-binary = pkgs.haskell.lib.doJailbreak super.pipes-binary;
         reflex = pkgs.haskell.lib.dontCheck (self.callPackage (pkgs.fetchFromGitHub {
-          #owner = "xplat";
-          repo = "reflex";
-          #rev = "201970734c944a0cdb6654947f233c5bfe3e5bbb";
-          #sha256 = "10rx4ajfp20l33bpbw2dss6i3s8ck8ny5zm6b2ams0bs17f8w17b";
           owner = "reflex-frp";
-          rev = "59ef31edc761109dbe1fc9489af6c620e6bea31e";
-          sha256 = "16i8f2407gpr6c29bcxv5fgxlbl4qh2hb6a9d8sag355149wslmq";
+          repo = "reflex";
+          rev = "3614d95a4059d4e202374eaa47a24cfabe9342b1"; # branch jd-fancy-throttle+eventwritert-adjustable-fix
+          sha256 = "00w31siv4xlpx887vnl5n6bw8bhy50qr52x30mw3hb1lcqqpb4vh";
         }) {});
         rhyolite-common = self.callPackage ./common {};
       });
