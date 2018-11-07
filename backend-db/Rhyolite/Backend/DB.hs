@@ -113,16 +113,29 @@ project1' p opts = project1 p opts >>= \case
   Nothing -> error "project1' expected a result, but got none"
   Just a -> pure a
 
+-- | 'select', limited to one, with a haskell failure if the DB doesn't
+-- so limit it.
+selectSingle
+  :: ( PersistEntity v, EntityConstr v c, PersistBackend m
+     , HasSelectOptions opts (PhantomDb m) (RestrictionHolder v c)
+     , HasLimit opts ~ HFalse )
+  => opts
+  -> m (Maybe v)
+selectSingle cond = select (cond `limitTo` 1) >>= \case
+  [] -> pure $ Nothing
+  [x] -> pure $ Just x
+  _   -> fail "PostgreSQL ignored LIMIT TO 1"
+
 -- | Will return all matching instances of the given constructor
 selectMap
-  :: forall a (m :: * -> *) v (c :: (* -> *) -> *) t.
+  :: forall opts (m :: * -> *) v (c :: (* -> *) -> *) t.
      ( ProjectionDb t (PhantomDb m)
      , ProjectionRestriction t (RestrictionHolder v c), DefaultKeyId v
      , Projection t v, EntityConstr v c
-     , HasSelectOptions a (PhantomDb m) (RestrictionHolder v c)
+     , HasSelectOptions opts (PhantomDb m) (RestrictionHolder v c)
      , PersistBackend m, Ord (IdData v), AutoKey v ~ DefaultKey v)
   => t -- ^ Constructor
-  -> a -- ^ Select options
+  -> opts -- ^ Select options
   -> m (Map (Id v) v)
 selectMap constr = fmap (Map.fromList . map (first toId)) . project (AutoKeyField, constr)
 
