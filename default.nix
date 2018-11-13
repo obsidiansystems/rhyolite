@@ -68,8 +68,8 @@ let
         reflex = pkgs.haskell.lib.dontCheck (self.callPackage (pkgs.fetchFromGitHub {
           owner = "reflex-frp";
           repo = "reflex";
-          rev = "3614d95a4059d4e202374eaa47a24cfabe9342b1"; # branch jd-fancy-throttle+eventwritert-adjustable-fix
-          sha256 = "00w31siv4xlpx887vnl5n6bw8bhy50qr52x30mw3hb1lcqqpb4vh";
+          rev = "ad74fe5dfffa344947d3e2bdea7000d466a63814"; # branch jd-fancy-throttle
+          sha256 = "1xczvr616xbb09y5fs1mpsdbii08jwlk5lwis78xh4rf677rr711";
         }) {});
         rhyolite-common = self.callPackage ./common {};
       });
@@ -80,8 +80,8 @@ let
       obeliskImpl = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "obelisk";
-        rev = "ede7d566b7e9362e2bf55a9ea291f2ca2a3ea9d4";
-        sha256 = "07l9acq0hyr6af7jc48s5fzvfbvn6m81h1ln3ha5wvrgzmx3dbsh";
+        rev = "be079fe03b16a6171037efef21d666354dbdb1de";
+        sha256 = "0r7ixwvm9wwc44jf3jb0y4h22np4am6rfl7r6km8xkvsxn7lpqyl";
       };
       reflex-platform = (import obeliskImpl {}).reflex-platform;
     in reflex-platform.project ({ pkgs, ... }@args: {
