@@ -12,7 +12,7 @@ nix-shell -A proj.shells.ghc --run 'cabal new-repl lib:rhyolite-backend'
 
 ```bash
 cd frontend
-nix-shell .. -A proj.shells.ghc --arg frontend true --run 'cabal new-repl'
+nix-shell .. -A proj.shells.ghc --run 'cabal new-repl'
 ```
 # Using Rhyolite with Obelisk
 
