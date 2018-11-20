@@ -4,6 +4,7 @@
 , mime-mail, monad-control, monad-logger, monoidal-containers, mtl
 , network-uri, reflex, resource-pool, stdenv, template-haskell
 , text, these, time, transformers, transformers-base, vector
+, dependent-sum-template
 , hostPlatform
 }:
 mkDerivation {
@@ -16,7 +17,7 @@ mkDerivation {
     dependent-sum file-embed filepath http-types mime-mail
     monad-control monoidal-containers mtl network-uri
     reflex resource-pool template-haskell text these time transformers
-    transformers-base vector
+    transformers-base vector dependent-sum-template
   ] ++ (if hostPlatform.libc == "bionic" || hostPlatform.isAarch64 then [] else [
     monad-logger
   ]);

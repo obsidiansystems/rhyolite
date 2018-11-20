@@ -23,6 +23,7 @@ library
     , data-default
     , dependent-map
     , dependent-sum
+    , dependent-sum-template
     , file-embed
     , filepath
     , http-types

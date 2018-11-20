@@ -4,17 +4,23 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Rhyolite.Request.Class where
 
-import Control.Monad ((>=>), mzero)
+import Control.Monad ((>=>), guard, mzero)
 import Data.Functor.Const
 import Data.Functor.Sum
 import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.Constraint (Dict (..), withDict)
 import Data.Void (Void)
+
+import Data.GADT.Compare
+import Data.GADT.Compare.TH
+import Data.GADT.Show
+import Data.GADT.Show.TH
 
 data SomeRequest t where
     SomeRequest :: (FromJSON x, ToJSON x) => t x -> SomeRequest t
@@ -36,6 +42,8 @@ instance Request r => ToJSON (SomeRequest r) where
 data ZeroRequest :: * -> * where
   ZeroRequest :: Void -> ZeroRequest Void
 
+concat <$> mapM ($ ''ZeroRequest) [deriveGEq, deriveGCompare, deriveGShow]
+
 instance Request ZeroRequest where
   requestToJSON (ZeroRequest e) = case e of {}
   requestParseJSON _ = mzero
@@ -49,6 +57,15 @@ instance Request ZeroRequest where
 -- TODO make newtype when GHC is smarter.
 data OneRequest a :: * -> * where
   OneRequest :: a -> OneRequest a ()
+
+instance Eq a => GEq (OneRequest a) where
+  geq (OneRequest a0) (OneRequest a1) = Refl <$ guard (a0 == a1)
+
+instance Ord a => GCompare (OneRequest a) where
+  gcompare (OneRequest a0) (OneRequest a1) = case compare a0 a1 of
+    LT -> GLT
+    EQ -> GEQ
+    GT -> GGT
 
 instance (ToJSON a, FromJSON a) => Request (OneRequest a) where
   requestToJSON (OneRequest a) = toJSON a
@@ -87,6 +104,24 @@ instance (Request f, Request g) => Request (Sum f g) where
 
 data GadtProduct f g :: * -> * where
   GadtPair :: forall a b f g. f a -> g b -> GadtProduct f g (a, b)
+
+instance (GEq f, GEq g) => GEq (GadtProduct f g) where
+  geq (GadtPair f0 g0) (GadtPair f1 g1) = case (geq f0 f1, geq g0 g1) of
+    (Just Refl, Just Refl) -> Just Refl
+    _                      -> Nothing
+
+instance (GCompare f, GCompare g) => GCompare (GadtProduct f g) where
+  gcompare (GadtPair f0 g0) (GadtPair f1 g1) = case (gcompare f0 f1, gcompare g0 g1) of
+    (GLT, _) -> GLT
+    (GEQ, GLT) -> GLT
+    (GEQ, GEQ) -> GEQ
+    (GEQ, GGT) -> GGT
+    (GGT, _) -> GGT
+
+instance (GShow f, GShow g) => GShow (GadtProduct f g) where
+  gshowsPrec p (GadtPair f g) = showString "GadtPair" . gshowsPrec p f . gshowsPrec p g
+
+--------------------------------------------------------------------------------
 
 -- | Combine two Request specifications pairwise into a new request
 -- specification where each request is a pair of old requests (one from each),
