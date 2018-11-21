@@ -12,15 +12,15 @@ module Rhyolite.SemiMap where
 import Data.Aeson
 import Data.Coerce
 import Data.Either
+import Data.Map.Monoidal as Map
 import Data.Maybe
 import Data.Monoid hiding (First (..), (<>))
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Generics
+import GHC.Generics (Generic)
+
 import Rhyolite.Aeson.Orphans ()
-import Data.Map.Monoidal as Map
-import GHC.Generics
 
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
@@ -67,12 +67,12 @@ instance (Ord k) => Semigroup (SemiMap k v) where
                   Nothing -> Left ()
                   Just r -> Right r
         mapPartitionEithers :: MonoidalMap k (Either a b) -> (MonoidalMap k a, MonoidalMap k b)
-        mapPartitionEithers m = (fromLeft <$> ls, fromRight <$> rs)
+        mapPartitionEithers m = (unsafeFromLeft <$> ls, unsafeFromRight <$> rs)
           where (ls, rs) = Map.partition isLeft m
-                fromLeft (Left l) = l
-                fromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
-                fromRight (Right r) = r
-                fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
+                unsafeFromLeft (Left l) = l
+                unsafeFromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
+                unsafeFromRight (Right r) = r
+                unsafeFromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
