@@ -20,9 +20,6 @@
 
 module Rhyolite.Frontend.WebSocket where
 
-import Control.Exception (SomeException, try)
-import Data.Aeson (FromJSON, decodeStrict', encode, fromJSON)
-import qualified Data.Aeson as Aeson
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T

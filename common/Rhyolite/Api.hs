@@ -2,48 +2,48 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Rhyolite.Api where
 
 import Data.Aeson (ToJSON, FromJSON, parseJSON, toJSON)
-import Data.Constraint (Dict (..))
+import Data.Constraint.Extras
+import Data.Some as Some
 
-import Rhyolite.App (AppCredential, PublicRequest, PrivateRequest)
-import Rhyolite.Request.Class (Request, SomeRequest (..), requestToJSON, requestParseJSON, requestResponseToJSON, requestResponseFromJSON)
-import Rhyolite.HList (HList (HNil, HCons))
-
+-- TODO: Make a Vessel key for this kind of thing and use VSum for such requests.
 data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Public :: public a -> ApiRequest cred public private a
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a
   deriving (Show)
 
-type AppRequest app = ApiRequest (AppCredential app) (PublicRequest app) (PrivateRequest app)
-
-instance (Request private, Request public, ToJSON cred, FromJSON cred) => Request (ApiRequest cred public private) where
-  requestToJSON r = case r of
-    ApiRequest_Public p -> case (requestResponseToJSON p, requestResponseFromJSON p) of
-      (Dict, Dict) -> toJSON ("Public"::String, SomeRequest p `HCons` HNil)
-    ApiRequest_Private token p -> case (requestResponseToJSON p, requestResponseFromJSON p) of
-      (Dict, Dict) -> toJSON ("Private"::String, token `HCons` SomeRequest p `HCons` HNil)
-  requestParseJSON v = do
-    (tag, body) <- parseJSON v
-    case tag of
-      ("Public"::String) -> do
-        SomeRequest p `HCons` HNil <- parseJSON body
-        return $ SomeRequest $ ApiRequest_Public p
-      ("Private"::String) -> do
-        token `HCons` SomeRequest p `HCons` HNil <- parseJSON body
-        return $ SomeRequest $ ApiRequest_Private token p
-      e -> error $ "Could not parse tag: " ++ e
-  requestResponseToJSON = \case
-    ApiRequest_Public p -> requestResponseToJSON p
-    ApiRequest_Private _ p -> requestResponseToJSON p
-  requestResponseFromJSON = \case
-    ApiRequest_Public p -> requestResponseFromJSON p
-    ApiRequest_Private _ p -> requestResponseFromJSON p
-
-public :: PublicRequest app t -> AppRequest app t
+public :: public a -> ApiRequest cred public private a
 public = ApiRequest_Public
 
-private :: AppCredential app -> PrivateRequest app t -> AppRequest app t
+private :: cred -> private a -> ApiRequest cred public private a
 private = ApiRequest_Private
+
+instance (ArgDict public, ArgDict private) => ArgDict (ApiRequest t public private) where
+  type ConstraintsFor (ApiRequest t public private) c = (ConstraintsFor public c, ConstraintsFor private c)
+  type ConstraintsFor' (ApiRequest t public private) c g = (ConstraintsFor' public c g, ConstraintsFor' private c g)
+  argDict (ApiRequest_Public x) = argDict x
+  argDict (ApiRequest_Private _ x) = argDict x
+  argDict' (ApiRequest_Public x) = argDict' x
+  argDict' (ApiRequest_Private _ x) = argDict' x
+
+instance (ToJSON cred, ToJSON (public a), ToJSON (private a)) => ToJSON (ApiRequest cred public private a) where
+  toJSON (ApiRequest_Public x) = toJSON (toJSON "Public", toJSON x)
+  toJSON (ApiRequest_Private t x) = toJSON (toJSON "Private", toJSON (t, x))
+
+instance (FromJSON cred, FromJSON (Some public), FromJSON (Some private)) => FromJSON (Some (ApiRequest cred public private)) where
+  parseJSON v = do
+    (tag, rest) <- parseJSON v
+    case tag of
+      "Public" -> do
+        Some.This x <- parseJSON rest
+        return (Some.This (ApiRequest_Public x))
+      "Private" -> do
+        (t, Some.This x) <- parseJSON rest
+        return (Some.This (ApiRequest_Private t x))
+      _ -> fail $ "parseJSON for ApiRequest: unrecognised tag: " ++ tag

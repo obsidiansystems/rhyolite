@@ -19,6 +19,7 @@ library
     , bytestring-trie
     , clientsession
     , constraints
+    , constraints-extras
     , containers
     , data-default
     , dependent-sum
@@ -72,7 +73,6 @@ library
     , Rhyolite.Backend.Logging
     , Rhyolite.Backend.Sign
     , Rhyolite.Backend.TH
-    , Rhyolite.Backend.Vessel
     , Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
