@@ -46,8 +46,12 @@ conArity c = case c of
   GadtC _ ts _ -> length ts
   RecGadtC _ ts _ -> length ts
 
+{-# DEPRECATED deriveGADTInstances "Use deriveJSONGADT instead" #-}
 deriveGADTInstances :: Name -> DecsQ
-deriveGADTInstances n = do
+deriveGADTInstances = deriveJSONGADT
+
+deriveJSONGADT :: Name -> DecsQ
+deriveJSONGADT n = do
   tj <- deriveToJSONGADT n
   fj <- deriveFromJSONGADT n
   eqt <- deriveEqTag n
