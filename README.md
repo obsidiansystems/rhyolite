@@ -40,7 +40,7 @@ obelisk.project ./. ({ pkgs, ... }:
     packages = {
       # your packages...
     };
-    overrides = pkgs.lib.composeExtensions ((import rhyolite-src).lib args).haskellOverrides (self: super: {
+    overrides = pkgs.lib.composeExtensions (import rhyolite-src {}).haskellOverrides (self: super: {
       # your overrides
       # Rhyolites overrides will appear in `super`.
     });
