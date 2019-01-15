@@ -14,8 +14,8 @@ let
     gargoyle = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "gargoyle";
-      rev = "2c19c569325ad76694526e9b688ccdbf148df980";
-      sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfyl";
+      rev = "b641902ff1e798e230e5a101fd22ebfbae3c6a08";
+      sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfy0";
     };
 
     # Not sure why this is needed?
@@ -73,12 +73,6 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       reflex = haskellLib.dontCheck super.reflex;
-
-      gargoyle = haskellLib.doJailbreak super.gargoyle;
-      gargoyle-nix = haskellLib.doJailbreak super.gargoyle-nix;
-      gargoyle-postgresql = haskellLib.doJailbreak super.gargoyle-postgresql;
-      gargoyle-postgresql-nix = haskellLib.doJailbreak (haskellLib.addBuildTools
-        super.gargoyle-postgresql-nix [ pkgs.postgresql ]);
     });
 
 
