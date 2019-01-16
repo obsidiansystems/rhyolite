@@ -3,6 +3,7 @@
 let
 
   obelisk = import ./.obelisk/impl args;
+  reflex-platform = obelisk.reflex-platform;
   pkgs = obelisk.nixpkgs;
   inherit (pkgs) lib;
   haskellLib = pkgs.haskell.lib;
@@ -15,7 +16,7 @@ let
       owner = "obsidiansystems";
       repo = "gargoyle";
       rev = "b641902ff1e798e230e5a101fd22ebfbae3c6a08";
-      sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfy0";
+      sha256 = "0pxa2zn1vy4n9cpal1cy1lcpmzgjvrx0ppmjqjs7ykv7z8647f1g";
     };
 
     # Not sure why this is needed?
@@ -63,7 +64,6 @@ let
     bytestring-trie = repos.bytestring-trie;
     reflex = repos.reflex;
     gargoyle = repos.gargoyle + /gargoyle;
-    gargoyle-nix = repos.gargoyle + /gargoyle-nix;
     gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
     gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
   };
@@ -73,6 +73,8 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       reflex = haskellLib.dontCheck super.reflex;
+      gargoyle-postgresql-nix = haskellLib.addBuildTools super.gargoyle-postgresql-nix
+        [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.);
     });
 
 
@@ -93,8 +95,24 @@ in obelisk // {
   inherit haskellOverrides;
 
   # Used to build this project. Should only be needed by CI, devs.
-  proj = project ./. (_: {
+  proj = reflex-platform.project ({ pkgs, ... }@args: {
+    overrides = haskellOverrides;
     packages = rhyolitePackages;
+    shells = rec {
+      ghc = [
+        "rhyolite-backend"
+        "rhyolite-backend-db"
+        "rhyolite-backend-db-gargoyle"
+        "rhyolite-backend-snap"
+      ] ++ ghcjs;
+      ghcjs = [
+        "rhyolite-aeson-orphans"
+        "rhyolite-common"
+        "rhyolite-datastructures"
+        "rhyolite-frontend"
+      ];
+    };
+    tools = ghc: [ pkgs.postgresql ];
   });
 
   # ALIAS for tezos-bake-central.
