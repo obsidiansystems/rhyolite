@@ -7,8 +7,8 @@ let
   pkgs = obelisk.nixpkgs;
   inherit (pkgs) lib;
 
-  # Use can use these manually if you don’t want to use rhyolite.project.
-  # It will be needed if you need it to combine with multiple overrides.
+  # You can use these manually if you don’t want to use rhyolite.project.
+  # It will be needed if you need to combine with multiple overrides.
   haskellOverrides = import ./overlay.nix { inherit pkgs; };
 
 in obelisk // {
