@@ -32,6 +32,20 @@ project ./. ({ ... }: {
 })
 ```
 
+Alternatively, you can point directly to this repo and let it manage
+Obelisk for you. Simply update the file in .obelisk/impl/github.json
+with these contents:
+
+```
+{
+  "owner": "obsidiansystems",
+  "repo": "rhyolite",
+  "branch": "obelisk-extender",
+  "rev": "d55b8cd416358eaedcb3c74fabc70f456b4c921b",
+  "sha256": "1r8jhyx2g27jzjkvdhzrqir5dcg1k3yln6zxk4kshcy32vlxm3cn"
+}
+```
+
 # Hacking
 
 
