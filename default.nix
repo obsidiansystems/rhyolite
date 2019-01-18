@@ -33,6 +33,15 @@ let
       rev = "2e2e19d37a5f1151fe985190b479016640751578";
       sha256 = "0ygp3firh2h770wsfpzykph8jlb3xpi3bdl0imqa6zgcbphf13vx";
     };
+
+    # Reflex needs monoidal-containers 0.4.0.0 but that is not
+    # available to some older Obelisk versions.
+    monoidal-containers = pkgs.fetchFromGitHub {
+      owner = "bgamari";
+      repo = "monoidal-containers";
+      rev = "be91bc55eb7cc3c3036f12af75a45012b08913ec";
+      sha256 = "105wdpbdbadb0kncjzax6islrndfzv60qfxzsrwb3490z692mha7";
+    };
   };
 
   # Local packages. We override them below so that other packages can use them.
@@ -54,6 +63,7 @@ let
     groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
     reflex = repos.reflex;
+    monoidal-containers = repos.monoidal-containers;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
