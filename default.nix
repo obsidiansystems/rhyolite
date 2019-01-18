@@ -1,10 +1,9 @@
-{ ... } @ args:
+{ obelisk ? import ./.obelisk/impl {}
+, pkgs ? obelisk.nixpkgs, ... } @ args:
 
 let
 
-  obelisk = import ./.obelisk/impl args;
   reflex-platform = obelisk.reflex-platform;
-  pkgs = obelisk.nixpkgs;
   inherit (pkgs) lib;
   haskellLib = pkgs.haskell.lib;
 
@@ -80,7 +79,7 @@ in obelisk // {
       });
 
   # Used to build this project. Should only be needed by CI, devs.
-  proj = reflex-platform.project ({ pkgs, ... }@args: {
+  proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
     packages = {
       rhyolite-common = ./common;
