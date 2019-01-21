@@ -38,6 +38,7 @@ library
     , monad-control
     , mtl
     , network-uri
+    , obelisk-route
     , prim-uniq
     , primitive
     , raw-strings-qq

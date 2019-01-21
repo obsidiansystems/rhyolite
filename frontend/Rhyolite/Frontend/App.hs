@@ -38,6 +38,7 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
+import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI)
 import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request, webSocket)
@@ -145,6 +146,15 @@ instance HasJSContext m => HasJSContext (RhyoliteWidget app t m) where
 instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWidget app t m) where
   newEventWithTrigger = RhyoliteWidget . newEventWithTrigger
   newFanEventWithTrigger a = RhyoliteWidget . lift $ newFanEventWithTrigger a
+
+instance (Monad m, Routed t r m) => Routed t r (RhyoliteWidget app t m) where
+  askRoute = lift askRoute
+
+instance (Monad m, SetRoute t r m) => SetRoute t r (RhyoliteWidget app t m) where
+  modifyRoute = lift . modifyRoute
+
+instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) where
+  askRouteToUrl = lift askRouteToUrl
 
 -- instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
 --   prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
