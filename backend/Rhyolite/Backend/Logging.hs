@@ -105,8 +105,8 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr   RhyoliteLogAppenderStderr
    | RhyoliteLogAppender_File     RhyoliteLogAppenderFile
-   | RhyoliteLogAppender_Filerotate RhyoliteLogAppenderFileRotate
-   -- fastlogger also supports time based rotation, but it's API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
+   | RhyoliteLogAppender_FileRotate RhyoliteLogAppenderFileRotate
+   -- fastlogger also supports time based rotation, but its API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
    | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald
   deriving (Generic, Eq, Ord, Show)
 
@@ -125,9 +125,9 @@ data RhyoliteLogAppenderFile = RhyoliteLogAppenderFile
   } deriving (Generic, Eq, Ord, Show)
 
 data RhyoliteLogAppenderFileRotate = RhyoliteLogAppenderFileRotate
-  { _rhyoliteLogAppenderFilerotate_file :: !FilePath
-  , _rhyoliteLogAppenderFilerotate_filesize :: !Integer
-  , _rhyoliteLogAppenderFilerotate_backups :: !Int
+  { _rhyoliteLogAppenderFileRotate_file :: !FilePath
+  , _rhyoliteLogAppenderFileRotate_filesize :: !Integer
+  , _rhyoliteLogAppenderFileRotate_backups :: !Int
   } deriving (Generic, Eq, Ord, Show)
 
 data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
@@ -184,7 +184,7 @@ instance LogAppender RhyoliteLogAppender where
         fastLoggerHelperThing LogStderr
       RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) ->
         fastLoggerHelperThing $ LogFileNoRotate filename
-      RhyoliteLogAppender_Filerotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
+      RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
         fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
 
