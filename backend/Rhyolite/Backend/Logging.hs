@@ -73,6 +73,8 @@ import Systemd.Journal
 
 import Data.Default
 
+import Data.Semigroup
+
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
 data RhyoliteLogLevel
