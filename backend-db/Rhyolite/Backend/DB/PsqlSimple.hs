@@ -16,9 +16,9 @@ module Rhyolite.Backend.DB.PsqlSimple
   , Binary (..), (:.)(..), PGArray (..)
   , ToRow (..), FromRow (..)
   , ToField (..), FromField (..)
-  , Query (..), sql, traceQuery
+  , Query (..), sql, traceQuery, traceExecute
   , liftWithConn
-  , queryQ, executeQ, sqlQ, traceQueryQ
+  , queryQ, executeQ, sqlQ, traceQueryQ, traceExecuteQ
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
@@ -134,6 +134,12 @@ traceQuery p q = do
   liftIO (BSC.putStrLn s)
   query p q
 
+traceExecute :: (PostgresRaw m, MonadIO m, ToRow q) => Query -> q -> m Int64
+traceExecute p q = do
+  s <- formatQuery p q
+  liftIO (BSC.putStrLn s)
+  execute p q
+
 instance MonadIO m => PostgresRaw (DbPersist Postgresql m) where
   execute psql qs = liftWithConn $ \conn ->
     Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
@@ -206,6 +212,15 @@ traceQueryQ = QuasiQuoter
   , quoteExp  = \s -> appE [| uncurry traceQuery |] (sqlQExp s)
   , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
   }
+
+traceExecuteQ :: QuasiQuoter
+traceExecuteQ = QuasiQuoter
+  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
+  , quoteType = error "traceQueryQ: quasiquoter used in type context"
+  , quoteExp  = \s -> appE [| uncurry traceExecute |] (sqlQExp s)
+  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
+  }
+
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
 -- consisting of the Query string itself and a tuple of variables in corresponding order.
 --
