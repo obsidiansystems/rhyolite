@@ -197,12 +197,6 @@ fastLoggerHelperThing typ = do
 
 instance LogAppender RhyoliteLogAppender where
   getLogContext = \case
-      RhyoliteLogAppender_Stderr _ -> do
-        logSet <- liftIO $ newStderrLoggerSet defaultBufSize
-        return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
-      RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) -> do
-        logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
-        return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
       RhyoliteLogAppender_Stderr _ ->
         fastLoggerHelperThing LogStderr
       RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) ->
