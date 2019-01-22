@@ -115,6 +115,8 @@ data RhyoliteLogAppender
 #ifdef linux_HOST_OS
    | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald -- journalctl log with syslogIdentifier specified.
 #endif
+   | RhyoliteLogAppender_FileRotate RhyoliteLogAppenderFileRotate
+   -- fastlogger also supports time based rotation, but its API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
   deriving (Generic, Eq, Ord, Show)
 
 instance Default RhyoliteLogAppender where
@@ -129,6 +131,12 @@ instance Default RhyoliteLogAppenderStderr where
 
 data RhyoliteLogAppenderFile = RhyoliteLogAppenderFile
   { _rhyoliteLogAppenderFile_file :: !FilePath
+  } deriving (Generic, Eq, Ord, Show)
+
+data RhyoliteLogAppenderFileRotate = RhyoliteLogAppenderFileRotate
+  { _rhyoliteLogAppenderFileRotate_file :: !FilePath
+  , _rhyoliteLogAppenderFileRotate_filesize :: !Integer
+  , _rhyoliteLogAppenderFileRotate_backups :: !Int
   } deriving (Generic, Eq, Ord, Show)
 
 #ifdef linux_HOST_OS
@@ -149,6 +157,7 @@ fmap concat $ traverse (deriveJSON defaultOptions
   , ''RhyoliteLogAppender
   , ''RhyoliteLogAppenderStderr
   , ''RhyoliteLogAppenderFile
+  , ''RhyoliteLogAppenderFileRotate
 #ifdef linux_HOST_OS
   , ''RhyoliteLogAppenderJournald
 #endif
@@ -158,8 +167,8 @@ fmap concat $ traverse (deriveJSON defaultOptions
 runLoggingEnv :: LoggingEnv -> LoggingT m a -> m a
 runLoggingEnv = flip runLoggingT . unLoggingEnv
 
-logToFastLogger :: LoggerSet -> LoggingEnv
-logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> pushLogStrLn ls (toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr)
+logToFastLogger :: TimedFastLogger -> LoggingEnv
+logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> ls (\ft -> toLogStr ft <> toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr <> "\n")
 
 #ifdef linux_HOST_OS
 logger2journald :: LogLevel -> JournalFields
@@ -175,6 +184,15 @@ logger2journald = \case
 class LogAppender a where
   getLogContext :: MonadIO m => a -> m (LoggingContext m)
 
+
+
+fastLoggerHelperThing :: MonadIO m => (BufSize -> LogType) -> m (LoggingContext m)
+fastLoggerHelperThing typ = do
+  -- logSet :: <- liftIO $ newStderrLoggerSet defaultBufSize
+  timer <- liftIO $ newTimeCache simpleTimeFormat'
+  (tfl, cleanup) <- liftIO $ newTimedFastLogger timer $ typ defaultBufSize
+  return $ LoggingContext (liftIO cleanup) (logToFastLogger tfl)
+
 instance LogAppender RhyoliteLogAppender where
   getLogContext = \case
       RhyoliteLogAppender_Stderr _ -> do
@@ -183,6 +201,12 @@ instance LogAppender RhyoliteLogAppender where
       RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) -> do
         logSet <- liftIO $ newFileLoggerSet defaultBufSize filename
         return $ LoggingContext (liftIO (rmLoggerSet logSet)) (logToFastLogger logSet)
+      RhyoliteLogAppender_Stderr _ ->
+        fastLoggerHelperThing LogStderr
+      RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) ->
+        fastLoggerHelperThing $ LogFileNoRotate filename
+      RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
+        fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
 #ifdef linux_HOST_OS
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
 #endif
