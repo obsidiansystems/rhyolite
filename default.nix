@@ -21,7 +21,16 @@ let
       };
     };
 
+    # TODO use `hackGet`, or even better `thunkSet` for all of them.
+    # (Both are from reflex-platform.)
     srcs = {
+      # TODO bump cabal hashes and use Hackage version.
+      aeson-gadt-th = let
+          json = builtins.fromJSON (builtins.readFile ./dep/aeson-gadt-th/github.json);
+        in pkgs.fetchFromGitHub {
+          inherit (json) owner repo rev sha256;
+          private = json.private or false;
+        };
       constraints-extras = pkgs.fetchFromGitHub {
         owner = "obsidiansystems";
         repo = "constraints-extras";
