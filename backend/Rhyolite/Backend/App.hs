@@ -10,7 +10,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Rhyolite.Backend.App where
+module Rhyolite.Backend.App
+  ( module Rhyolite.Backend.App
+  -- re-export
+  , Postgresql
+  ) where
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
@@ -32,13 +36,16 @@ import Data.Semigroup (Semigroup, (<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Debug.Trace (trace)
-import Database.Groundhog.Postgresql (Postgresql)
-import Reflex (FunctorMaybe (..))
+import Database.Groundhog.Postgresql (Postgresql (..))
+import qualified Database.PostgreSQL.Simple as Pg
+import Reflex.FunctorMaybe (FunctorMaybe (..))
 import Reflex.Patch (Group, negateG, (~~))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
+import qualified Network.WebSockets as WS
+import Data.Coerce (coerce)
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
@@ -47,7 +54,7 @@ import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
 import Rhyolite.Request.Class (SomeRequest (..))
 import Rhyolite.Backend.Sign (readSignedWithKey)
-import Rhyolite.WebSocket
+import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
 
 -- | Handle API requests for a given app
 --
@@ -57,7 +64,14 @@ handleAppRequests
   :: (MonadSnap m, HasRequest app)
   => (forall a. AppRequest app a -> IO a)
   -> m ()
-handleAppRequests f = withWebsocketsConnection $ \conn -> forever $ do
+handleAppRequests f = withWebsocketsConnection $ forever . handleAppRequest f
+
+handleAppRequest
+  :: (HasRequest app)
+  => (forall a. AppRequest app a -> IO a)
+  -> WS.Connection
+  -> IO ()
+handleAppRequest f conn = do
   (TaggedRequest reqId (SomeRequest req)) <- getDataMessage conn
   a <- f req
   sendEncodedDataMessage conn $ TaggedResponse reqId (toJSON a)
@@ -181,7 +195,7 @@ multiplexQuery lookupQueryHandler = do
 
   return (lookupRecipient, registerRecipient)
 
--- | Handles a websocket connection
+-- | Like 'handleWebsocketConnection' but customized for 'Snap'.
 handleWebsocket
   :: forall app.
      ( HasView app
@@ -191,7 +205,20 @@ handleWebsocket
   -> RequestHandler app IO -- ^ Handler for API requests
   -> Registrar (ViewSelector app SelectedCount)
   -> Snap ()
-handleWebsocket v rh register = withWebsocketsConnection $ \conn -> do
+handleWebsocket v rh register = withWebsocketsConnection (handleWebsocketConnection v rh register)
+
+-- | Handles a websocket connection given a raw connection.
+handleWebsocketConnection
+  :: forall app.
+    ( HasView app
+    , HasRequest app
+    , Eq (ViewSelector app SelectedCount) )
+  => Text -- ^ Version
+  -> RequestHandler app IO -- ^ Handler for API requests
+  -> Registrar (ViewSelector app SelectedCount)
+  -> WS.Connection
+  -> IO ()
+handleWebsocketConnection v rh register conn = do
   let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (void a) :: WebSocketResponse app)
   sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse app)
   bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> flip evalStateT mempty $ forever $ do
@@ -250,9 +277,21 @@ connectPipelineToWebsockets
   -- ^ A way to retrieve more data for each consumer
   -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, Snap ())
   -- ^ A way to send data to many consumers and a handler for websockets connections
-connectPipelineToWebsockets ver rh qh = do
+connectPipelineToWebsockets = connectPipelineToWebsocketsRaw withWebsocketsConnection
+
+connectPipelineToWebsocketsRaw
+  :: (HasView app, HasRequest app, Eq (ViewSelector app SelectedCount))
+  => ((WS.Connection -> IO ()) -> m a) -- ^ Websocket handler
+  -> Text -- ^ Version
+  -> RequestHandler app IO
+  -- ^ API handler
+  -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
+  -- ^ A way to retrieve more data for each consumer
+  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, m a)
+  -- ^ A way to send data to many consumers and a handler for websockets connections
+connectPipelineToWebsocketsRaw withWsConn ver rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
-  return (allRecipients, handleWebsocket ver rh registerRecipient)
+  return (allRecipients, withWsConn (handleWebsocketConnection ver rh registerRecipient))
 
 -- | Like 'connectPipelineToWebsockets' but returns a Registrar that can
 -- be used to construct a handler for a particular client
@@ -286,12 +325,30 @@ serveDbOverWebsockets
   -> QueryHandler q' IO
   -> Pipeline IO q q'
   -> IO (Snap (), IO ())
-serveDbOverWebsockets db handleApi handleNotify handleQuery pipe = do
+serveDbOverWebsockets = serveDbOverWebsocketsRaw withWebsocketsConnection
+
+serveDbOverWebsocketsRaw
+  :: ( HasRequest app
+     , HasView app
+     , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
+     , Monoid q', Semigroup q' )
+  => ((WS.Connection -> IO ()) -> m a)
+  -> Pool Postgresql
+  -> RequestHandler app IO
+  -> (NotifyMessage -> q' -> IO (QueryResult q'))
+  -> QueryHandler q' IO
+  -> Pipeline IO q q'
+  -> IO (m a, IO ())
+serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe = do
   (getNextNotification, finalizeListener) <- startNotificationListener db
   rec (qh, finalizeFeed) <- feedPipeline (handleNotify <$> getNextNotification) handleQuery r
       (qh', r) <- unPipeline pipe qh r'
-      (r', handleListen) <- connectPipelineToWebsockets "" handleApi qh'
+      (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn "" handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
+
+convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
+convertPostgresPool = coerce
+
 
 -------------------------------------------------------------------------------
 

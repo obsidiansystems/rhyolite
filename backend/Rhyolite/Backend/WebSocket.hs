@@ -1,27 +1,31 @@
 module Rhyolite.Backend.WebSocket where
 
-import Data.Semigroup
-import Control.Exception
+import Data.Semigroup ((<>))
+import Control.Exception (SomeException (..), handle, displayException, throwIO, AssertionFailed (..))
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson
+import Data.Aeson (FromJSON, ToJSON, eitherDecode', encode)
 import qualified Network.WebSockets as WS
 import qualified Network.WebSockets.Connection as WS
 import qualified Network.WebSockets.Stream as WS
-import Network.WebSockets.Snap
+import Network.WebSockets.Snap (runWebSocketsSnap)
 import Snap.Core (MonadSnap)
 
 -- | Accepts a websockets connection and runs the supplied action with it
 withWebsocketsConnection :: MonadSnap m => (WS.Connection -> IO ()) -> m ()
-withWebsocketsConnection f = runWebSocketsSnap $ \pc -> do
+withWebsocketsConnection f = runWebSocketsSnap $ withPendingWebsocketConnection f
+
+withPendingWebsocketConnection :: (WS.Connection -> IO ()) -> WS.PendingConnection -> IO ()
+withPendingWebsocketConnection f pc = do
   conn <- WS.acceptRequest pc
-  handleSomeException $ handleConnectionException pc $ f conn
+  handleSomeException $ handleConnectionException $ f conn
   where
     handleSomeException = handle $ \(SomeException e) -> putStrLn $ "withWebsocketsConnection: " <> displayException e
-    handleConnectionException pc = handle $ \e -> case e of
+    handleConnectionException = handle $ \e -> case e of
       WS.ConnectionClosed -> return ()
       WS.CloseRequest _ _ -> print e >> WS.close (WS.pendingStream pc) >> throwIO e
       _ -> do putStr $ "withWebsocketsConnection: Exception: " <> displayException e
               throwIO e
+
 
 -- | Attempts to json decode a websockets data message
 decodeWebsocketsDataMessage :: FromJSON a => WS.DataMessage -> Either String a
