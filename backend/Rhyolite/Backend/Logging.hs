@@ -114,9 +114,7 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr   RhyoliteLogAppenderStderr
    | RhyoliteLogAppender_File     RhyoliteLogAppenderFile
-#ifdef linux_HOST_OS
    | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald -- journalctl log with syslogIdentifier specified.
-#endif
    | RhyoliteLogAppender_FileRotate RhyoliteLogAppenderFileRotate
    -- fastlogger also supports time based rotation, but its API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
   deriving (Generic, Eq, Ord, Show)
@@ -205,6 +203,8 @@ instance LogAppender RhyoliteLogAppender where
         fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
 #ifdef linux_HOST_OS
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
+#else
+      RhyoliteLogAppender_Journald {} -> error "RhyoliteLogAppender: journald is only supported on linux"
 #endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
