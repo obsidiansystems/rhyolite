@@ -34,21 +34,10 @@ import Rhyolite.Account (AuthToken)
 import Rhyolite.Request.Class (Request)
 import Rhyolite.Sign (Signed)
 
-instance (Ord k, Query v) => Query (MonoidalMap k v) where
-  type QueryResult (MonoidalMap k v) = MonoidalMap k (QueryResult v)
-  crop q r = MonoidalMap.intersectionWith (flip crop) r q
-
 singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
 singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k
                                  , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
                                  }
-
-instance Category QueryMorphism where
-  id = QueryMorphism id id
-  qm . qm' = QueryMorphism
-    { _queryMorphism_mapQuery = mapQuery qm . mapQuery qm'
-    , _queryMorphism_mapQueryResult = mapQueryResult qm' . mapQueryResult qm
-    }
 
 class ( ToJSON (ViewSelector app ()), FromJSON (ViewSelector app ())
       , ToJSON (View app ()), FromJSON (View app ())

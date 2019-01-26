@@ -61,8 +61,12 @@ conArity c = case c of
   GadtC _ ts _ -> length ts
   RecGadtC _ ts _ -> length ts
 
+{-# DEPRECATED deriveGADTInstances "Use deriveJSONGADT instead" #-}
 deriveGADTInstances :: Name -> DecsQ
-deriveGADTInstances n = do
+deriveGADTInstances = deriveJSONGADT
+
+deriveJSONGADT :: Name -> DecsQ
+deriveJSONGADT n = do
   tj <- deriveToJSONGADT n
   fj <- deriveFromJSONGADT n
   eqt <- deriveEqTag n
@@ -159,27 +163,3 @@ conMatchesParseJSON e c = do
     GadtC _ tys _ -> forTypes (map snd tys)
     NormalC _ tys -> forTypes (map snd tys)
     _ -> error "conMatchesParseJSON: Unmatched constructor type"
-
-type ToJSONFactor f g = (Has ToJSON f, ToJSON1 g, ForallF ToJSON f)
-type FromJSONFactor f g = (FromJSON (Some f), GCompare f, Has FromJSON f, FromJSON1 g)
-
-type JSONFactor f = (ToJSONFactor f Identity, FromJSONFactor f Identity)
-
-instance ToJSONFactor f g => ToJSON (DSum f g) where
-  toJSON (f :=> x)
-    | Dict :: Dict (ToJSON a) <- argDict f
-    = toJSON (toJSON f \\ (instF :: ForallF ToJSON f :- ToJSON (f a)), toJSON1 x)
-
-instance FromJSONFactor f g => FromJSON (DSum f g) where
-  parseJSON x = do
-    (tag, val) <- parseJSON x
-    This (parsedTag :: f a) <- parseJSON tag
-    val' <- case argDict parsedTag of
-      (Dict :: Dict (FromJSON a)) -> parseJSON1 val
-    return $ parsedTag :=> val'
-
-instance ToJSONFactor f g => ToJSON (DMap f g) where
-  toJSON = toJSON . DMap.toList
-
-instance FromJSONFactor f g => FromJSON (DMap f g) where
-  parseJSON = fmap DMap.fromList . parseJSON
