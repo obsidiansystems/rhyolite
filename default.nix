@@ -1,66 +1,118 @@
-{ frontend ? false }:
 let
-  obelisk-src = (import <nixpkgs> {}).fetchFromGitHub {
-    owner = "obsidiansystems";
-    repo = "obelisk";
-    rev = "6c38599615eddba1b9f8dfb845f7404f53ed8053";
-    sha256 = "0pqhppn2cb69v7r6wbg2zrx5ylxbgq7bl7qilarfbmyd9gcph9h4";
-  };
-  reflex-platform = (import obelisk-src {}).reflex-platform;
+  lib = { pkgs, ... }: pkgs.lib.makeExtensible (libSelf: {
+    repos = {
+      gargoyle = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "gargoyle";
+        rev = "2c19c569325ad76694526e9b688ccdbf148df980";
+        sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfyl";
+      };
+      groundhog = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "groundhog";
+        rev = "c2f18be45e3233f6268c8468eb0732dd6b2e8009";
+        sha256 = "1r9i78bsnm6idbvp87gjklnr10g7c83nsbnrffkyrn1wmd7zzqdn";
+      };
+      reflex = pkgs.fetchFromGitHub {
+        owner = "reflex-frp";
+        repo = "reflex";
+        rev = "273bc3a019b479cc4c0ec522ca1d79207c339c8a";
+        sha256 = "0j5251g0mqwqap3cls0pbnm1qk2nrsq5d4n59x550wihbiknpjsp";
+      };
+      reflex-dom = pkgs.fetchFromGitHub {
+        owner = "reflex-frp";
+        repo = "reflex-dom";
+        rev = "56aa06e94e5c9c6c2eb19cd988ed8de0d76cae38";
+        sha256 = "0di64r4pl6kbxiayl1wp2vi9rfbzyj6mkyfs6qnm49kx6fm1zp4a";
+      };
+    };
 
-  gargoyle-src = reflex-platform.nixpkgs.fetchFromGitHub {
-    owner = "obsidiansystems";
-    repo = "gargoyle";
-    rev = "2c19c569325ad76694526e9b688ccdbf148df980";
-    sha256 = "0257p0qd8xx900ngghkjbmjnvn7pjv05g0jm5kkrm4p6alrlhfyl";
-  };
-  groundhog-src = reflex-platform.nixpkgs.fetchFromGitHub {
-    owner = "obsidiansystems";
-    repo = "groundhog";
-    rev = "c2f18be45e3233f6268c8468eb0732dd6b2e8009";
-    sha256 = "1r9i78bsnm6idbvp87gjklnr10g7c83nsbnrffkyrn1wmd7zzqdn";
-  };
-in reflex-platform.project ({ pkgs, ... }: {
-  packages = {
-    rhyolite-backend = ./backend;
-    rhyolite-backend-snap = ./backend-snap;
-    rhyolite-common = ./common;
-    rhyolite-frontend = ./frontend;
-    rhyolite-datastructures = ./datastructures;
-    rhyolite-aeson-orphans  = ./aeson-orphans;
+    srcs = {
+      constraints-extras = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "constraints-extras";
+        rev = "abd1bab0738463657fc6303e606015a97b01c8a0";
+        sha256 = "0lpc3cy8a7h62zgqf214g5bf68dg8clwgh1fs8hada5af4ppxf0l";
+      };
 
-    groundhog = groundhog-src + /groundhog;
-    groundhog-postgresql = groundhog-src + /groundhog-postgresql;
-    groundhog-th = groundhog-src + /groundhog-th;
+      gargoyle = libSelf.repos.gargoyle + /gargoyle;
+      gargoyle-postgresql = libSelf.repos.gargoyle + /gargoyle-postgresql;
 
-    obelisk-asset-serve-snap = obelisk-src + /lib/asset/serve-snap;
-    obelisk-snap-extras = obelisk-src + /lib/snap-extras;
-  };
-  overrides = self: super: {
-    gargoyle = self.callCabal2nix "gargoyle" (gargoyle-src + /gargoyle) {};
-    gargoyle-postgresql-nix = pkgs.haskell.lib.addBuildTools
-      (self.callCabal2nix "gargoyle-postgresql-nix" (gargoyle-src + /gargoyle-postgresql-nix) {})
-      [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
-    gargoyle-postgresql = self.callCabal2nix "gargoyle-postgresql" (gargoyle-src + /gargoyle-postgresql) {};
+      groundhog = libSelf.repos.groundhog + /groundhog;
+      groundhog-postgresql = libSelf.repos.groundhog + /groundhog-postgresql;
+      groundhog-th = libSelf.repos.groundhog + /groundhog-th;
 
-    websockets = self.callCabal2nix "websockets" (pkgs.fetchFromGitHub {
-      owner = "obsidiansystems";
-      repo = "websockets";
-      rev = "1493961d12c30c786b568df09d285582bc649fbc";
-      sha256 = "17gf1xpj57gskigczxl7pk6n5iz6lbq3p8395755v1kfl37cdb5a";
-    }) {};
-    # Needed?
-    heist = pkgs.haskell.lib.doJailbreak super.heist; # allow heist to use newer version of aeson
-  };
-  shells = rec {
-    ghc = (if frontend then [] else [
-      "rhyolite-backend"
-      "rhyolite-backend-snap"
-    ]) ++ ghcjs;
-    ghcjs = [
-      "rhyolite-common"
-      "rhyolite-frontend"
-    ];
-  };
-  tools = ghc: [ pkgs.postgresql ];
-})
+      rhyolite-aeson-orphans = ./aeson-orphans;
+      rhyolite-backend = ./backend;
+      rhyolite-backend-db = ./backend-db;
+      rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
+      rhyolite-backend-snap = ./backend-snap;
+      rhyolite-common = ./common;
+      rhyolite-datastructures = ./datastructures;
+      rhyolite-frontend = ./frontend;
+
+      monoidal-containers = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "monoidal-containers";
+        rev = "597c331238f9654541f567232d018c64d3ea147b";
+        sha256 = "16qjpi9nr534fsxvnxzjv2sdg04874g16lf076m63jp92qx09yih";
+      };
+
+      reflex = libSelf.repos.reflex;
+
+      websockets = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "websockets";
+        rev = "1493961d12c30c786b568df09d285582bc649fbc";
+        sha256 = "17gf1xpj57gskigczxl7pk6n5iz6lbq3p8395755v1kfl37cdb5a";
+      };
+    };
+
+    haskellOverrides = pkgs.lib.composeExtensions
+      (self: super: pkgs.lib.mapAttrs (name: path: self.callCabal2nix name path {}) libSelf.srcs)
+      (self: super: {
+        inherit (import libSelf.repos.reflex-dom self pkgs) reflex-dom reflex-dom-core;
+        gargoyle-postgresql-nix = pkgs.haskell.lib.addBuildTools
+          (self.callCabal2nix "gargoyle-postgresql-nix" (libSelf.repos.gargoyle + /gargoyle-postgresql-nix) {})
+          [ pkgs.postgresql ]; # TH use of `staticWhich` for `psql` requires this on the PATH during build time.
+        heist = pkgs.haskell.lib.doJailbreak super.heist;
+        pipes-binary = pkgs.haskell.lib.doJailbreak super.pipes-binary;
+      });
+  });
+
+  proj = { pkgs ? import <nixpkgs> {} }:
+    let
+      obeliskImpl = pkgs.fetchFromGitHub {
+        owner = "obsidiansystems";
+        repo = "obelisk";
+        rev = "da0bf59df1ca0cd68b574c3c813c1ac32f96267d";
+        sha256 = "10mlz3y9qwlb1lcvf2fvvmr6wayx81ml4qsky706rp7nd46ianqd";
+      };
+      reflex-platform = (import obeliskImpl {}).reflex-platform;
+    in reflex-platform.project ({ pkgs, ... }@args: {
+      packages = {
+        # In an obelisk project, these will be added by `obelisk.project`.
+        # Since this is not *actually* an obelisk project, we need to supply these manually.
+        obelisk-asset-serve-snap = obeliskImpl + /lib/asset/serve-snap;
+        obelisk-snap-extras = obeliskImpl + /lib/snap-extras;
+      };
+      overrides = (lib args).haskellOverrides;
+      shells = rec {
+        ghc = [
+          "rhyolite-backend"
+          "rhyolite-backend-db"
+          "rhyolite-backend-db-gargoyle"
+          "rhyolite-backend-snap"
+        ] ++ ghcjs;
+        ghcjs = [
+          "rhyolite-aeson-orphans"
+          "rhyolite-common"
+          "rhyolite-datastructures"
+          "rhyolite-frontend"
+        ];
+      };
+      tools = ghc: [ pkgs.postgresql ];
+    });
+in {
+  inherit proj lib;
+}

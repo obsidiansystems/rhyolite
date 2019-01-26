@@ -62,15 +62,15 @@ library
     , websockets-snap
 
   exposed-modules:
-      Rhyolite.Backend.App
-    , Rhyolite.Backend.Account
-    , Rhyolite.Backend.Email
-    , Rhyolite.Backend.EmailWorker
-    , Rhyolite.Backend.Listen
-    , Rhyolite.Backend.Logging
-    , Rhyolite.Backend.Sign
-    , Rhyolite.Backend.TH
-    , Rhyolite.Backend.WebSocket
+    Rhyolite.Backend.Account
+    Rhyolite.Backend.App
+    Rhyolite.Backend.Email
+    Rhyolite.Backend.EmailWorker
+    Rhyolite.Backend.Listen
+    Rhyolite.Backend.Logging
+    Rhyolite.Backend.Sign
+    Rhyolite.Backend.TH
+    Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

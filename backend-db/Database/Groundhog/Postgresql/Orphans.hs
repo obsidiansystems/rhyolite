@@ -1,10 +1,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Database.Groundhog.Postgresql.Orphans where
 
-import Data.Text (Text)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Text (Text)
 import Database.Groundhog.Postgresql.Array
 
 deriving instance Ord (Array BS.ByteString)

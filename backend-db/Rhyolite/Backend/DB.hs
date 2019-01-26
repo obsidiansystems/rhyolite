@@ -16,58 +16,27 @@
 module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
-import Control.Monad (liftM, void)
+import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as C8
 import Data.Functor.Identity (Identity (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Map.Monoidal (MonoidalMap, pattern MonoidalMap)
 import Data.Maybe (listToMaybe)
-import Data.Pool (Pool, createPool, withResource)
+import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, runDbConn)
-import Database.PostgreSQL.Simple (close, connectPostgreSQL)
-import Gargoyle
-import Gargoyle.PostgreSQL.Nix (postgresNix)
-import System.Directory (doesFileExist)
+import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn)
 
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.Class
 import Rhyolite.Schema
-
--- | Connects to a database using information at the given filepath
--- The given filepath can be either a folder (for a local db)
--- or a file with a database url
---
--- withDb takes a String, which represents the path to a database, and a
--- function that returns database connection information as arguements in
--- order to open and start the database. Otherwise, it will create the
--- database for you if it doesn't exist.
-withDb :: String -> (Pool Postgresql -> IO a) -> IO a
-withDb dbPath a = do
-  dbExists <- doesFileExist dbPath
-  if dbExists
-    -- use the file contents as the uri for an existing server
-    then C8.readFile dbPath >>= openDb . head . C8.lines >>= a
-    -- otherwise assume its a folder for a local database
-    else do
-      g <- postgresNix
-      withGargoyle g dbPath $ \dbUri -> a =<< openDb dbUri
-
-openDb :: ByteString -> IO (Pool Postgresql)
-openDb dbUri = do
-  let openPostgresql = liftM Postgresql $ connectPostgreSQL dbUri
-      closePostgresql (Postgresql p) = close p
-  createPool openPostgresql closePostgresql 1 5 20
 
 -- | Runs a database action using a given pool of database connections
 -- The 'f' parameter can be used to represent additional information about
@@ -155,7 +124,7 @@ selectMap
   => t -- ^ Constructor
   -> a -- ^ Select options
   -> m (Map (Id v) v)
-selectMap constr = liftM (Map.fromList . map (first toId)) . project (AutoKeyField, constr)
+selectMap constr = fmap (Map.fromList . map (first toId)) . project (AutoKeyField, constr)
 
 selectMap'
   :: forall a (m :: * -> *) v (c :: (* -> *) -> *) t.

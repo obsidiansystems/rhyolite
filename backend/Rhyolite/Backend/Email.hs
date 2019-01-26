@@ -23,22 +23,22 @@ import Data.Foldable
 import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid
 import Data.String (fromString)
-import Data.Word
 import Data.Text (Text)
 import Data.Text.Encoding
+import Data.Word
 import GHC.Generics (Generic)
 import Network.HaskellNet.Auth
 import Network.HaskellNet.SMTP.SSL hiding (sendMail)
-import Network.Mail.Mime (Address(..), Mail (..), htmlPart)
+import Network.Mail.Mime (Address (..), Mail (..), htmlPart)
 import Network.Mail.SMTP (simpleMail)
-import Network.Socket (PortNumber, HostName)
+import Network.Socket (HostName, PortNumber)
 import Text.Blaze.Html.Renderer.Text
 import Text.Blaze.Html5 (Html, (!))
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Rhyolite.Backend.TH
+import Rhyolite.Backend.DB.TH (deriveNewtypePersistBackend)
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Sign

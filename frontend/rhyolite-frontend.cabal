@@ -10,7 +10,7 @@ cabal-version: >=1.2
 
 library
   hs-source-dirs: .
-  
+
   if impl(ghcjs)
     build-depends:
       ghcjs-base
@@ -42,9 +42,8 @@ library
     , primitive
     , raw-strings-qq
     , ref-tf
-    , reflex-aeson-orphans
-    , reflex-dom-core
     , reflex
+    , reflex-dom-core
     , rhyolite-common
     , safe
     , semigroups
@@ -54,14 +53,14 @@ library
     , time
     , timezone-olson
     , timezone-series
-    , transformers-base
     , transformers
+    , transformers-base
     , vector
 
   exposed-modules:
-      Rhyolite.Frontend.App
-    , Rhyolite.Frontend.Cookie
-    , Rhyolite.Frontend.WebSocket
-    , Rhyolite.Frontend.Request
+    Rhyolite.Frontend.App
+    Rhyolite.Frontend.Cookie
+    Rhyolite.Frontend.Request
+    Rhyolite.Frontend.WebSocket
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts -fexpose-all-unfoldings

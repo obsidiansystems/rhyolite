@@ -20,11 +20,11 @@ library
     , constraints
     , containers
     , data-default
-    , dependent-sum
     , dependent-map
-    , http-types
-    , filepath
+    , dependent-sum
     , file-embed
+    , filepath
+    , http-types
     , mime-mail
     , monad-control
     , monoidal-containers
@@ -34,8 +34,8 @@ library
     , resource-pool
     , template-haskell
     , text
-    , time
     , these
+    , time
     , transformers
     , transformers-base
     , vector

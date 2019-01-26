@@ -12,14 +12,14 @@ Cabal-version: >=1.2
 library
   hs-source-dirs: src
 
-  build-depends: base
-               , aeson
-               , bytestring
-               , base64-bytestring
-               , containers
-               , reflex
-               , reflex-aeson-orphans
-               , text
+  build-depends:
+      aeson
+    , base
+    , base64-bytestring
+    , bytestring
+    , containers
+    , reflex
+    , text
 
   exposed-modules: Rhyolite.Aeson.Orphans
 
