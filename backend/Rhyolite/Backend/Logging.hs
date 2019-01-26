@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -41,7 +42,9 @@ module Rhyolite.Backend.Logging
   , RhyoliteLogLevel(..)
   , RhyoliteLogAppenderStderr (..)
   , RhyoliteLogAppenderFile (..)
+#ifdef linux_HOST_OS
   , RhyoliteLogAppenderJournald (..)
+#endif
   , example
   ) where
 
@@ -63,8 +66,14 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Trie.BigEndianPatricia.Base as Trie
 import GHC.Generics
 import System.Log.FastLogger
+
+#ifdef linux_HOST_OS
 import Systemd.Journal
+#endif
+
 import Data.Default
+
+import Data.Semigroup
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
@@ -105,9 +114,11 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr   RhyoliteLogAppenderStderr
    | RhyoliteLogAppender_File     RhyoliteLogAppenderFile
+#ifdef linux_HOST_OS
+   | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald -- journalctl log with syslogIdentifier specified.
+#endif
    | RhyoliteLogAppender_FileRotate RhyoliteLogAppenderFileRotate
    -- fastlogger also supports time based rotation, but its API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
-   | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald
   deriving (Generic, Eq, Ord, Show)
 
 instance Default RhyoliteLogAppender where
@@ -130,9 +141,11 @@ data RhyoliteLogAppenderFileRotate = RhyoliteLogAppenderFileRotate
   , _rhyoliteLogAppenderFileRotate_backups :: !Int
   } deriving (Generic, Eq, Ord, Show)
 
+#ifdef linux_HOST_OS
 data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
   { _rhyoliteLogAppenderJournald_syslogIdentifier :: T.Text -- journalctl log with syslogIdentifier specified.
   } deriving (Generic, Eq, Ord, Show)
+#endif
 
 -- derive a little differently from `Rhyolite.Request.makeJson` so that more
 -- things end up as records, so that new fields don't break old configs
@@ -147,7 +160,9 @@ fmap concat $ traverse (deriveJSON defaultOptions
   , ''RhyoliteLogAppenderStderr
   , ''RhyoliteLogAppenderFile
   , ''RhyoliteLogAppenderFileRotate
+#ifdef linux_HOST_OS
   , ''RhyoliteLogAppenderJournald
+#endif
   , ''LoggingConfig
   ]
 
@@ -157,6 +172,7 @@ runLoggingEnv = flip runLoggingT . unLoggingEnv
 logToFastLogger :: TimedFastLogger -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> ls (\ft -> toLogStr ft <> toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr <> "\n")
 
+#ifdef linux_HOST_OS
 logger2journald :: LogLevel -> JournalFields
 logger2journald = \case
   LevelWarn -> priority Warning
@@ -165,6 +181,7 @@ logger2journald = \case
   LevelError -> priority Error
   LevelOther level -> priority Error  -- Error because that makes this logger2journald monotone
     <> mkJournalField' "PRIORITY_OTHER" level
+#endif
 
 class LogAppender a where
   getLogContext :: MonadIO m => a -> m (LoggingContext m)
@@ -186,14 +203,16 @@ instance LogAppender RhyoliteLogAppender where
         fastLoggerHelperThing $ LogFileNoRotate filename
       RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
         fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
+#ifdef linux_HOST_OS
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
-
+#endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
 configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
   return $ LoggingContext cleaner $ filterLog (fmap toLogLevel $ maybe M.empty id fs) logger
 
+#ifdef linux_HOST_OS
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
 
@@ -211,6 +230,7 @@ logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr -> sendMe
   , loc2jf loc
   , mkJournalField' "logsource" logSource
   ]
+#endif
 
 -- | match the LogSource on prefixes in m.  if found, log only the messages at equal or higher than the
 --   matched level.  if not found, log only LevelWarn or higher.   You can override the default with a zero length prefix, ie `"" := LevelDebug`
@@ -242,7 +262,9 @@ example f = do
     [ LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) Nothing
     , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
     , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
+#ifdef linux_HOST_OS
     , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
+#endif
     ]
   withLogging @ RhyoliteLogAppender [def] $ do
     $(logError) "Err"

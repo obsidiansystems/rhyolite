@@ -1,3 +1,67 @@
+# Using Rhyolite with an Obelisk project
+
+1. Within an already initialized Obelisk project, clone Rhyolite into
+   the dep directory, if you haven’t already:
+
+```bash
+git clone https://github.com/obsidiansystems/rhyolite dep/rhyolite
+```
+
+1. Add Rhyolite’s haskellOverrides to default.nix so that your package
+   can access them. This involves adding overrides to the arguments
+   passed to Obelisk’s project function so that it imports Rhyolite’s
+   haskellOverrides. You can base it off of this example:
+
+```
+{ system ? builtins.currentSystem # TODO: Get rid of this system cruft
+, iosSdkVersion ? "10.2"
+}:
+with import ./.obelisk/impl { inherit system iosSdkVersion; };
+project ./. ({ pkgs, hackGet, ... }: {
+
+  overrides = pkgs.lib.composeExtensions (pkgs.callPackage (hackGet ./dep/rhyolite) {}).haskellOverrides
+    (self: super: with pkgs.haskell.lib; {
+      # Your custom overrides go here.
+    });
+
+  android.applicationId = "systems.obsidian.obelisk.examples.minimal";
+  android.displayName = "Obelisk Minimal Example";
+  ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
+  ios.bundleName = "Obelisk Minimal Example";
+})
+```
+
+1. You can now add any of Rhyolite’s packages as dependencies to your
+   Obelisk project. Here is the full list of packages provided:
+
+   - rhyolite-aeson-orphans
+   - rhyolite-backend
+   - rhyolite-backend-db
+   - rhyolite-backend-db-gargoyle
+   - rhyolite-backend-snap
+   - rhyolite-common
+   - rhyolite-datastructures
+   - rhyolite-frontend
+
+## Alternative method
+
+You can also let Rhyolite manage Obelisk directly. This is easier to
+setup but also means that you are stuck with the Obelisk version used
+by Rhyolite.
+
+To do this, simply overwrite the ```.obelisk/impl/github.json``` file
+with this Rhyolite thunk:
+
+```
+{
+  "owner": "obsidiansystems",
+  "repo": "rhyolite",
+  "branch": "master",
+  "rev": "06b9851a101408a86a4ec0b7df5b2f71bc532ab0",
+  "sha256": "18adbc1nnj94qhggpcxmpd5i1rz0zx93cpphl09mw4c7s65rzah7"
+}
+```
+
 # Hacking
 
 
@@ -11,42 +75,5 @@ nix-shell -A proj.shells.ghc --run 'cabal new-repl lib:rhyolite-backend'
 ## On frontend
 
 ```bash
-cd frontend
-nix-shell .. -A proj.shells.ghc --run 'cabal new-repl'
-```
-# Using Rhyolite with Obelisk
-
-Within an already initialized Obelisk project, add to the project's `default.nix`:
- 1. Fetch rhyolite from GitHub
- 1. Compose Rhyolite's overrides with yours.
-
-Example:
-```
-{ system ? builtins.currentSystem
-, iosSdkVersion ? "10.2"
-}@args:
-let
-  obelisk = import .obelisk/impl args;
-in
-obelisk.project ./. ({ pkgs, ... }:
-  let
-    rhyolite-src = pkgs.fetchFromGitHub {
-      owner = "obsidiansystems";
-      repo = "rhyolite";
-      rev = "c8456661a6d6fa30efbef7c50394353c13c65e53";
-      sha256 = "0s8wmkq2ivr2wj6srp4qx4388ffrqfhhgxyfw42im8vfjyfp83ld";
-    };
-  in {
-    packages = {
-      # your packages...
-    };
-    overrides = pkgs.lib.composeExtensions ((import rhyolite-src).lib args).haskellOverrides (self: super: {
-      # your overrides
-      # Rhyolites overrides will appear in `super`.
-    });
-    android.applicationId = "systems.obsidian.obelisk.examples.minimal";
-    android.displayName = "Obelisk Minimal Example";
-    ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
-    ios.bundleName = "Obelisk Minimal Example";
-  }
+nix-shell -A proj.shells.ghc --run 'cabal new-repl lib:rhyolite-frontend'
 ```
