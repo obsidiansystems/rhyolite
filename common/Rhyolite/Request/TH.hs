@@ -29,10 +29,14 @@ makeJson n = do
   [d|
     instance ToJSON $(foldl appT (conT n) $ map varT typeNames)   where
       toJSON r = $(caseE [|r|] $ map (conToJson modifyConName) cons)
+    instance ToJSONKey $(foldl appT (conT n) $ map varT typeNames)   where
+      toJSONKey = ToJSONKeyValue toJSON toEncoding
     instance FromJSON $(foldl appT (conT n) $ map varT typeNames) where
       parseJSON v = do
         (tag', v') <- parseJSON v
         $(caseE [|tag' :: String|] $ map (conParseJson modifyConName id [|v'|]) cons ++ [wild])
+    instance FromJSONKey $(foldl appT (conT n) $ map varT typeNames) where
+      fromJSONKey = FromJSONKeyValue parseJSON
     |]
 
 makeRequestForDataInstance :: Name -> Name -> DecsQ

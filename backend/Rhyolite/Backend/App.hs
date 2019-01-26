@@ -27,7 +27,7 @@ import Control.Monad.State.Strict (evalStateT, get, put)
 import Control.Monad.Trans (lift)
 import Data.Aeson (FromJSON, toJSON)
 import Data.Map.Monoidal (MonoidalMap)
-import qualified Rhyolite.Map.Monoidal as Map
+import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.MonoidMap (MonoidMap (..), monoidMap)

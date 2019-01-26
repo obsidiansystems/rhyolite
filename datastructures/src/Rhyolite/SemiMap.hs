@@ -12,14 +12,15 @@ module Rhyolite.SemiMap where
 import Data.Aeson
 import Data.Coerce
 import Data.Either
+import Data.Map.Monoidal as Map
 import Data.Maybe
 import Data.Monoid hiding (First (..), (<>))
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
-import GHC.Generics
+import GHC.Generics (Generic)
+
 import Rhyolite.Aeson.Orphans ()
-import Rhyolite.Map.Monoidal as Map
 
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
@@ -50,8 +51,10 @@ knownSubMap = \case
 deriving instance Foldable f => Foldable (Alt f)
 
 instance (Ord k) => Monoid (SemiMap k v) where
-  mempty = SemiMap_Partial Map.empty
-  mappend new old = case new of
+  mempty = SemiMap_Partial mempty
+
+instance (Ord k) => Semigroup (SemiMap k v) where
+  new <> old = case new of
     SemiMap_Complete _ -> new
     SemiMap_Partial p -> case old of
       SemiMap_Partial oldp -> SemiMap_Partial $ p <> oldp
@@ -64,16 +67,12 @@ instance (Ord k) => Monoid (SemiMap k v) where
                   Nothing -> Left ()
                   Just r -> Right r
         mapPartitionEithers :: MonoidalMap k (Either a b) -> (MonoidalMap k a, MonoidalMap k b)
-        mapPartitionEithers m = (fromLeft <$> ls, fromRight <$> rs)
+        mapPartitionEithers m = (unsafeFromLeft <$> ls, unsafeFromRight <$> rs)
           where (ls, rs) = Map.partition isLeft m
-                fromLeft (Left l) = l
-                fromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
-                fromRight (Right r) = r
-                fromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
-
-
-instance (Ord k) => Semigroup (SemiMap k v) where
-  (<>) = mappend
+                unsafeFromLeft (Left l) = l
+                unsafeFromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
+                unsafeFromRight (Right r) = r
+                unsafeFromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
@@ -88,3 +87,14 @@ fromKnownAbsent = SemiMap_Partial . Map.fromSet (\_ -> First Nothing)
 
 fromKnownComplete :: Set k -> SemiMap k ()
 fromKnownComplete = SemiMap_Complete . Map.fromSet (\_ -> ())
+
+-- | A SemiMap that knows whether a particular item is present, but doesn't know
+-- anything about the presence or absence of other items.
+singleKnownPresence
+  :: a -- ^ The item
+  -> Bool -- ^ Whether it is present
+  -> SemiSet a
+singleKnownPresence a b = f $ Set.singleton a
+  where f = case b of
+          False -> fromKnownAbsent
+          True -> fromKnown

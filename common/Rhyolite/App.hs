@@ -12,10 +12,6 @@
 
 module Rhyolite.App where
 
---import qualified Data.Map.Monoidal as MonoidalMap
-
-import Control.Category (Category)
-import qualified Control.Category as Cat
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Align (Align)
 import qualified Data.AppendMap as MonoidalMap
@@ -26,9 +22,8 @@ import qualified Data.Semigroup as Semigroup
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Reflex.FunctorMaybe (FunctorMaybe, fmapMaybe)
-import Reflex.Patch (Additive, Group)
-import Reflex.Query.Base (mapQuery, mapQueryResult)
-import Reflex.Query.Class (Query, QueryMorphism (..), QueryResult, SelectedCount, crop)
+import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount, crop)
+import Reflex.Patch (Group, Additive)
 
 import Rhyolite.Account (AuthToken)
 import Rhyolite.Request.Class (Request)

@@ -25,7 +25,6 @@ library
     , these
 
   exposed-modules:
-    Rhyolite.Map.Monoidal
     Rhyolite.SemiMap
 
   other-extensions: TemplateHaskell

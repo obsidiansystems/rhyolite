@@ -13,6 +13,7 @@ library
 
   build-depends:
       aeson
+    , aeson-gadt-th
     , async
     , attoparsec
     , base
@@ -41,7 +42,6 @@ library
     , vector
 
   exposed-modules:
-    Data.Aeson.GADT
     Data.MonoidMap
     Rhyolite.Account
     Rhyolite.Api
@@ -58,7 +58,10 @@ library
     Rhyolite.TH
     Rhyolite.WebSocket
 
-  if !os(ios) && !arch(aarch64) && !arch(arm)
+  reexported-modules:
+    aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT
+
+  if !os(ios) && !arch(aarch64) && !arch(arm) && !impl(ghcjs)
     build-depends: monad-logger
     other-extensions: TemplateHaskell
     cpp-options: -DUSE_TEMPLATE_HASKELL

@@ -10,13 +10,13 @@ module Rhyolite.Sign where
 
 import Data.Text (Text)
 import Data.Typeable (Typeable)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON, ToJSON, FromJSONKey, ToJSONKey)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
 import Control.Monad.Trans (lift)
 import qualified Control.Monad.State.Strict as Strict
 
-newtype Signed a = Signed { unSigned :: Text } deriving (Show, Read, Eq, Ord, ToJSON, FromJSON)
+newtype Signed a = Signed { unSigned :: Text } deriving (Show, Read, Eq, Ord, ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 
 class Monad m => MonadSign m where
   sign :: (Typeable a, ToJSON a) => a -> m (Signed a) -- We need the Typeable here because otherwise two Signeds whose contents encode the same way will be interchangeable

@@ -38,10 +38,12 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
+import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI)
 import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request, webSocket)
 import Reflex.Host.Class
+import Reflex.Time (throttleBatchWithLag)
 
 import Rhyolite.Api
 import Rhyolite.App
@@ -145,8 +147,21 @@ instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWid
   newEventWithTrigger = RhyoliteWidget . newEventWithTrigger
   newFanEventWithTrigger a = RhyoliteWidget . lift $ newFanEventWithTrigger a
 
-instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
-  prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
+instance (Monad m, Routed t r m) => Routed t r (RhyoliteWidget app t m) where
+  askRoute = lift askRoute
+
+instance (Monad m, SetRoute t r m) => SetRoute t r (RhyoliteWidget app t m) where
+  modifyRoute = lift . modifyRoute
+
+instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) where
+  askRouteToUrl = lift askRouteToUrl
+
+-- instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
+--   prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
+
+instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
+  type PrimState (RhyoliteWidget app t m) = PrimState m
+  primitive = lift . primitive
 
 -- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
 type MonadRhyoliteFrontendWidget app t m =
@@ -235,6 +250,7 @@ runPrerenderedRhyoliteWidget
       , PostBuild t m, MonadHold t m
       , MonadFix m
       , Prerender x m
+      , MonadIO (Performable m)
       )
    => Either WebSocketUrl Text
    -> RhyoliteWidget app t m b
@@ -264,6 +280,7 @@ runRhyoliteWidget
       , TriggerEvent t m
       , PostBuild t m, MonadHold t m, MonadJSM (Performable m), MonadJSM m
       , MonadFix m
+      , MonadIO (Performable m)
       )
    => Either WebSocketUrl Text
    -> RhyoliteWidget app t m b
@@ -281,12 +298,15 @@ runRhyoliteWidget murl child = do
       view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
   return (appWebSocket, a)
 
-fromNotifications :: forall m t vs. (Query vs, MonadHold t m, Reflex t, MonadFix m, Monoid (QueryResult vs))
+fromNotifications :: forall m (t :: *) vs. (Query vs, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult vs))
                   => Dynamic t vs
                   -> Event t (QueryResult vs)
                   -> m (Dynamic t (QueryResult vs))
-fromNotifications vs ePatch =
-  foldDyn (\(vs', p) v -> cropView vs' $ p <> v) mempty $ attach (current vs) ePatch
+fromNotifications vs ePatch = do
+  ePatchThrottled <- throttleBatchWithLag lag ePatch
+  foldDyn (\(vs', p) v -> cropView vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
+  where
+    lag e = performEventAsync $ ffor e $ \a cb -> liftIO $ cb a
 
 data Decoder f = forall a. FromJSON a => Decoder (f a)
 
