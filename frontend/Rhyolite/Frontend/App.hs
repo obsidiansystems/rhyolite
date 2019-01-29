@@ -28,6 +28,7 @@ import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
 import Data.Aeson.Types
+import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint (Dict (..))
@@ -240,7 +241,7 @@ type MonadWidget' t m =
   )
 
 runPrerenderedRhyoliteWidget
-   :: forall app m t b x.
+   :: forall app m t b.
       ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
       , HasView app
       , HasRequest app
@@ -249,14 +250,15 @@ runPrerenderedRhyoliteWidget
       , TriggerEvent t m
       , PostBuild t m, MonadHold t m
       , MonadFix m
-      , Prerender x m
+      , HasJS t (Client m)
+      , Prerender t m
       , MonadIO (Performable m)
       )
    => Either WebSocketUrl Text
    -> RhyoliteWidget app t m b
    -> m b
 runPrerenderedRhyoliteWidget murl child = do
-  rec (notification :: Event t (View app ()), response) <- prerender (return (never, never)) $ do
+  rec (notification :: Event t (View app ()), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $ prerender (return (never, never)) $ do
         appWebSocket :: AppWebSocket t app <- openWebSocket' murl request'' $ fmap (\_ -> ()) <$> nubbedVs
         return ( _appWebSocket_notification appWebSocket
                , _appWebSocket_response appWebSocket
