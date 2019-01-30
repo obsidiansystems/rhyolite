@@ -25,7 +25,6 @@ import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
 import Data.ByteString (ByteString)
-import Data.Default
 import Data.List.NonEmpty
 import Data.Maybe
 import Data.String
@@ -209,22 +208,25 @@ generateAndSendPasswordResetEmailUpdateNonce f g aid = do
   nonce <- generateAndSendPasswordResetEmail f g aid
   void $ update [Account_passwordResetNonceField =. nonce] $ AutoKeyField ==. fromId aid
 
-newAccountEmail :: (MonadRoute r m, Default r)
-                => Text
+newAccountEmail :: (MonadRoute r m)
+                => r
+                -> Text
                 -> Text
                 -> (AccountRoute f -> r)
                 -> Signed (PasswordResetToken f)
                 -> m Html
-newAccountEmail productName productDescription f token = do
+newAccountEmail defRoute productName productDescription f token = do
   passwordResetLink <- routeToUrl $ f $ AccountRoute_PasswordReset token
-  emailTemplate productName
+  emailTemplate defRoute
+                productName
                 Nothing
                 (H.text $ "Welcome to " <> productName)
                 (H.a H.! A.href (fromString $ show passwordResetLink) $ H.text "Click here to verify your email")
                 (H.p $ H.text productDescription)
 
-sendNewAccountEmail :: (MonadRoute r m, Default r, MonadEmail m)
-                    => Text
+sendNewAccountEmail :: (MonadRoute r m, MonadEmail m)
+                    => r
+                    -> Text
                     -> Text
                     -> Text
                     -> Text
@@ -232,20 +234,21 @@ sendNewAccountEmail :: (MonadRoute r m, Default r, MonadEmail m)
                     -> Signed (PasswordResetToken f)
                     -> Email
                     -> m ()
-sendNewAccountEmail senderName senderEmail productName productDescription f prt email = do
-  body <- newAccountEmail productName productDescription f prt
+sendNewAccountEmail defRoute senderName senderEmail productName productDescription f prt email = do
+  body <- newAccountEmail defRoute productName productDescription f prt
   sendEmailFrom senderName senderEmail (email :| []) (productName <> " Verification Email") body
 
-sendPasswordResetEmail :: (MonadEmail m, MonadRoute r m, Default r)
-                       => Text
+sendPasswordResetEmail :: (MonadEmail m, MonadRoute r m)
+                       => r
+                       -> Text
                        -> Text
                        -> Text
                        -> (AccountRoute f -> r)
                        -> Signed (PasswordResetToken f)
                        -> Email
                        -> m ()
-sendPasswordResetEmail senderName senderEmail productName f prt email = do
+sendPasswordResetEmail defRoute senderName senderEmail productName f prt email = do
   passwordResetLink <- routeToUrl $ f $ AccountRoute_PasswordReset prt
   let lead = "You have received this message because you requested that your " <> productName <> " password be reset. Click the link below to create a new password."
       body = H.a H.! A.href (fromString $ show passwordResetLink) $ "Reset Password"
-  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body
+  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate defRoute productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body

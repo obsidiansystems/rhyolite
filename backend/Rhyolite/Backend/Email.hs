@@ -18,7 +18,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson
-import Data.Default
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid
@@ -108,9 +107,9 @@ sendEmailFrom name' email recipients sub body =
 
 deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailEnv $m |]) 'EmailT 'unEmailT
 
-emailTemplate :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> Html -> m Html
-emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml = do
-  indexLink <- routeToUrl def
+emailTemplate :: (MonadRoute r m) => r -> Text -> Maybe Html -> Html -> Html -> Html -> m Html
+emailTemplate defRoute productName mStyleHtml titleHtml leadHtml contentHtml = do
+  indexLink <- routeToUrl defRoute
   return $ H.docTypeHtml $ do
     H.head $ do
       H.style $ case mStyleHtml of
