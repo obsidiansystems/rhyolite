@@ -63,7 +63,5 @@ library
 
   if !os(ios) && !arch(aarch64) && !arch(arm) && !impl(ghcjs)
     build-depends: monad-logger
-    other-extensions: TemplateHaskell
-    cpp-options: -DUSE_TEMPLATE_HASKELL
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
