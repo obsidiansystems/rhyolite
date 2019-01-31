@@ -156,8 +156,8 @@ instance (Monad m, SetRoute t r m) => SetRoute t r (RhyoliteWidget app t m) wher
 instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) where
   askRouteToUrl = lift askRouteToUrl
 
--- instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
---   prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
+instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
+  prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
 
 instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
   type PrimState (RhyoliteWidget app t m) = PrimState m
