@@ -55,8 +55,8 @@ let
     aeson-gadt-th = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "aeson-gadt-th";
-      rev = "ed573c2cccf54d72aa6279026752a3fecf9c1383";
-      sha256 = "08q6rnz7w9pn76jkrafig6f50yd0f77z48rk2z5iyyl2jbhcbhx3";
+      rev = "5aabb547893b8a1140ddad4fba5a266db1d08fbe";
+      sha256 = "0sywn3w7ph7b7r0byjz7c9cy41hb8p3ym8qljg1bd99d92hj3sig";
     };
   };
 
