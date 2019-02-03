@@ -11,6 +11,8 @@ module Rhyolite.Route where
 
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Base
 #if defined(VERSION_monad_logger)
 import Control.Monad.Logger
@@ -81,6 +83,12 @@ routeToQuery r = if r == def
   else T.unpack . decodeUtf8 $ renderQuery True [("x", Just $ LBS.toStrict $ encode r)]
 
 instance MonadRoute r m => MonadRoute r (ReaderT a m) where
+  routeToUrl r = lift $ routeToUrl r
+
+instance MonadRoute r m => MonadRoute r (MaybeT m) where
+  routeToUrl r = lift $ routeToUrl r
+
+instance MonadRoute r m => MonadRoute r (ExceptT a m) where
   routeToUrl r = lift $ routeToUrl r
 
 newtype SubRouteT r r' m a = SubRouteT (ReaderT (r' -> r) m a) deriving (Functor, Applicative, Monad, MonadIO)
