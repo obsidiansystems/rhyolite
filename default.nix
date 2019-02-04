@@ -47,8 +47,8 @@ let
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "constraints-extras";
-      rev = "4ef826429ddcf0e110fdee06c9683642d88feb6b";
-      sha256 = "11dsvf9vdaj12jdjg1na17b1347vaph2qyywiv8rq4r19rad5h88";
+      rev = "841fafd55ae16e6c367ce0f87fc077b173a25667";
+      sha256 = "18hx7nfqfl945pkr8m2mflndszd1f1wgrwb8mpjz8yx5pqhyy41f";
     };
 
     # Newly added to hackage 
