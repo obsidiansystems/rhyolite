@@ -1,4 +1,5 @@
-{ obelisk ? import ./.obelisk/impl {}
+{ system ? builtins.currentSystem
+, obelisk ? import ./.obelisk/impl { inherit system; }
 , pkgs ? obelisk.nixpkgs, ... } @ args:
 
 let
