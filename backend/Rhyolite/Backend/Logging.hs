@@ -42,9 +42,7 @@ module Rhyolite.Backend.Logging
   , RhyoliteLogLevel(..)
   , RhyoliteLogAppenderStderr (..)
   , RhyoliteLogAppenderFile (..)
-#ifdef linux_HOST_OS
   , RhyoliteLogAppenderJournald (..)
-#endif
   , example
   ) where
 
@@ -139,11 +137,9 @@ data RhyoliteLogAppenderFileRotate = RhyoliteLogAppenderFileRotate
   , _rhyoliteLogAppenderFileRotate_backups :: !Int
   } deriving (Generic, Eq, Ord, Show)
 
-#ifdef linux_HOST_OS
 data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
   { _rhyoliteLogAppenderJournald_syslogIdentifier :: T.Text -- journalctl log with syslogIdentifier specified.
   } deriving (Generic, Eq, Ord, Show)
-#endif
 
 -- derive a little differently from `Rhyolite.Request.makeJson` so that more
 -- things end up as records, so that new fields don't break old configs
@@ -158,9 +154,7 @@ fmap concat $ traverse (deriveJSON defaultOptions
   , ''RhyoliteLogAppenderStderr
   , ''RhyoliteLogAppenderFile
   , ''RhyoliteLogAppenderFileRotate
-#ifdef linux_HOST_OS
   , ''RhyoliteLogAppenderJournald
-#endif
   , ''LoggingConfig
   ]
 
@@ -262,9 +256,7 @@ example f = do
     [ LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) Nothing
     , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
     , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
-#ifdef linux_HOST_OS
     , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
-#endif
     ]
   withLogging @ RhyoliteLogAppender [def] $ do
     $(logError) "Err"
