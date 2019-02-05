@@ -41,20 +41,19 @@ import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI)
 import qualified Reflex as R
-import Reflex.Dom.Core hiding (MonadWidget, Request, webSocket)
+import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
 
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.Frontend.WebSocket
 import Rhyolite.Request.Class
 import Rhyolite.WebSocket
 
 #if defined(ghcjs_HOST_OS)
 import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
 #else
-import GHCJS.DOM.Types (MonadJSM (..))
+import GHCJS.DOM.Types (MonadJSM(..))
 import Rhyolite.Request.Common (decodeValue')
 #endif
 
@@ -252,12 +251,12 @@ runPrerenderedRhyoliteWidget
       , Prerender x m
       , MonadIO (Performable m)
       )
-   => Either WebSocketUrl Text
+   => Text
    -> RhyoliteWidget app t m b
    -> m b
-runPrerenderedRhyoliteWidget murl child = do
+runPrerenderedRhyoliteWidget url child = do
   rec (notification :: Event t (View app ()), response) <- prerender (return (never, never)) $ do
-        appWebSocket :: AppWebSocket t app <- openWebSocket' murl request'' $ fmap (\_ -> ()) <$> nubbedVs
+        appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
         return ( _appWebSocket_notification appWebSocket
                , _appWebSocket_response appWebSocket
                )
@@ -282,11 +281,11 @@ runRhyoliteWidget
       , MonadFix m
       , MonadIO (Performable m)
       )
-   => Either WebSocketUrl Text
+   => Text
    -> RhyoliteWidget app t m b
    -> m (AppWebSocket t app, b)
-runRhyoliteWidget murl child = do
-  rec appWebSocket <- openWebSocket' murl request'' $ fmap (\_ -> ()) <$> nubbedVs
+runRhyoliteWidget url child = do
+  rec appWebSocket <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
       let notification = _appWebSocket_notification appWebSocket
           response = _appWebSocket_response appWebSocket
       (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
@@ -371,17 +370,18 @@ openWebSocket' :: forall app t x m.
                  , HasView app
                  , HasRequest app
                  )
-              => Either WebSocketUrl Text -- ^ Either a complete URL or just a path (the websocket code will try to infer the protocol and hostname)
+              => Text -- ^ A complete URL
               -> Event t [TaggedRequest (AppRequest app)] -- ^ Outbound requests
               -> Dynamic t (ViewSelector app ()) -- ^ Authenticated listen requests (e.g., ViewSelector updates)
               -> m (AppWebSocket t app)
-openWebSocket' murl request vs = do
+openWebSocket' url request vs = do
 #if defined(ghcjs_HOST_OS)
   rec let platformDecode = jsonDecode . pFromJSVal
-      ws <- rawWebSocket murl $ def
+          rawWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
+      ws <- rawWebSocket $ def
 #else
   rec let platformDecode = decodeValue' . LBS.fromStrict
-      ws <- webSocket murl $ def
+      ws <- webSocket url $ def
 #endif
         & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . encode)) (mconcat
           [ fmap (map WebSocketRequest_Api) request
@@ -419,7 +419,7 @@ openWebSocket :: forall t x m app.
                  , HasRequest app
                  , HasView app
                  )
-              => Either WebSocketUrl Text -- ^ Either a complete URL or just a path (the websocket code will try to infer the protocol and hostname)
+              => Text -- ^ A complete URL
               -> Event t [TaggedRequest (AppRequest app)] -- ^ Outbound requests
               -> Dynamic t (ViewSelector app ()) -- ^ current ViewSelector
               -> m ( Event t (View app ())
