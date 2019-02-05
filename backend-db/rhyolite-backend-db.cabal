@@ -23,10 +23,10 @@ library
     , lens
     , lifted-base
     , monad-control
-    , monad-loops
     , monoidal-containers
     , mtl
     , postgresql-simple
+    , postgresql-lo-stream
     , resource-pool
     , rhyolite-common
     , template-haskell

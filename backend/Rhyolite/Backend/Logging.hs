@@ -42,7 +42,7 @@ module Rhyolite.Backend.Logging
   , RhyoliteLogLevel(..)
   , RhyoliteLogAppenderStderr (..)
   , RhyoliteLogAppenderFile (..)
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
   , RhyoliteLogAppenderJournald (..)
 #endif
   , example
@@ -67,7 +67,8 @@ import qualified Data.Trie.BigEndianPatricia.Base as Trie
 import GHC.Generics
 import System.Log.FastLogger
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
+import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
 #endif
 
@@ -114,7 +115,9 @@ data LoggingContext m = LoggingContext
 data RhyoliteLogAppender
    = RhyoliteLogAppender_Stderr   RhyoliteLogAppenderStderr
    | RhyoliteLogAppender_File     RhyoliteLogAppenderFile
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
    | RhyoliteLogAppender_Journald RhyoliteLogAppenderJournald -- journalctl log with syslogIdentifier specified.
+#endif
    | RhyoliteLogAppender_FileRotate RhyoliteLogAppenderFileRotate
    -- fastlogger also supports time based rotation, but its API calls for a function which must parse a pair of "human readable" ByteStrings as dates.  A buggy implementation of half of common lisp in json syntax is out of scope for this yakshave.
   deriving (Generic, Eq, Ord, Show)
@@ -139,7 +142,7 @@ data RhyoliteLogAppenderFileRotate = RhyoliteLogAppenderFileRotate
   , _rhyoliteLogAppenderFileRotate_backups :: !Int
   } deriving (Generic, Eq, Ord, Show)
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
 data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
   { _rhyoliteLogAppenderJournald_syslogIdentifier :: T.Text -- journalctl log with syslogIdentifier specified.
   } deriving (Generic, Eq, Ord, Show)
@@ -158,7 +161,7 @@ fmap concat $ traverse (deriveJSON defaultOptions
   , ''RhyoliteLogAppenderStderr
   , ''RhyoliteLogAppenderFile
   , ''RhyoliteLogAppenderFileRotate
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
   , ''RhyoliteLogAppenderJournald
 #endif
   , ''LoggingConfig
@@ -170,7 +173,7 @@ runLoggingEnv = flip runLoggingT . unLoggingEnv
 logToFastLogger :: TimedFastLogger -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> ls (\ft -> toLogStr ft <> toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr <> "\n")
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
 logger2journald :: LogLevel -> JournalFields
 logger2journald = \case
   LevelWarn -> priority Warning
@@ -201,10 +204,8 @@ instance LogAppender RhyoliteLogAppender where
         fastLoggerHelperThing $ LogFileNoRotate filename
       RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
         fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
-#else
-      RhyoliteLogAppender_Journald {} -> error "RhyoliteLogAppender: journald is only supported on linux"
 #endif
 
 configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
@@ -212,7 +213,7 @@ configLogger (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
   return $ LoggingContext cleaner $ filterLog (fmap toLogLevel $ maybe M.empty id fs) logger
 
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
 mkJournalField' :: T.Text -> T.Text -> JournalFields
 mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
 
@@ -262,7 +263,7 @@ example f = do
     [ LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) Nothing
     , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
     , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
-#ifdef linux_HOST_OS
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
     , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
 #endif
     ]

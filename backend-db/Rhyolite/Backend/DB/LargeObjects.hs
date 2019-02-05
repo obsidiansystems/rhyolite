@@ -14,30 +14,26 @@ module Rhyolite.Backend.DB.LargeObjects
   , withStreamedLargeObject
   ) where
 
-import Control.Exception.Lifted (AssertionFailed (..), bracket, throwIO)
-import Control.Monad.Loops (whileJust_)
+import Control.Exception.Lifted (bracket)
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.State as State
 import qualified Control.Monad.State.Strict as Strict
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.Maybe (MaybeT (..))
 import qualified Data.ByteString as BS
-import Data.ByteString.Builder (Builder, byteString)
-import qualified Data.ByteString.Builder as BS
+import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Lazy as LBS
-import Data.IORef (modifyIORef, newIORef, readIORef)
-import Data.Semigroup ((<>))
 import Database.Groundhog.Core (DbPersist)
 import Database.Groundhog.Postgresql (Postgresql)
 import Database.PostgreSQL.Simple.LargeObjects (LoFd, Oid (..))
+import qualified Database.PostgreSQL.Simple.LargeObjects.Stream as LO
 import qualified Database.PostgreSQL.Simple.LargeObjects as Sql
-import System.IO (IOMode (ReadMode, WriteMode))
-import System.IO.Streams (InputStream, OutputStream, makeOutputStream)
+import System.IO (IOMode)
+import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 
 import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw (..), liftWithConn)
 import Rhyolite.Schema (LargeObjectId (..))
-
 
 class PostgresRaw m => PostgresLargeObject m where
   -- | Create a new postgres large object, returning its object id.
@@ -104,54 +100,20 @@ instance (MonadIO m, MonadBaseControl IO m) => PostgresLargeObject (DbPersist Po
     bracket (liftWithConn $ \conn -> Sql.loOpen conn (toOid oid) mode)
             (\lofd -> liftWithConn $ \conn -> Sql.loClose conn lofd)
             f
-  newLargeObjectFromFile filePath = do
+  newLargeObjectFromFile filePath =
     liftWithConn $ \conn -> fmap fromOid $ Sql.loImport conn filePath
-  newLargeObjectBS contents = do
-    oid <- newEmptyLargeObject
-    n <- withLargeObject oid WriteMode $ \lofd -> liftWithConn $ \conn -> Sql.loWrite conn lofd contents
-    let l = BS.length contents
-    when (n /= l) . liftIO . throwIO . AssertionFailed $
-      "newLargeObjectBS: loWrite reported writing " <> show n <> " bytes, expected " <> show l <> "."
-    return oid
-  newLargeObjectLBS = newLargeObjectStream <=< liftIO . Streams.fromLazyByteString
-  newLargeObjectStream s = do
-    oid <- newEmptyLargeObject
-    t <- withLargeObject oid WriteMode $ \lofd -> do
-      whileJust_ (liftIO $ Streams.read s) $ \chunk -> do
-        n <- liftWithConn $ \conn -> Sql.loWrite conn lofd chunk
-        let l = BS.length chunk
-        when (n /= l) . throwIO . AssertionFailed $
-          "newLargeObjectLBS: loWrite reported writing " <> show n <> " bytes, expected " <> show l <> "."
-      liftWithConn $ \conn -> Sql.loTell conn lofd
-    return (oid, t)
+  newLargeObjectBS contents =
+    fmap fromOid $ liftWithConn $ \conn -> LO.newLargeObjectBS conn contents
+  newLargeObjectLBS =
+    newLargeObjectStream <=< liftIO . Streams.fromLazyByteString
+  newLargeObjectStream s = fmap (\(oid,sz) -> (fromOid oid, sz)) $
+    liftWithConn $ \conn -> LO.newLargeObjectStream conn s
   streamLargeObject oid os =
-    withLargeObject oid ReadMode $ \lofd ->
-      fix $ \again -> do
-        chunk <- readLargeObject lofd 8192 -- somewhat arbitrary
-        case BS.length chunk of
-          0 -> return ()
-          _ -> do
-            liftIO $ Streams.write (Just $ byteString chunk) os
-            again
+    liftWithConn $ \conn -> LO.streamLargeObject conn (toOid oid) os
   streamLargeObjectRange oid start end os =
-    withLargeObject oid ReadMode $ \lofd -> do
-      _ <- liftWithConn $ \conn -> Sql.loSeek conn lofd Sql.AbsoluteSeek start
-      let again n = do
-            let nextChunkSize = min 8192 (end - n)
-            chunk <- readLargeObject lofd nextChunkSize
-            case BS.length chunk of
-              0 -> return ()
-              k -> do
-                liftIO $ Streams.write (Just $ byteString chunk) os
-                again (n + k)
-      again start
+    liftWithConn (\conn -> LO.streamLargeObjectRange conn (toOid oid) start end os)
 
   deleteLargeObject oid = liftWithConn $ \conn -> Sql.loUnlink conn $ toOid oid
-
--- Read a chunk of an opened large object. Returns Nothing when there's an error such as the end of file.
--- NB: postgresql-simple seems to have a less useful type here than postgresql-libpq...
-readLargeObject :: MonadIO m => LoFd -> Int -> DbPersist Postgresql m BS.ByteString
-readLargeObject lofd size = liftWithConn $ \conn -> Sql.loRead conn lofd size
 
 instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (StateT s m) where
   withLargeObject oid mode f = do
@@ -176,13 +138,9 @@ instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (ReaderT r m) w
     s <- ask
     lift $ withLargeObject oid mode (\lofd -> runReaderT (f lofd) s)
 
-withStreamedLargeObject :: (PostgresLargeObject m, MonadIO m) => LargeObjectId -> (LBS.ByteString -> IO ()) -> m ()
-withStreamedLargeObject oid f = do
-  lo <- liftIO $ newIORef mempty
-  cb <- liftIO $ makeOutputStream $ \case
-    Just chunk -> modifyIORef lo $ \chunks -> chunks <> chunk
-    Nothing -> do
-      payload <- readIORef lo
-      f $ BS.toLazyByteString payload
-  streamLargeObject oid cb
-  liftIO $ Streams.write Nothing cb
+withStreamedLargeObject
+  :: (MonadIO m)
+  => LargeObjectId
+  -> (LBS.ByteString -> IO ())
+  -> DbPersist Postgresql m ()
+withStreamedLargeObject oid f = liftWithConn $ \conn -> LO.withLargeObjectLBS conn (toOid oid) f
