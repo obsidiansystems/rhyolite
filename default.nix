@@ -43,7 +43,7 @@ let
       sha256 = "1ar2w4rx0mh4nvwzpc125l3hj9xslargl43vnssmh9l6ynhi8ksv";
     };
 
-    # New version, recently added to hackage 
+    # New version, recently added to hackage
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "constraints-extras";
@@ -51,12 +51,20 @@ let
       sha256 = "18hx7nfqfl945pkr8m2mflndszd1f1wgrwb8mpjz8yx5pqhyy41f";
     };
 
-    # Newly added to hackage 
+    # Newly added to hackage
     aeson-gadt-th = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "aeson-gadt-th";
       rev = "5aabb547893b8a1140ddad4fba5a266db1d08fbe";
       sha256 = "0sywn3w7ph7b7r0byjz7c9cy41hb8p3ym8qljg1bd99d92hj3sig";
+    };
+
+    # Newly added to hackage
+    postgresql-lo-stream = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "postgresql-lo-stream";
+      rev = "33e1a64c1f65d7d1e26d6d08d2ddb85eb795f94c";
+      sha256 = "0n2cmmplljq3z3n0piyiq4vvx8d48byi5isr520aq6dv35j5ixim";
     };
   };
 
@@ -82,6 +90,7 @@ let
     monoidal-containers = repos.monoidal-containers;
     constraints-extras = repos.constraints-extras;
     aeson-gadt-th = repos.aeson-gadt-th;
+    postgresql-lo-stream = repos.postgresql-lo-stream;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
