@@ -20,9 +20,6 @@
 
 module Rhyolite.Frontend.WebSocket where
 
-import Control.Exception (SomeException, try)
-import Data.Aeson (FromJSON, decodeStrict', encode, fromJSON)
-import qualified Data.Aeson as Aeson
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -93,26 +90,4 @@ rawWebSocket murl config
           "file:" -> "localhost:8000"
           _ -> pageHost
     RDWS.webSocket' (wsProtocol <> "//" <> wsHost <> path) config (either (error "websocket': expected JSVal") return)
-
-foreign import javascript unsafe "JSON['parse']($1)" js_jsonParse :: JSVal -> JSVal
-
-rawDecode :: (FromJSON a) => JSVal -> Maybe a
-rawDecode jsv = do
-  -- traceM "customDecode"
-  -- TODO pFromJSVal to avoid unsafePerformIO
-  let res = unsafePerformIO $ try $ fromJSVal $ js_jsonParse jsv
-  case res of
-   Left (_e::SomeException) -> do
-     -- traceM $ "====================================================================="
-     -- traceM $ show e
-     -- traceM $ "====================================================================="
-     Nothing
-   Right (v :: (Maybe Aeson.Value)) -> do
-     -- traceM $ show $ js_jsonTypeOf jsv'
-     -- traceM $ "Success" ++ show v
-     maybe Nothing go v
-  where
-    go v = case Aeson.fromJSON v of
-      Aeson.Success a -> Just a
-      _ -> Nothing
 #endif
