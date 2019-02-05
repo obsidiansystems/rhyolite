@@ -33,7 +33,6 @@ import Data.Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Map as Map
-import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding
@@ -42,8 +41,12 @@ import Data.Traversable (for)
 import Foreign.JavaScript.TH
 import Rhyolite.Request.Common (decodeValue')
 #ifdef __GHCJS__
+import qualified Data.Aeson as Aeson
+import Control.Exception (SomeException, try)
+import GHCJS.Marshal
 import GHCJS.Marshal.Pure
-import Rhyolite.Frontend.WebSocket (rawDecode)
+import GHCJS.Types (JSVal)
+import System.IO.Unsafe
 #endif
 import GHCJS.DOM.Enums (XMLHttpRequestResponseType (..))
 import GHCJS.DOM.EventM (on)
@@ -197,6 +200,30 @@ requestingXhrMany requestsE = performEventAsync $ ffor requestsE $ \rs cb -> do
 #endif
 
 --importJS Unsafe "decodeURIComponent(window['location']['search'])" "getWindowLocationSearch" [t| forall x m. MonadJS x m => m Text |]
+
+#if defined(ghcjs_HOST_OS)
+foreign import javascript unsafe "JSON['parse']($1)" js_jsonParse :: JSVal -> JSVal
+
+rawDecode :: (FromJSON a) => JSVal -> Maybe a
+rawDecode jsv = do
+  -- traceM "customDecode"
+  -- TODO pFromJSVal to avoid unsafePerformIO
+  let res = unsafePerformIO $ try $ fromJSVal $ js_jsonParse jsv
+  case res of
+   Left (_e::SomeException) -> do
+     -- traceM $ "====================================================================="
+     -- traceM $ show e
+     -- traceM $ "====================================================================="
+     Nothing
+   Right (v :: (Maybe Aeson.Value)) -> do
+     -- traceM $ show $ js_jsonTypeOf jsv'
+     -- traceM $ "Success" ++ show v
+     maybe Nothing go v
+  where
+    go v = case Aeson.fromJSON v of
+      Aeson.Success a -> Just a
+      _ -> Nothing
+#endif
 
 -- | Decode a JSON value from Text.  In JavaScript, this will use JSON.parse for
 -- greater efficiency.
