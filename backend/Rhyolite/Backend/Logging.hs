@@ -161,7 +161,7 @@ fmap concat $ traverse (deriveJSON defaultOptions
   , ''RhyoliteLogAppenderStderr
   , ''RhyoliteLogAppenderFile
   , ''RhyoliteLogAppenderFileRotate
-  #if defined(SUPPORT_SYSTEMD_JOURNAL)
+#if defined(SUPPORT_SYSTEMD_JOURNAL)
   , ''RhyoliteLogAppenderJournald
 #endif
   , ''LoggingConfig
@@ -264,7 +264,7 @@ example f = do
     , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
     , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-  , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
+    , LoggingConfig (RhyoliteLogAppender_Journald $ RhyoliteLogAppenderJournald "foo") Nothing
 #endif
     ]
   withLogging @ RhyoliteLogAppender [def] $ do
