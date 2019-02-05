@@ -10,13 +10,13 @@ let
   # Some dependency thunks needed
   repos = {
 
-    # Not sure why this is needed?
-    # groundhog = pkgs.fetchFromGitHub {
-    #   owner = "obsidiansystems";
-    #   repo = "groundhog";
-    #   rev = "febd6c12a676693b1d7339e54a4d107c4a67fcc3";
-    #   sha256 = "1q05nrqdzh26r17wsd53sdj106dxh3qlg66pqr3jsi8d63iyaq8k";
-    # };
+    # Point to OS fork of groundhog
+    groundhog = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "groundhog";
+      rev = "f68d1c91a92a9514e771fc432ec2ea9cf93c78af";
+      sha256 = "196mq9ncgr8gcnk1p86390v54ixswhwak5wq4630rynyfxw8xmgw";
+    };
 
     # bytestring-trie in hackage doesn’t support base 4.11+
     bytestring-trie = pkgs.fetchFromGitHub {
@@ -82,9 +82,9 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
-    # groundhog = repos.groundhog + /groundhog;
-    # groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
-    # groundhog-th = repos.groundhog + /groundhog-th;
+    groundhog = repos.groundhog + /groundhog;
+    groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
+    groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
     reflex = repos.reflex;
     monoidal-containers = repos.monoidal-containers;
