@@ -54,6 +54,7 @@ library
     Rhyolite.Request.TH
     Rhyolite.Route
     Rhyolite.Schema
+    Rhyolite.Schema.Task
     Rhyolite.Sign
     Rhyolite.TH
     Rhyolite.WebSocket
