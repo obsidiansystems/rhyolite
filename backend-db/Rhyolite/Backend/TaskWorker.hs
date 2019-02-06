@@ -30,8 +30,9 @@ import Rhyolite.Backend.DB
 --TODO: Run more than one worker at a time sometimes
 --TODO: Timeout workers
 
+-- | WARNING: 'k' MUST project a unique field of the record; otherwise, results may be stored in the wrong record
 taskWorker
-  :: forall m v c p b k a
+  :: forall m v c p b k a pk
   .  ( MonadLogger m
      , MonadIO m
      , MonadBaseControl IO m
@@ -43,11 +44,15 @@ taskWorker
      , SinglePersistField b
      , NeverNull b
      , Unifiable (SubField Postgresql v c (Maybe b)) (Maybe b)
-     , Unifiable (k (UniqueMarker v)) (Key v (Unique k))
-     , IsUniqueKey (Key v (Unique k))
+     , ProjectionDb k Postgresql
+     , ProjectionRestriction k (RestrictionHolder v c)
+     , Projection k pk
+     , Unifiable k pk
+     , Expression Postgresql (RestrictionHolder v c) pk
+     , Expression Postgresql (RestrictionHolder v c) k
      )
   => p
-  -> k (UniqueMarker v)
+  -> k -- ^ MUST project a unique field of the record; otherwise, results may be stored in the wrong record
   -> Field v c (Task b)
   -> (a -> m b)
   -> Pool Postgresql
