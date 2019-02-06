@@ -85,8 +85,8 @@ withWorker d work child = do
         putMVar startVar () -- Do this blockingly so the thread can theoretically be GCed if it becomes useless
       go startVar = do
         nextStartVar <- newEmptyMVar
-        modifyMVar_ startVarVar $ \_ -> pure nextStartVar
         void $ takeMVar startVar
+        modifyMVar_ startVarVar $ \_ -> pure nextStartVar
         didWork <- withAsync work waitCatch
         case didWork of
           Left e -> do
