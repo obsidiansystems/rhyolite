@@ -11,6 +11,8 @@ module Rhyolite.Route where
 
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
+import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Base
 #if defined(VERSION_monad_logger)
 import Control.Monad.Logger
@@ -83,6 +85,12 @@ routeToQuery r = if r == def
 instance MonadRoute r m => MonadRoute r (ReaderT a m) where
   routeToUrl r = lift $ routeToUrl r
 
+instance MonadRoute r m => MonadRoute r (MaybeT m) where
+  routeToUrl r = lift $ routeToUrl r
+
+instance MonadRoute r m => MonadRoute r (ExceptT a m) where
+  routeToUrl r = lift $ routeToUrl r
+
 newtype SubRouteT r r' m a = SubRouteT (ReaderT (r' -> r) m a) deriving (Functor, Applicative, Monad, MonadIO)
 
 instance (MonadRoute r m) => MonadRoute r' (SubRouteT r r' m) where
@@ -107,8 +115,15 @@ getDefaultParam params = do
   Just v <- Map.lookup (encodeUtf8 "x") params
   decodeValue' (LBS.fromStrict v)
 
-
 decodeRoute :: (FromJSON r) => T.Text -> Maybe r
 decodeRoute t = do
   Just v <- Map.lookup (encodeUtf8 "x") (Map.fromList (parseQuery (encodeUtf8 t)))
   decodeValue' (LBS.fromStrict v)
+
+uriToRouteEnv
+  :: URI
+  -> Maybe RouteEnv
+uriToRouteEnv u = do
+  let s = uriScheme u
+  a <- uriAuthority u
+  return (s, uriUserInfo a <> uriRegName a, uriPort a <> uriPath u <> uriQuery u <> uriFragment u)

@@ -10,12 +10,12 @@ let
   # Some dependency thunks needed
   repos = {
 
-    # Not sure why this is needed?
+    # Point to OS fork of groundhog
     groundhog = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "groundhog";
-      rev = "febd6c12a676693b1d7339e54a4d107c4a67fcc3";
-      sha256 = "1q05nrqdzh26r17wsd53sdj106dxh3qlg66pqr3jsi8d63iyaq8k";
+      rev = "f68d1c91a92a9514e771fc432ec2ea9cf93c78af";
+      sha256 = "196mq9ncgr8gcnk1p86390v54ixswhwak5wq4630rynyfxw8xmgw";
     };
 
     # bytestring-trie in hackage doesn’t support base 4.11+
@@ -47,8 +47,8 @@ let
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "constraints-extras";
-      rev = "4ef826429ddcf0e110fdee06c9683642d88feb6b";
-      sha256 = "11dsvf9vdaj12jdjg1na17b1347vaph2qyywiv8rq4r19rad5h88";
+      rev = "841fafd55ae16e6c367ce0f87fc077b173a25667";
+      sha256 = "18hx7nfqfl945pkr8m2mflndszd1f1wgrwb8mpjz8yx5pqhyy41f";
     };
 
     # Newly added to hackage

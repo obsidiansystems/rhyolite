@@ -9,6 +9,9 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Foreign.JavaScript.TH
 #ifdef __GHCJS__
+import qualified Data.Aeson as Aeson
+import Control.Exception (SomeException, try)
+import GHCJS.Marshal
 import GHCJS.Marshal.Pure
 #endif
 import GHCJS.DOM.File (getName)

@@ -11,6 +11,8 @@ module Rhyolite.Sign where
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Aeson (FromJSON, ToJSON, FromJSONKey, ToJSONKey)
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
 import Control.Monad.Trans (lift)
@@ -31,5 +33,13 @@ instance MonadSign m => MonadSign (StateT s m) where
   readSigned = lift . readSigned
 
 instance MonadSign m => MonadSign (Strict.StateT s m) where
+  sign = lift . sign
+  readSigned = lift . readSigned
+
+instance MonadSign m => MonadSign (MaybeT m) where
+  sign = lift . sign
+  readSigned = lift . readSigned
+
+instance MonadSign m => MonadSign (ExceptT e m) where
   sign = lift . sign
   readSigned = lift . readSigned

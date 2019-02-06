@@ -67,10 +67,6 @@ instance MonadIO m => MonadSign (SignT m) where
     k <- SignT ask
     return $ readSignedWithKey k s
 
-instance MonadSign m => MonadSign (MaybeT m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
-
 instance MonadSign m => MonadSign (NoLoggingT m) where
   sign = lift . sign
   readSigned = lift . readSigned
