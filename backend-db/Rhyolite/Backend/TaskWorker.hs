@@ -32,43 +32,46 @@ import Rhyolite.Backend.DB
 
 -- | WARNING: 'k' MUST project a unique field of the record; otherwise, results may be stored in the wrong record
 taskWorker
-  :: forall m v c p b k a pk
+  :: forall m v c input b key a pk ready
   .  ( MonadLogger m
      , MonadIO m
      , MonadBaseControl IO m
-     , Projection p a
-     , ProjectionDb p Postgresql
-     , ProjectionRestriction p (RestrictionHolder v c)
+     , Projection input a
+     , ProjectionDb input Postgresql
+     , ProjectionRestriction input (RestrictionHolder v c)
      , EntityConstr v c
      , PrimitivePersistField b
      , SinglePersistField b
      , NeverNull b
      , Unifiable (SubField Postgresql v c (Maybe b)) (Maybe b)
-     , ProjectionDb k Postgresql
-     , ProjectionRestriction k (RestrictionHolder v c)
-     , Projection k pk
-     , Unifiable k pk
+     , ProjectionDb key Postgresql
+     , ProjectionRestriction key (RestrictionHolder v c)
+     , Projection key pk
+     , Unifiable key pk
      , Expression Postgresql (RestrictionHolder v c) pk
-     , Expression Postgresql (RestrictionHolder v c) k
+     , Expression Postgresql (RestrictionHolder v c) key
+     , ready ~ Cond Postgresql (RestrictionHolder v c)
      )
-  => p
-  -> k -- ^ MUST project a unique field of the record; otherwise, results may be stored in the wrong record
+  => input
+  -> key -- ^ MUST project a unique field of the record; otherwise, results may be stored in the wrong record
+  -> ready
   -> Field v c (Task b)
-  -> (a -> m b)
+  -> (a -> DbPersist Postgresql m (m (DbPersist Postgresql m b))) -- ^ Given the projected value, run some READ ONLY sql, then do an action, then run some READ WRITE sql and return a value to fill in the Task
   -> Pool Postgresql
   -> Text
   -> m Bool
-taskWorker p pk f go db workerName = do
+taskWorker input pk ready f go db workerName = do
   checkedOutValue <- runDb (Identity db) $ do
-    qe <- project1 (pk, p) $ isFieldNothing (f ~> Task_resultSelector) &&. isFieldNothing (f ~> Task_checkedOutBySelector)
-    forM_ (fst <$> qe) $ \taskId ->
+    qe <- project1 (pk, input) $ isFieldNothing (f ~> Task_resultSelector) &&. isFieldNothing (f ~> Task_checkedOutBySelector) &&. ready
+    forM qe $ \(taskId, a) -> do
       update [f ~> Task_checkedOutBySelector =. Just workerName] $ pk ==. taskId
-    return qe
+      (,) taskId <$> go a
   case checkedOutValue of
     Nothing -> pure False
-    Just (taskId, a) -> do
-      b <- go a
+    Just (taskId, action) -> do
+      followup <- action
       Rhyolite.Backend.DB.runDb (Identity db) $ do
+        b <- followup
         update
           [ f ~> Task_resultSelector =. Just b
           , f ~> Task_checkedOutBySelector =. (Nothing :: Maybe Text)
