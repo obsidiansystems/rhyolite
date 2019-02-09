@@ -5,7 +5,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Rhyolite.Backend.Listen.Typed where
+module Rhyolite.Backend.Listen.Typed
+  ( DbNotification(..)
+  , notify
+  , insertAndNotifyWith
+  , NotificationType(..)
+  )
+  where
 
 import Control.Monad
 import Data.Aeson
