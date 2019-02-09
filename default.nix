@@ -34,15 +34,6 @@ let
       sha256 = "0ygp3firh2h770wsfpzykph8jlb3xpi3bdl0imqa6zgcbphf13vx";
     };
 
-    # Reflex needs monoidal-containers 0.4.0.0 but that is not
-    # available to some older Obelisk versions.
-    monoidal-containers = pkgs.fetchFromGitHub {
-      owner = "bgamari";
-      repo = "monoidal-containers";
-      rev = "a34c9fbe191725ef9a9c7783e103c24796bd91e3";
-      sha256 = "1ar2w4rx0mh4nvwzpc125l3hj9xslargl43vnssmh9l6ynhi8ksv";
-    };
-
     # New version, recently added to hackage
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
