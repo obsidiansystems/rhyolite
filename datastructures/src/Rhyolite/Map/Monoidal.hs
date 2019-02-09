@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
 import Data.Align

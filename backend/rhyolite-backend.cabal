@@ -23,8 +23,11 @@ library
     , bytestring-trie
     , clientsession
     , constraints
+    , constraints-extras
     , containers
     , data-default
+    , dependent-sum
+    , dependent-sum-aeson-orphans
     , exceptions
     , fast-logger
     , groundhog
@@ -73,6 +76,7 @@ library
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
     Rhyolite.Backend.Listen
+    Rhyolite.Backend.Listen.Typed
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
     Rhyolite.Backend.TH

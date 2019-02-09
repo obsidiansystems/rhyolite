@@ -49,7 +49,6 @@ import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Request.TH (makeJson)
 import Rhyolite.Schema (SchemaName (..), Id, IdData)
 
-
 data NotifyMessage = NotifyMessage
   { _notifyMessage_schemaName :: SchemaName
   , _notifyMessage_notificationType :: NotificationType
@@ -72,8 +71,9 @@ notifyChannel = "updates"
 
 -- | Starts a thread to listen for updates to the database
 notificationListener
-  :: Pool Postgresql
-  -> IO (TChan NotifyMessage, IO ())
+  :: (FromJSON notifyMessage)
+  => Pool Postgresql
+  -> IO (TChan notifyMessage, IO ()) -- "notifyMessage" is usually a NotifyMessage or a DbNotification
 notificationListener db = do
   nChan <- newBroadcastTChanIO
   daemonThread <- forkIO $ withResource db $ \(Postgresql conn) -> do
@@ -91,8 +91,8 @@ notificationListener db = do
   return (nChan, killThread daemonThread)
 
 -- | Starts a thread that listens for updates to the db and returns a
--- 'NotifyMessage' retrieval function and finalizer
-startNotificationListener :: Pool Postgresql -> IO (IO NotifyMessage, IO ())
+-- 'NotifyMessage'/'DbNotification' retrieval function and finalizer
+startNotificationListener :: FromJSON notifyMessage => Pool Postgresql -> IO (IO notifyMessage, IO ())
 startNotificationListener pool = do
   (chan, nkill) <- notificationListener pool
   chan' <- atomically $ dupTChan chan
@@ -163,13 +163,13 @@ notifyEntities nt aid = do
   schemaName <- getSchemaName
   let proxy = undefined :: proxy (PhantomDb m)
       cmd = "NOTIFY " <> notifyChannel <> ", ?"
-      notification = NotifyMessage { _notifyMessage_schemaName = SchemaName . T.pack $ schemaName
-                                   , _notifyMessage_notificationType = nt
-                                   , _notifyMessage_entityName = entityName $ entityDef proxy (undefined :: a)
-                                   , _notifyMessage_value = toJSON aid
-                                   }
+      notification = NotifyMessage
+        { _notifyMessage_schemaName = SchemaName . T.pack $ schemaName
+        , _notifyMessage_notificationType = nt
+        , _notifyMessage_entityName = entityName $ entityDef proxy (undefined :: a)
+        , _notifyMessage_value = toJSON aid
+        }
   _ <- executeRaw False cmd [PersistString $ T.unpack $ decodeUtf8 $ LBS.toStrict $ encode notification]
   return ()
-
 
 makeJson ''NotificationType
