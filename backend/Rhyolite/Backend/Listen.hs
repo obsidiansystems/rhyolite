@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
@@ -262,16 +263,17 @@ updateAndNotify tid dt = do
   update dt (AutoKeyField ==. fromId tid)
   notify NotificationType_Update (notification tid :: n (Id a)) tid
 
-deleteAndNotify
-  :: ( HasNotification n a
-     , Has' ToJSON n Identity
-     , ForallF ToJSON n
-     , PersistBackend m
-     , DefaultKeyId a
-     , PersistEntity a
-     , ToJSON (IdData a)
-     )
+deleteAndNotify :: forall n a m.
+  ( HasNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , ToJSON (IdData a)
+  , _
+  )
   => Id a -> m ()
 deleteAndNotify aid = do
-  delete (AutoKeyField ==. fromId aid)
+  deleteBy (fromId aid :: Key a BackendSpecific)
   notify NotificationType_Delete (notification aid) aid
