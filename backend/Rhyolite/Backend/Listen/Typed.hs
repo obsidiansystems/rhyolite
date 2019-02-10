@@ -1,15 +1,27 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Rhyolite.Backend.Listen.Typed
   ( DbNotification(..)
   , notify
-  , insertAndNotifyWith
   , NotificationType(..)
+  , HasNotification(..)
+  , insertAndNotifyWith
+  , insertAndNotify
+  , insertByAndNotifyWith
+  , insertByAndNotify
+  , insertByAllAndNotifyWith
+  , insertByAllAndNotify
+  , updateAndNotify
   )
   where
 
@@ -31,6 +43,7 @@ import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.Class (DefaultKeyId)
 
 import Database.Groundhog.Core
+import Database.Groundhog.Expression
 
 data DbNotification n = DbNotification
   { _dbNotification_schemaName :: SchemaName
@@ -63,30 +76,137 @@ notify
 notify nt n a = do
   schemaName <- getSchemaName
   let cmd = "NOTIFY " <> notifyChannel <> ", ?"
-      notification = DbNotification
+      notifyMsg = DbNotification
         { _dbNotification_schemaName = SchemaName $ T.pack schemaName
         , _dbNotification_notificationType = nt
         , _dbNotification_message = n :=> Identity a
         }
   void $ executeRaw False cmd
-    [ PersistString $ T.unpack $ T.decodeUtf8 $ LBS.toStrict $ encode notification
+    [ PersistString $ T.unpack $ T.decodeUtf8 $ LBS.toStrict $ encode notifyMsg
     ]
 
+-- Class for relating application-specific db notification types with db entity types.
+class (HasId a) => HasNotification n a | a -> n where
+  notification :: proxy a -> n (Id a)
 
 insertAndNotifyWith
-  :: ( PersistBackend m
-     , DefaultKey a ~ AutoKey a
+  :: ( HasNotification n a
+     , Has' ToJSON n Identity
+     , ForallF ToJSON n
+     , PersistBackend m
      , DefaultKeyId a
      , PersistEntity a
      , ToJSON (IdData a)
+     )
+  => (AutoKey a -> Id a) -> a -> m (Id a)
+insertAndNotifyWith f a = do
+  autokey <- insert a
+  let aid = f autokey
+  notify NotificationType_Insert (notification aid) aid
+  return aid
+
+insertAndNotify
+  :: ( HasNotification n a
      , Has' ToJSON n Identity
      , ForallF ToJSON n
-
+     , PersistBackend m
+     , DefaultKeyId a
+     , PersistEntity a
+     , ToJSON (IdData a)
+     , DefaultKey a ~ AutoKey a
      )
-  => n (Id a)
+  => a -> m (Id a)
+insertAndNotify = insertAndNotifyWith toId
+
+insertByAndNotifyWith ::
+  ( HasNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , ToJSON (IdData a)
+  , IsUniqueKey (Key a (Unique u))
+  )
+  => (AutoKey a -> Id a)
+  -> u (UniqueMarker a)
   -> a
-  -> m (Id a)
-insertAndNotifyWith n a = do
-  aid <- toId <$> insert a
-  notify NotificationType_Insert n aid
-  return aid
+  -> m (Maybe (Id a))
+insertByAndNotifyWith f u t = do
+  eak <- insertBy u t
+  case eak of
+    Left _ -> return Nothing
+    Right ak -> do
+      let tid = f ak
+      notify NotificationType_Insert (notification tid) tid
+      return (Just tid)
+
+insertByAndNotify ::
+  ( HasNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , ToJSON (IdData a)
+  , IsUniqueKey (Key a (Unique u))
+  , AutoKey a ~ DefaultKey a
+  )
+  => u (UniqueMarker a)
+  -> a
+  -> m (Maybe (Id a))
+insertByAndNotify u t = insertByAndNotifyWith toId u t
+
+insertByAllAndNotifyWith ::
+  ( HasNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , ToJSON (IdData a)
+  )
+  => (AutoKey a -> Id a)
+  -> a
+  -> m (Maybe (Id a))
+insertByAllAndNotifyWith f t = do
+  eak <- insertByAll t
+  case eak of
+    Left _ -> return Nothing
+    Right ak -> do
+      let tid = f ak
+      notify NotificationType_Insert (notification tid) tid
+      return (Just tid)
+
+insertByAllAndNotify ::
+  ( HasNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , ToJSON (IdData a)
+  , AutoKey a ~ DefaultKey a
+  )
+  => a
+  -> m (Maybe (Id a))
+insertByAllAndNotify t = insertByAllAndNotifyWith toId t
+
+updateAndNotify :: forall a v c m n.
+     ( HasNotification n a
+     , Has' ToJSON n Identity
+     , ToJSON (IdData a)
+     , Expression (PhantomDb m) (RestrictionHolder v c) (DefaultKey a)
+     , PersistEntity v
+     , PersistEntity a
+     , PersistBackend m
+     , Unifiable (AutoKeyField v c) (DefaultKey a)
+     , DefaultKeyId a
+     , _
+     )
+  => Id a
+  -> [Update (PhantomDb m) (RestrictionHolder v c)]
+  -> m ()
+updateAndNotify tid dt = do
+  update dt (AutoKeyField ==. fromId tid)
+  notify NotificationType_Update (notification tid :: n (Id a)) tid

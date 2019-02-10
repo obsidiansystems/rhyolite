@@ -49,7 +49,7 @@ import Data.Coerce (coerce)
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
-import Rhyolite.Backend.Listen (NotifyMessage, startNotificationListener)
+import Rhyolite.Backend.Listen (startNotificationListener)
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
 import Rhyolite.Request.Class (SomeRequest (..))

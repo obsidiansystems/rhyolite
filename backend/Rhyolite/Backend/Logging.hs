@@ -55,12 +55,10 @@ import Control.Monad.Logger
 import Data.Aeson hiding (Error)
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mappend, mempty)
-import Data.Semigroup (Semigroup, (<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie.BigEndianPatricia.Base as Trie
@@ -73,8 +71,6 @@ import Systemd.Journal
 #endif
 
 import Data.Default
-
-import Data.Semigroup
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
