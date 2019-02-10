@@ -60,7 +60,6 @@ import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Monoid (Monoid, mappend, mempty)
-import Data.Semigroup (Semigroup, (<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie.BigEndianPatricia.Base as Trie
@@ -68,13 +67,10 @@ import GHC.Generics
 import System.Log.FastLogger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
 #endif
 
 import Data.Default
-
-import Data.Semigroup
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 

@@ -34,15 +34,6 @@ let
       sha256 = "0ygp3firh2h770wsfpzykph8jlb3xpi3bdl0imqa6zgcbphf13vx";
     };
 
-    # Reflex needs monoidal-containers 0.4.0.0 but that is not
-    # available to some older Obelisk versions.
-    monoidal-containers = pkgs.fetchFromGitHub {
-      owner = "bgamari";
-      repo = "monoidal-containers";
-      rev = "a34c9fbe191725ef9a9c7783e103c24796bd91e3";
-      sha256 = "1ar2w4rx0mh4nvwzpc125l3hj9xslargl43vnssmh9l6ynhi8ksv";
-    };
-
     # New version, recently added to hackage
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
@@ -66,6 +57,14 @@ let
       rev = "33e1a64c1f65d7d1e26d6d08d2ddb85eb795f94c";
       sha256 = "0n2cmmplljq3z3n0piyiq4vvx8d48byi5isr520aq6dv35j5ixim";
     };
+
+    dependent-sum-aeson-orphans = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "dependent-sum-aeson-orphans";
+      rev = "9c995128f416cc27dbd28d7dca1b6de4ac6c9c6d";
+      sha256 = "1cinfpchl4g3lpkwbcg03n5h25fj340g0n7bbr7hcx5nx0cwbzbc";
+
+    };
   };
 
   # Local packages. We override them below so that other packages can use them.
@@ -87,10 +86,10 @@ let
     groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
     reflex = repos.reflex;
-    monoidal-containers = repos.monoidal-containers;
     constraints-extras = repos.constraints-extras;
     aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
+    dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.

@@ -49,7 +49,7 @@ import Data.Coerce (coerce)
 
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
-import Rhyolite.Backend.Listen (NotifyMessage, startNotificationListener)
+import Rhyolite.Backend.Listen (startNotificationListener)
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
 import Rhyolite.Request.Class (SomeRequest (..))
@@ -318,10 +318,12 @@ serveDbOverWebsockets
   :: ( HasRequest app
      , HasView app
      , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
-     , Monoid q', Semigroup q' )
+     , Monoid q', Semigroup q'
+     , FromJSON notifyMessage
+     )
   => Pool Postgresql
   -> RequestHandler app IO
-  -> (NotifyMessage -> q' -> IO (QueryResult q'))
+  -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO q q'
   -> IO (Snap (), IO ())
@@ -331,11 +333,13 @@ serveDbOverWebsocketsRaw
   :: ( HasRequest app
      , HasView app
      , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
-     , Monoid q', Semigroup q' )
+     , Monoid q', Semigroup q'
+     , FromJSON notifyMessage
+     )
   => ((WS.Connection -> IO ()) -> m a)
   -> Pool Postgresql
   -> RequestHandler app IO
-  -> (NotifyMessage -> q' -> IO (QueryResult q'))
+  -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO q q'
   -> IO (m a, IO ())

@@ -23,8 +23,11 @@ library
     , bytestring-trie
     , clientsession
     , constraints
+    , constraints-extras
     , containers
     , data-default
+    , dependent-sum
+    , dependent-sum-aeson-orphans
     , exceptions
     , fast-logger
     , groundhog
