@@ -95,7 +95,6 @@ ensureAccountExists nm email = do
         Right aid -> do
           let aid' = toId aid
           notify NotificationType_Insert nm aid'
-          -- notifyEntityId NotificationType_Insert aid'
           return (True, aid')
 
 -- Creates account if it doesn't already exist and sends pw email
