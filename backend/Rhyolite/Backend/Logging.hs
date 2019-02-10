@@ -55,6 +55,7 @@ import Control.Monad.Logger
 import Data.Aeson hiding (Error)
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.HashMap.Strict as HashMap
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -66,7 +67,6 @@ import GHC.Generics
 import System.Log.FastLogger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
 #endif
 
