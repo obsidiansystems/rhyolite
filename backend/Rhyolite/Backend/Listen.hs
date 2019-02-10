@@ -261,3 +261,17 @@ updateAndNotify :: forall a v c m n.
 updateAndNotify tid dt = do
   update dt (AutoKeyField ==. fromId tid)
   notify NotificationType_Update (notification tid :: n (Id a)) tid
+
+deleteAndNotify
+  :: ( HasNotification n a
+     , Has' ToJSON n Identity
+     , ForallF ToJSON n
+     , PersistBackend m
+     , DefaultKeyId a
+     , PersistEntity a
+     , ToJSON (IdData a)
+     )
+  => Id a -> m ()
+deleteAndNotify aid = do
+  delete (AutoKeyField ==. fromId aid)
+  notify NotificationType_Delete (notification aid) aid
