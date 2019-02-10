@@ -21,7 +21,6 @@ import Data.Aeson
 import Data.Default
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty)
-import Data.Monoid
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text.Encoding

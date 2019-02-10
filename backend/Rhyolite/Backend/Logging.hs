@@ -68,13 +68,10 @@ import GHC.Generics
 import System.Log.FastLogger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-import qualified Data.HashMap.Strict as HashMap
 import Systemd.Journal
 #endif
 
 import Data.Default
-
-import Data.Semigroup
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 

@@ -76,7 +76,6 @@ library
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
     Rhyolite.Backend.Listen
-    Rhyolite.Backend.Listen.Typed
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
     Rhyolite.Backend.TH

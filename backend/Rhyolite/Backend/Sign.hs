@@ -16,7 +16,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Control.Monad.Trans.Maybe
 import Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
