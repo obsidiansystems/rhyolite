@@ -93,7 +93,7 @@ manageValidation
 manageValidation validate' validator renderInput = do
   input <- renderInput
   let currentVal = current $ value input
-  validatedInput <- fmap (fmap validator) $ buildDynamic (sample currentVal) $ tagCheap currentVal validate'
+  validatedInput <- fmap (fmap validator) $ buildDynamic (sample currentVal) $ tagPromptlyDyn (value input) validate'
   return (input, toDynValidation validatedInput)
 
 validateEmail :: Text -> Either Text Text
