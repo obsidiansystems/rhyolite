@@ -53,15 +53,4 @@ deriving instance (FromJSON (f (Id Account))) => FromJSON (PasswordResetToken f)
 
 newtype AccountRoute f = AccountRoute_PasswordReset (Signed (PasswordResetToken f)) deriving (Show, Read, Eq, Ord)
 
-data LoginError
-  = LoginError_UserNotFound
-  | LoginError_InvalidPassword
-  deriving (Eq, Ord, Read, Generic)
-instance FromJSON LoginError
-instance ToJSON LoginError
-
-instance Show LoginError where
-  show LoginError_UserNotFound = "The user is not recognized"
-  show LoginError_InvalidPassword = "Please enter a valid password"
-
 makeJson ''AccountRoute
