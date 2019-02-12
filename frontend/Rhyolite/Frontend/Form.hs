@@ -5,9 +5,11 @@
 {-# LANGUAGE RecursiveDo #-}
 module Rhyolite.Frontend.Form where
 
+import Control.Lens ((%~))
 import Control.Monad
 import Control.Monad.Except
 import Data.Functor.Compose
+import Data.Map (Map)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Validation
@@ -109,3 +111,53 @@ validateNonEmpty m = do
   case T.null txt of
     True -> throwError "Is empty"
     False -> return txt
+
+data ValidationConfig t m a = ValidationConfig
+  { _validationConfig_validFeedback :: m ()
+  , _validationConfig_invalidFeedback :: m ()
+  , _validationConfig_validation :: Text -> Either Text a
+  , _validationConfig_initialAttributes :: Map AttributeName Text
+  , _validationConfig_validAttributes :: Map AttributeName Text
+  , _validationConfig_invalidAttributes :: Map AttributeName Text
+  , _validationConfig_initialValue :: Text
+  , _validationConfig_setValue :: Maybe (Event t Text)
+  }
+
+defValidationConfig :: DomBuilder t m => ValidationConfig t m a
+defValidationConfig = ValidationConfig
+  { _validationConfig_validFeedback = blank
+  , _validationConfig_invalidFeedback = blank
+  , _validationConfig_validation = const $ Left "Validation not configured"
+  , _validationConfig_initialAttributes = mempty
+  , _validationConfig_validAttributes = mempty
+  , _validationConfig_invalidAttributes = mempty
+  , _validationConfig_initialValue = ""
+  , _validationConfig_setValue = Nothing
+  }
+
+validationInput
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => ValidationConfig t m a
+  -> m (DynValidation t Text a)
+validationInput = fmap snd . validationInput'
+
+validationInput'
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => ValidationConfig t m a
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
+validationInput' config = do
+  let validation = _validationConfig_validation config
+  rec (input, validatedInput) <- manageValidation (void $ _inputElement_input input) validation $ do
+        inputElement $ def
+          & initialAttributes .~ _validationConfig_initialAttributes config
+          & modifyAttributes .~ updated inputAttrs
+          & inputElementConfig_initialValue .~ _validationConfig_initialValue config
+          & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
+      let inputAttrs = ffor (fromDynValidation validatedInput) $ \case
+            Left _ -> fmap Just $ _validationConfig_invalidAttributes config
+            Right _ -> fmap Just $ _validationConfig_validAttributes config
+  val <- eitherDyn $ fromDynValidation validatedInput
+  dyn_ $ ffor val $ \case
+    Left _ -> _validationConfig_invalidFeedback config
+    Right _ -> _validationConfig_validFeedback config
+  return (input, validatedInput)
