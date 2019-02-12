@@ -74,16 +74,26 @@ manageValidity
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
 manageValidity validate' validator renderInput = do
-  input <- renderInput
-  let currentVal = current $ value input
-  validatedInput <- fmap (fmap validator) $ buildDynamic (sample currentVal) $ tagCheap currentVal validate'
+  v@(input, val) <- manageValidation validate' validator renderInput
   prerender blank $ do
     let rawEl = _inputElement_raw input
-    performEvent_ $ ffor (tagPromptlyDyn validatedInput validate') $ \case
+    performEvent_ $ ffor (tagPromptlyDyn (fromDynValidation val) validate') $ \case
       Left msg -> do
         setCustomValidity rawEl msg
         reportValidity_ rawEl
       _ -> setCustomValidity rawEl ("" :: Text) -- NOTE setting empty text is how the browser "clears" the error
+  return v
+
+manageValidation
+  :: (DomBuilder t m, MonadHold t m)
+  => Event t () -- When to validate
+  -> (Text -> Either Text a) -- Validation
+  -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
+manageValidation validate' validator renderInput = do
+  input <- renderInput
+  let currentVal = current $ value input
+  validatedInput <- fmap (fmap validator) $ buildDynamic (sample currentVal) $ tagCheap currentVal validate'
   return (input, toDynValidation validatedInput)
 
 validateEmail :: Text -> Either Text Text
