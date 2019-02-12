@@ -20,7 +20,7 @@
 
 module Rhyolite.Backend.Account where
 
-import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
@@ -193,29 +193,22 @@ login
   => (Id Account -> m loginInfo)
   -> Email
   -> Text
-  -> m (Either LoginError loginInfo)
-login toLoginInfo email password = runExceptT $ do
-  (aid, a) <- ExceptT . fmap (maybeToEither LoginError_UserNotFound . listToMaybe) $ project (AutoKeyField, AccountConstructor) (lower Account_emailField ==. T.toLower email)
-  ph <- ExceptT . return $ maybeToEither LoginError_UserNotFound $ account_passwordHash a
-  when (not $ verifyPasswordWith pbkdf2 (2^) (encodeUtf8 password) ph) $ ExceptT $ return $ Left LoginError_InvalidPassword
+  -> m (Maybe loginInfo)
+login toLoginInfo email password = runMaybeT $ do
+  (aid, a) <- MaybeT . fmap listToMaybe $ project (AutoKeyField, AccountConstructor) (lower Account_emailField ==. T.toLower email)
+  ph <- MaybeT . return $ account_passwordHash a
+  guard $ verifyPasswordWith pbkdf2 (2^) (encodeUtf8 password) ph
   lift $ toLoginInfo (toId aid)
-  where
-    maybeToEither b Nothing = Left b
-    maybeToEither _ (Just a) = Right a
 
 loginByAccountId
   :: (PersistBackend m)
   => Id Account
   -> Text
-  -> m (Either LoginError ())
-loginByAccountId aid password = runExceptT $ do
-  a <- ExceptT . fmap (maybeToEither LoginError_UserNotFound . listToMaybe) $ project AccountConstructor (AutoKeyField ==. fromId aid)
-  ph <- ExceptT . return $ maybeToEither LoginError_UserNotFound $ account_passwordHash a
-  when (not $ verifyPasswordWith pbkdf2 (2^) (encodeUtf8 password) ph) $ ExceptT $ return $ Left LoginError_InvalidPassword
-  return ()
-  where
-    maybeToEither b Nothing = Left b
-    maybeToEither _ (Just a) = Right a
+  -> m (Maybe ())
+loginByAccountId aid password = runMaybeT $ do
+  a <- MaybeT . fmap listToMaybe $ project AccountConstructor (AutoKeyField ==. fromId aid)
+  ph <- MaybeT . return $ account_passwordHash a
+  guard $ verifyPasswordWith pbkdf2 (2^) (encodeUtf8 password) ph
 
 generateAndSendPasswordResetEmail
   :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
