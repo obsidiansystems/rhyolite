@@ -3,9 +3,10 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Rhyolite.Frontend.Form where
 
-import Control.Lens ((%~))
+import Control.Lens ((%~), makeLenses)
 import Control.Monad
 import Control.Monad.Except
 import Data.Functor.Compose
@@ -146,8 +147,8 @@ validationInput'
   => ValidationConfig t m a
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
 validationInput' config = do
-  let validation = _validationConfig_validation config
-  rec (input, validatedInput) <- manageValidation (void $ _inputElement_input input) validation $ do
+  let validation' = _validationConfig_validation config
+  rec (input, validatedInput) <- manageValidation (void $ _inputElement_input input) validation' $ do
         inputElement $ def
           & initialAttributes .~ _validationConfig_initialAttributes config
           & modifyAttributes .~ updated inputAttrs
@@ -161,3 +162,5 @@ validationInput' config = do
     Left _ -> _validationConfig_invalidFeedback config
     Right _ -> _validationConfig_validFeedback config
   return (input, validatedInput)
+
+makeLenses ''ValidationConfig
