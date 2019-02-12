@@ -57,10 +57,12 @@ library
     , transformers
     , transformers-base
     , vector
+    , validation
 
   exposed-modules:
     Rhyolite.Frontend.App
     Rhyolite.Frontend.Cookie
+    Rhyolite.Frontend.Form
     Rhyolite.Frontend.Request
     Rhyolite.Frontend.WebSocket
 
