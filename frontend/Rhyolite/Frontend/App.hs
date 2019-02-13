@@ -28,6 +28,7 @@ import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
 import Data.Aeson.Types
+import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint (Dict (..))
@@ -155,8 +156,13 @@ instance (Monad m, SetRoute t r m) => SetRoute t r (RhyoliteWidget app t m) wher
 instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) where
   askRouteToUrl = lift askRouteToUrl
 
-instance Prerender js m => Prerender js (RhyoliteWidget app t m) where
-  prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
+deriving instance ( Reflex t
+                  , Prerender js t m
+                  , MonadFix m
+                  , Group (ViewSelector app SelectedCount)
+                  , Additive (ViewSelector app SelectedCount)
+                  , Query (ViewSelector app SelectedCount)
+                  ) => Prerender js t (RhyoliteWidget app t m)
 
 instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
   type PrimState (RhyoliteWidget app t m) = PrimState m
@@ -250,18 +256,19 @@ runPrerenderedRhyoliteWidget
       , TriggerEvent t m
       , PostBuild t m, MonadHold t m
       , MonadFix m
-      , Prerender x m
+      , Prerender x t m
       , MonadIO (Performable m)
       )
    => Text
    -> RhyoliteWidget app t m b
    -> m b
 runPrerenderedRhyoliteWidget url child = do
-  rec (notification :: Event t (View app ()), response) <- prerender (return (never, never)) $ do
-        appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
-        return ( _appWebSocket_notification appWebSocket
-               , _appWebSocket_response appWebSocket
-               )
+  rec (notification :: Event t (View app ()), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $
+        prerender (return (never, never)) $ do
+          appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
+          return ( _appWebSocket_notification appWebSocket
+                 , _appWebSocket_response appWebSocket
+                 )
       (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
       let request'' = fmap (fmapMaybe (\(t, v) -> case fromJSON v of
             Success (v' :: (SomeRequest (AppRequest app))) -> Just $ TaggedRequest t v'

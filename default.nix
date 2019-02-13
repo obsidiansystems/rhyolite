@@ -26,14 +26,6 @@ let
       sha256 = "103fqr710pddys3bqz4d17skgqmwiwrjksn2lbnc3w7s01kal98a";
     };
 
-    # Rhyolite needs throttleBatchWithLag from Reflex.Time
-    reflex = pkgs.fetchFromGitHub {
-      owner = "reflex-frp";
-      repo = "reflex";
-      rev = "2e2e19d37a5f1151fe985190b479016640751578";
-      sha256 = "0ygp3firh2h770wsfpzykph8jlb3xpi3bdl0imqa6zgcbphf13vx";
-    };
-
     # New version, recently added to hackage
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
@@ -85,7 +77,6 @@ let
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
-    reflex = repos.reflex;
     constraints-extras = repos.constraints-extras;
     aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
@@ -98,7 +89,6 @@ let
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
-      reflex = haskellLib.dontCheck super.reflex;
     })
   ];
 
