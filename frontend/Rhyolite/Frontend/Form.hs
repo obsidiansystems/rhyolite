@@ -10,7 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Rhyolite.Frontend.Form where
 
-import Control.Lens ((%~), makeLenses)
+import Control.Lens ((%~), makeLenses, preview)
 import Control.Monad
 import Control.Monad.Except
 import Data.Functor.Compose
@@ -73,6 +73,9 @@ toDynValidation e = DynValidation $ Compose $ fromEither <$> e
 
 pureDynValidation :: Reflex t => Dynamic t a -> DynValidation t e a
 pureDynValidation a = toDynValidation $ Right <$> a
+
+tagDynValidation :: Reflex t => DynValidation t e b -> Event t a -> Event t b
+tagDynValidation (DynValidation (Compose b)) = push $ \_ -> preview _Success <$> sample (current b)
 
 manageValidity
   :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
