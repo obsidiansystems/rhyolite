@@ -1,9 +1,13 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Rhyolite.Frontend.Form where
 
 import Control.Lens ((%~), makeLenses)
@@ -114,53 +118,58 @@ validateNonEmpty m = do
     False -> return txt
 
 data ValidationConfig t m a = ValidationConfig
-  { _validationConfig_validFeedback :: m ()
-  , _validationConfig_invalidFeedback :: m ()
+  { _validationConfig_feedback :: Either (Dynamic t Text) (Dynamic t a) -> m ()
   , _validationConfig_validation :: Text -> Either Text a
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
   , _validationConfig_initialValue :: Text
   , _validationConfig_setValue :: Maybe (Event t Text)
+  , _validationConfig_validate :: Event t ()
   }
 
 defValidationConfig :: DomBuilder t m => ValidationConfig t m a
 defValidationConfig = ValidationConfig
-  { _validationConfig_validFeedback = blank
-  , _validationConfig_invalidFeedback = blank
+  { _validationConfig_feedback = const blank
   , _validationConfig_validation = const $ Left "Validation not configured"
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
   , _validationConfig_invalidAttributes = mempty
   , _validationConfig_initialValue = ""
   , _validationConfig_setValue = Nothing
+  , _validationConfig_validate = never
   }
+
+data ValidationInput t m a = ValidationInput
+  { _validationInput_input :: InputElement EventResult (DomBuilderSpace m) t
+  , _validationInput_value :: DynValidation t Text a
+  }
+
+instance HasValue (ValidationInput t m a) where
+  type Value (ValidationInput t m a) = DynValidation t Text a
+  value = _validationInput_value
+
+instance Reflex t => HasDomEvent t (ValidationInput t m a) en where
+  type DomEventType (ValidationInput t m a) en = DomEventType (InputElement EventResult m t) en
+  domEvent en = domEvent en . _validationInput_input
 
 validationInput
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
   => ValidationConfig t m a
-  -> m (DynValidation t Text a)
-validationInput = fmap snd . validationInput'
-
-validationInput'
-  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => ValidationConfig t m a
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
-validationInput' config = do
+  -> m (ValidationInput t m a)
+validationInput config = do
   let validation' = _validationConfig_validation config
-  rec (input, validatedInput) <- manageValidation (void $ _inputElement_input input) validation' $ do
+  rec (input, validated) <- manageValidation (_validationConfig_validate config) validation' $ do
         inputElement $ def
           & initialAttributes .~ _validationConfig_initialAttributes config
           & modifyAttributes .~ updated inputAttrs
           & inputElementConfig_initialValue .~ _validationConfig_initialValue config
           & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
-      let inputAttrs = ffor (fromDynValidation validatedInput) $ \case
+      let inputAttrs = ffor (fromDynValidation validated) $ \case
             Left _ -> fmap Just $ _validationConfig_invalidAttributes config
             Right _ -> fmap Just $ _validationConfig_validAttributes config
-  val <- eitherDyn $ fromDynValidation validatedInput
-  dyn_ $ ffor val $ \case
-    Left _ -> _validationConfig_invalidFeedback config
-    Right _ -> _validationConfig_validFeedback config
-  return (input, validatedInput)
+  val <- eitherDyn $ fromDynValidation validated
+  dyn_ $ _validationConfig_feedback config <$> val
+  return $ ValidationInput input validated
 
 makeLenses ''ValidationConfig
