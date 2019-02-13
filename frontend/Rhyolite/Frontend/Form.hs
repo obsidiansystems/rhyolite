@@ -77,6 +77,9 @@ pureDynValidation a = toDynValidation $ Right <$> a
 tagDynValidation :: Reflex t => DynValidation t e b -> Event t a -> Event t b
 tagDynValidation (DynValidation (Compose b)) = push $ \_ -> preview _Success <$> sample (current b)
 
+tagPromptlyDynValidation :: Reflex t => DynValidation t e b -> Event t a -> Event t b
+tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMaybe (\b' _ -> preview _Success b') b
+
 manageValidity
   :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
   => Event t () -- When to validate
