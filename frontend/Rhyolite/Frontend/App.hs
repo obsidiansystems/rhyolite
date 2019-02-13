@@ -162,6 +162,8 @@ instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
   type PrimState (RhyoliteWidget app t m) = PrimState m
   primitive = lift . primitive
 
+deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget app t m)
+
 -- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
 type MonadRhyoliteFrontendWidget app t m =
     ( MonadRhyoliteWidget app t m
