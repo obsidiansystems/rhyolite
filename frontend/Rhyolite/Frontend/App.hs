@@ -177,7 +177,6 @@ type MonadRhyoliteFrontendWidget app t m =
     )
 
 class ( MonadWidget' t m
-      , MonadFix (WidgetHost m)
       , Requester t m
       , R.Request m ~ AppRequest app
       , Response m ~ Identity
@@ -189,7 +188,6 @@ class ( MonadWidget' t m
       ) => MonadRhyoliteWidget app t m | m -> app t where
 
 instance ( MonadWidget' t m
-         , MonadFix (WidgetHost m)
          , Requester t m
          , R.Request m ~ AppRequest app
          , Response m ~ Identity
