@@ -16,6 +16,7 @@ library
     , base
     , bytestring
     , containers
+    , dependent-sum
     , groundhog
     , groundhog-postgresql
     , groundhog-th

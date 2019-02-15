@@ -1,5 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -9,6 +11,7 @@
 module Rhyolite.Backend.Schema.Class where
 
 import Data.Proxy (Proxy)
+import Data.Some (Some)
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
 
@@ -35,3 +38,16 @@ class IsSumType a ~ HFalse => HasSingleConstructor a where
   singleConstructor :: Proxy a -> SingleConstructor a (ConstructorMarker a)
 
 type IdDataIs a b = IdData a ~ b
+
+class (PersistEntity e, Enum (Some (ConstructorTag e)), Bounded (Some (ConstructorTag e))) => RhyoliteEntity e where
+  data ConstructorTag e :: ((* -> *) -> *) -> *
+  tagToConstructor :: ConstructorTag e c -> c (ConstructorMarker e)
+  tagToConstructorDef :: ConstructorTag e c -> ConstructorDef
+
+class (Constructor c, EntityConstr e c, RhyoliteEntity e) => TaggedConstructor e c where
+  constructorToTag :: c (ConstructorMarker e) -> ConstructorTag e c
+
+class (Constructor c, EntityConstr e c, RhyoliteEntity e, Enum (Some (KeyTag e c)), Bounded (Some (KeyTag e c))) => KeyedConstructor e c where
+  data KeyTag e c :: * -> *
+  defaultKeyTag :: ConstructorTag e c -> Some (KeyTag e c)
+  keyFields :: Some (KeyTag e c) -> [Some (Field e c)]

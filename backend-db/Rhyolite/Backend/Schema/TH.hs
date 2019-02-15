@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -20,11 +21,12 @@ import Control.Monad
 import Control.Monad.State (mapStateT)
 import Data.Char (toLower)
 import Data.Int (Int64)
+import Data.Traversable (for)
 import Database.Groundhog
 import Database.Groundhog.Core
 import Data.Semigroup ((<>))
 import Data.List (isPrefixOf)
-import Database.Groundhog.TH (migrationFunction, namingStyle, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, defaultCodegenConfig)
+import Database.Groundhog.TH (CodegenConfig, NamingStyle, migrationFunction, namingStyle, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, defaultCodegenConfig)
 import Database.Groundhog.TH.Settings (PersistDefinitions(..))
 import Language.Haskell.TH
 
@@ -91,19 +93,33 @@ makeDefaultKeyIdSimple n k = do
 --
 -- Record field names are expected to look like _dataTypeName_fieldName
 mkRhyolitePersist :: Maybe String -> PersistDefinitions -> Q [Dec]
-mkRhyolitePersist migrationFunctionName = mkPersist $ defaultCodegenConfig
+mkRhyolitePersist migrationFunctionName defs@(PersistDefinitions entities embeddeds primitives) = do
+  decs <- mkPersist (rhyoliteCodegenConfig migrationFunctionName) defs
+  moreEntityDecs <- fmap concat $ for entities $ \case
+    _ -> pure []
+  moreEmbeddedDecs <- fmap concat $ for embeddeds $ \case
+    _ -> pure []
+  morePrimitiveDecs <- fmap concat $ for embeddeds $ \case
+    _ -> pure []
+  pure $ decs ++ moreEntityDecs ++ moreEmbeddedDecs ++ morePrimitiveDecs
+
+rhyoliteCodegenConfig :: Maybe String -> CodegenConfig
+rhyoliteCodegenConfig migrationFunctionName = defaultCodegenConfig
   { migrationFunction = migrationFunctionName
-  , namingStyle =
-    let ns = namingStyle defaultCodegenConfig
-        dropPrefix p x = if p `isPrefixOf` x then drop (length p) x else error $ "mkRhyolitePersist: dropPrefix: expected string with prefix " <> show p <> ", got string " <> show x
-    in ns { mkDbFieldName = \typeName cN conPos fieldName fieldPos ->
-             mkDbFieldName ns typeName cN conPos (dropPrefix ("_" <> (_head %~ toLower) typeName <> "_") fieldName) fieldPos
-          , mkExprFieldName = \typeName cN conPos fieldName fieldPos ->
-             mkExprFieldName ns typeName cN conPos (dropPrefix "_" fieldName) fieldPos
-          , mkExprSelectorName  = \typeName cN fieldName fieldPos ->
-             mkExprSelectorName ns typeName cN (dropPrefix "_" fieldName) fieldPos
-          }
+  , namingStyle = rhyoliteNamingStyle
   }
+
+rhyoliteNamingStyle :: NamingStyle
+rhyoliteNamingStyle =
+  let ns = namingStyle defaultCodegenConfig
+      dropPrefix p x = if p `isPrefixOf` x then drop (length p) x else error $ "mkRhyolitePersist: dropPrefix: expected string with prefix " <> show p <> ", got string " <> show x
+  in ns { mkDbFieldName = \typeName cN conPos fieldName fieldPos ->
+           mkDbFieldName ns typeName cN conPos (dropPrefix ("_" <> (_head %~ toLower) typeName <> "_") fieldName) fieldPos
+        , mkExprFieldName = \typeName cN conPos fieldName fieldPos ->
+           mkExprFieldName ns typeName cN conPos (dropPrefix "_" fieldName) fieldPos
+        , mkExprSelectorName  = \typeName cN fieldName fieldPos ->
+           mkExprSelectorName ns typeName cN (dropPrefix "_" fieldName) fieldPos
+        }
 
 makePersistFieldNewtype :: Name -> Q [Dec]
 makePersistFieldNewtype t = do
