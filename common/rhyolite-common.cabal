@@ -26,11 +26,13 @@ library
     , file-embed
     , filepath
     , http-types
+    , lens
     , mime-mail
     , monad-control
     , monoidal-containers
     , mtl
     , network-uri
+    , obelisk-route
     , reflex
     , resource-pool
     , template-haskell
