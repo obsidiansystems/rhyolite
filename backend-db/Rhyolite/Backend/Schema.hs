@@ -11,13 +11,20 @@
 
 module Rhyolite.Backend.Schema where
 
+import Control.Arrow ((&&&))
+import Control.Exception
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Typeable
+import Data.Universe
 import Data.Aeson (FromJSON, ToJSON, decode', eitherDecode', encode)
 import Data.Functor.Identity (Identity(..))
 import Data.Typeable (Proxy(..), Typeable)
+import qualified Data.Map as Map
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
-import Database.PostgreSQL.Simple.FromField (FromField, fromField)
-import Database.PostgreSQL.Simple.ToField (ToField, toField)
+import Database.PostgreSQL.Simple.FromField (FromField, fromField, Conversion, conversionError)
+import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.Types (Binary (..), Identifier (..))
 
 import Rhyolite.Schema (Json (..), SchemaName(..), LargeObjectId(..), HasId (..), Id (..))
@@ -99,5 +106,21 @@ instance (PersistField (DefaultKey a), DefaultKeyId a) => PersistField (Id a) wh
 instance (PrimitivePersistField (DefaultKey a), DefaultKeyId a) => PrimitivePersistField (Id a) where
   toPrimitivePersistValue p = toPrimitivePersistValue p . fromId
   fromPrimitivePersistValue p = toId . fromPrimitivePersistValue p
+
+data VisibleUniverseFailure = VisibleUniverseFailure TypeRep
+  deriving (Show)
+
+fromShowUniverse :: forall a. (Typeable a, Universe a, Show a) => Text -> Conversion a
+fromShowUniverse = maybe failUniv pure . univMap
+  where
+    pa :: Proxy a = Proxy
+    univ :: [a] = universe
+    failUniv :: Conversion a = conversionError $ VisibleUniverseFailure (typeRep pa)
+    univMap = flip Map.lookup (Map.fromList $ (T.pack . show &&& id) <$> univ)
+
+toShowUniverse :: forall a. Show a => a -> Action
+toShowUniverse = toField . T.pack . show
+
+instance Exception VisibleUniverseFailure
 
 makePersistFieldNewtype ''SchemaName
