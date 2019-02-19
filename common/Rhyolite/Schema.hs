@@ -3,6 +3,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -11,12 +13,15 @@
 module Rhyolite.Schema where
 
 import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Control.Category ((>>>))
+import Control.Monad.Error (MonadError)
 import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
 import Data.Word (Word64)
 import GHC.Generics (Generic)
+import Obelisk.Route
 
 newtype SchemaName = SchemaName { unSchemaName :: Text }
   deriving (Eq, Ord, Read, Show, FromJSON, ToJSON, Typeable, Generic)
@@ -71,3 +76,18 @@ newtype Json a = Json { unJson :: a }
 -- is the type that Oid wraps, because Word64 has Groundhog instances to steal.
 newtype LargeObjectId = LargeObjectId Word64
   deriving (Eq, Ord, Show, Read, Typeable)
+
+idPathSegmentEncoder
+  :: forall a check parse.
+  (MonadError Text parse, Applicative check, Show (IdData a), Read (IdData a))
+  => Encoder check parse (Id a) PageName
+idPathSegmentEncoder = idEncoder >>> singlePathSegmentEncoder
+
+idEncoder
+  :: forall a check parse.
+  (MonadError Text parse, Applicative check, Show (IdData a), Read (IdData a))
+  => Encoder check parse (Id a) Text
+idEncoder = unsafeMkEncoder EncoderImpl
+  { _encoderImpl_encode = showPretty
+  , _encoderImpl_decode = \x -> Id <$> tryDecode unsafeTshowEncoder x
+  }
