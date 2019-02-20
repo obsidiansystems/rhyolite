@@ -99,8 +99,8 @@ withWorker d work child = do
         case didWork of
           Left e -> do
             putStrLn $ "withWorker: error in worker: " <> show e --TODO: Use MonadLogger
-            sleep startVar
-          Right True -> void $ tryPutMVar startVar ()
-          Right False -> sleep startVar
+            sleep nextStartVar
+          Right True -> void $ tryPutMVar nextStartVar ()
+          Right False -> sleep nextStartVar
         go nextStartVar
   bracket (liftIO $ async $ go initialStartVar) (liftIO . cancel) $ \_ -> child wakeup

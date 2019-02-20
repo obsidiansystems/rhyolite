@@ -37,6 +37,7 @@ library
     , time
     , transformers
     , unbounded-delays
+    , universe
 
   exposed-modules:
     Database.Groundhog.Postgresql.Orphans
