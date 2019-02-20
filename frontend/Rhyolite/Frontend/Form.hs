@@ -36,13 +36,13 @@ requestingStatus
   -> Dynamic t (Maybe request)
   -> m (Dynamic t (RequestStatus request response), Event t request)
 requestingStatus response fire input = do
-  let isReady = ffor input $ \case
+  let inputStatus = ffor input $ \case
         Nothing -> RequestStatus_NotReady
         Just _ -> RequestStatus_Ready
-  rec status <- fmap join $ holdDyn isReady $ leftmost
+  rec status <- fmap join $ holdDyn inputStatus $ leftmost
         [ constDyn . RequestStatus_Started <$> gatedRequest
         , constDyn . RequestStatus_Finished <$> response
-        , isReady <$ gate finished (updated isReady)
+        , inputStatus <$ gate finished (updated inputStatus)
         ]
       let notStarted = ffor (current status) $ \case
             RequestStatus_Started _ -> False
