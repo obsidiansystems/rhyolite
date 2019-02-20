@@ -42,10 +42,14 @@ requestingStatus response fire input = do
   rec status <- fmap join $ holdDyn isReady $ leftmost
         [ constDyn . RequestStatus_Started <$> gatedRequest
         , constDyn . RequestStatus_Finished <$> response
+        , isReady <$ gate finished (updated isReady)
         ]
       let notStarted = ffor (current status) $ \case
             RequestStatus_Started _ -> False
             _ -> True
+          finished = ffor (current status) $ \case
+            RequestStatus_Finished _ -> True
+            _ -> False
           gatedRequest = gate notStarted $ tagMaybe (current input) fire
   return (status, gatedRequest)
 
