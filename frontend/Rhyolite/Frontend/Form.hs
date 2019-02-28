@@ -65,11 +65,22 @@ newtype DynValidation t e a = DynValidation { unDynValidation :: Compose (Dynami
 deriving instance Reflex t => Functor (DynValidation t e)
 deriving instance (Reflex t, Semigroup e) => Applicative (DynValidation t e)
 
+newtype BehaviorValidation t e a = BehaviorValidation { unBehaviorValidation :: Compose (Behavior t) (Validation e) a }
+
+deriving instance Reflex t => Functor (BehaviorValidation t e)
+deriving instance (Reflex t, Semigroup e) => Applicative (BehaviorValidation t e)
+
 fromDynValidation :: Reflex t => DynValidation t e a -> Dynamic t (Either e a)
 fromDynValidation (DynValidation (Compose v)) = toEither <$> v
 
+fromBehaviorValidation :: Reflex t => BehaviorValidation t e a -> Behavior t (Either e a)
+fromBehaviorValidation (BehaviorValidation (Compose v)) = toEither <$> v
+
 toDynValidation :: Reflex t => Dynamic t (Either e a) -> DynValidation t e a
 toDynValidation e = DynValidation $ Compose $ fromEither <$> e
+
+toBehaviorValidation :: Reflex t => Behavior t (Either e a) -> BehaviorValidation t e a
+toBehaviorValidation e = BehaviorValidation $ Compose $ fromEither <$> e
 
 pureDynValidation :: Reflex t => Dynamic t a -> DynValidation t e a
 pureDynValidation a = toDynValidation $ Right <$> a
@@ -83,15 +94,15 @@ tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMayb
 manageValidity
   :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
   => Event t () -- When to validate
-  -> (Dynamic t Text -> DynValidation t e a) -- Validation
+  -> (Behavior t Text -> BehaviorValidation t e a) -- Validation
   -> (e -> Text) -- convert error to form for basic html validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
+  -> m (InputElement EventResult (DomBuilderSpace m) t, BehaviorValidation t e a)
 manageValidity validate' validator errorText renderInput = do
-  v@(input, val) <- manageValidation validate' validator renderInput
+  v@(input, bvVal) <- manageValidation validator renderInput
   prerender blank $ do
     let rawEl = _inputElement_raw input
-    performEvent_ $ ffor (tagPromptlyDyn (fromDynValidation val) validate') $ \case
+    performEvent_ $ ffor (tag (fromBehaviorValidation bvVal) validate') $ \case
       Left typedMsg -> do
         let msg = errorText typedMsg
         setCustomValidity rawEl msg
@@ -101,15 +112,12 @@ manageValidity validate' validator errorText renderInput = do
 
 manageValidation
   :: (DomBuilder t m, MonadHold t m)
-  => Event t () -- When to validate
-  -> (Dynamic t Text -> DynValidation t e a) -- Validation
+  => (Behavior t Text -> BehaviorValidation t e a) -- Validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
-manageValidation validate' validator renderInput = do
+  -> m (InputElement EventResult (DomBuilderSpace m) t, BehaviorValidation t e a)
+manageValidation validator renderInput = do
   input <- renderInput
-  let currentVal = current $ value input
-  validatedInput <- fmap validator $ buildDynamic (sample currentVal) $ tagPromptlyDyn (value input) validate'
-  return (input, validatedInput)
+  return (input, validator $ current $ value input)
 
 validateEmail :: Text -> Either Text Text
 validateEmail m = do
@@ -130,9 +138,8 @@ data ValidationConfig t m e a = ValidationConfig
   -- ^ For displaying the error in the browser with manual styling.
   , _validationConfig_errorText :: e -> Text
   -- ^ For the base HTML form validation, in which errors are non-empty strings.
-  , _validationConfig_validation :: Dynamic t Text -> DynValidation t e a
-  -- ^ TODO it would be nice to not give the user the impression they can mix in
-  -- other events, since we only update when validate fires.
+  , _validationConfig_validation :: Behavior t Text -> BehaviorValidation t e a
+  -- ^ Can pull other data, but not be pushed by it.
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
@@ -145,7 +152,7 @@ defValidationConfig :: DomBuilder t m => ValidationConfig t m Text a
 defValidationConfig = ValidationConfig
   { _validationConfig_feedback = const blank
   , _validationConfig_errorText = id
-  , _validationConfig_validation = const $ toDynValidation $ pure $ Left "Validation not configured"
+  , _validationConfig_validation = const $ toBehaviorValidation $ pure $ Left "Validation not configured"
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
   , _validationConfig_invalidAttributes = mempty
@@ -172,18 +179,21 @@ validationInput
   => ValidationConfig t m e a
   -> m (ValidationInput t m e a)
 validationInput config = do
-  let validation' = _validationConfig_validation config
-  rec (input, validated) <- manageValidation (_validationConfig_validate config) validation' $ do
+  let validation' = _validationConfig_validate config
+  rec (input, bvValidated) <- manageValidation (_validationConfig_validation config) $ do
         inputElement $ def
           & initialAttributes .~ _validationConfig_initialAttributes config
-          & modifyAttributes .~ updated inputAttrs
+          & modifyAttributes .~ inputAttrs
           & inputElementConfig_initialValue .~ _validationConfig_initialValue config
           & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
-      let inputAttrs = ffor (fromDynValidation validated) $ \case
+      let bValidated = fromBehaviorValidation bvValidated
+          eValidated = tag (fromBehaviorValidation bvValidated) validation'
+          inputAttrs = ffor eValidated $ \case
             Left _ -> fmap Just $ _validationConfig_invalidAttributes config
             Right _ -> fmap Just $ _validationConfig_validAttributes config
-  val <- eitherDyn $ fromDynValidation validated
+  dValidated <- fmap toDynValidation $ buildDynamic (sample bValidated) eValidated
+  val <- eitherDyn $ fromDynValidation dValidated
   dyn_ $ _validationConfig_feedback config <$> val
-  return $ ValidationInput input validated
+  return $ ValidationInput input dValidated
 
 makeLenses ''ValidationConfig
