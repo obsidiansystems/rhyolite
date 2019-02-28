@@ -14,6 +14,7 @@ module Rhyolite.Frontend.Form where
 import Control.Lens ((%~), makeLenses, preview)
 import Control.Monad
 import Control.Monad.Except
+import Data.Bifunctor
 import Data.Functor.Compose
 import Data.Map (Map)
 import Data.Text (Text)
@@ -75,10 +76,16 @@ newtype DynValidation t e a = DynValidation { unDynValidation :: Compose (Dynami
 deriving instance Reflex t => Functor (DynValidation t e)
 deriving instance (Reflex t, Semigroup e) => Applicative (DynValidation t e)
 
+instance Reflex t => Bifunctor (DynValidation t) where
+  bimap f g (DynValidation (Compose v)) = DynValidation $ Compose $ bimap f g <$> v
+
 newtype BehaviorValidation t e a = BehaviorValidation { unBehaviorValidation :: Compose (Behavior t) (Validation e) a }
 
 deriving instance Reflex t => Functor (BehaviorValidation t e)
 deriving instance (Reflex t, Semigroup e) => Applicative (BehaviorValidation t e)
+
+instance Reflex t => Bifunctor (BehaviorValidation t) where
+  bimap f g (BehaviorValidation (Compose v)) = BehaviorValidation $ Compose $ bimap f g <$> v
 
 fromDynValidation :: Reflex t => DynValidation t e a -> Dynamic t (Either e a)
 fromDynValidation (DynValidation (Compose v)) = toEither <$> v
