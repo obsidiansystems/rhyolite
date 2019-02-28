@@ -6,6 +6,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Rhyolite.Frontend.Form where
@@ -55,10 +56,19 @@ withRequestingStatus
   -> (Dynamic t (RequestStatus (Request m a) (Response m a)) -> m (Event t ()))
   -> m (Event t (Response m a))
 withRequestingStatus input render = do
-  rec fire <- render status
+  (resp, ()) <- withRequestingStatus' input (fmap (, ()) . render)
+  return resp
+
+withRequestingStatus'
+  :: (MonadFix m, MonadHold t m, Requester t m)
+  => Dynamic t (Maybe (Request m a))
+  -> (Dynamic t (RequestStatus (Request m a) (Response m a)) -> m (Event t (), other))
+  -> m (Event t (Response m a), other)
+withRequestingStatus' input render = do
+  rec (fire, a) <- render status
       (status, request) <- requestingStatus response fire input
       response <- requesting request
-  return response
+  return (response, a)
 
 newtype DynValidation t e a = DynValidation { unDynValidation :: Compose (Dynamic t) (Validation e) a }
 
