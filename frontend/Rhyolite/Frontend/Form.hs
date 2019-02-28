@@ -133,6 +133,9 @@ manageValidation validator renderInput = do
   validatedInput <- weirdMap (fromBehaviorValidation . validator) $ value input
   return (input, toDynValidation validatedInput)
 
+guardEither :: e -> Bool -> Either e ()
+guardEither e cond = if cond then Right () else Left e
+
 validateEmail :: Text -> Either Text Text
 validateEmail m = do
   ne <- validateNonEmpty m
