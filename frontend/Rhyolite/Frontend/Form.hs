@@ -97,12 +97,12 @@ manageValidity
   -> (Behavior t Text -> BehaviorValidation t e a) -- Validation
   -> (e -> Text) -- convert error to form for basic html validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, BehaviorValidation t e a)
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
 manageValidity validate' validator errorText renderInput = do
-  v@(input, bvVal) <- manageValidation validator renderInput
+  v@(input, val) <- manageValidation validator renderInput
   prerender blank $ do
     let rawEl = _inputElement_raw input
-    performEvent_ $ ffor (tag (fromBehaviorValidation bvVal) validate') $ \case
+    performEvent_ $ ffor (tagPromptlyDyn (fromDynValidation val) validate') $ \case
       Left typedMsg -> do
         let msg = errorText typedMsg
         setCustomValidity rawEl msg
@@ -110,14 +110,28 @@ manageValidity validate' validator errorText renderInput = do
       _ -> setCustomValidity rawEl ("" :: Text) -- NOTE setting empty text is how the browser "clears" the error
   return v
 
+-- | The returned dynamic is really an abuse of I dynamic, namely it shouldn't
+-- be allowed to push anything. The one benefit of this vs 'fmap f . current' is
+-- the result can be fed into 'attachPromptly' rather than 'tag' to avoid
+-- loosing a frame.
+weirdMap
+  :: (Reflex t, MonadHold t m)
+  => (Behavior t a -> Behavior t b)
+  -> Dynamic t a
+  -> m (Dynamic t b)
+weirdMap f d = buildDynamic
+  (sample $ f $ current d)
+  (pushAlways (sample . f . pure) $ updated d)
+
 manageValidation
   :: (DomBuilder t m, MonadHold t m)
   => (Behavior t Text -> BehaviorValidation t e a) -- Validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, BehaviorValidation t e a)
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
 manageValidation validator renderInput = do
   input <- renderInput
-  return (input, validator $ current $ value input)
+  validatedInput <- weirdMap (fromBehaviorValidation . validator) $ value input
+  return (input, toDynValidation validatedInput)
 
 validateEmail :: Text -> Either Text Text
 validateEmail m = do
@@ -180,17 +194,17 @@ validationInput
   -> m (ValidationInput t m e a)
 validationInput config = do
   let validation' = _validationConfig_validate config
-  rec (input, bvValidated) <- manageValidation (_validationConfig_validation config) $ do
+  rec (input, dValidated0) <- manageValidation (_validationConfig_validation config) $ do
         inputElement $ def
           & initialAttributes .~ _validationConfig_initialAttributes config
           & modifyAttributes .~ inputAttrs
           & inputElementConfig_initialValue .~ _validationConfig_initialValue config
           & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
-      let bValidated = fromBehaviorValidation bvValidated
-          eValidated = tag (fromBehaviorValidation bvValidated) validation'
+      let eValidated = tagPromptlyDyn (fromDynValidation dValidated0) validation'
           inputAttrs = ffor eValidated $ \case
             Left _ -> fmap Just $ _validationConfig_invalidAttributes config
             Right _ -> fmap Just $ _validationConfig_validAttributes config
+  let bValidated = current $ fromDynValidation dValidated0
   dValidated <- fmap toDynValidation $ buildDynamic (sample bValidated) eValidated
   val <- eitherDyn $ fromDynValidation dValidated
   dyn_ $ _validationConfig_feedback config <$> val
