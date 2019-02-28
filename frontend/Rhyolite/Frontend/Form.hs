@@ -83,7 +83,7 @@ tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMayb
 manageValidity
   :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
   => Event t () -- When to validate
-  -> (Text -> Either e a) -- Validation
+  -> (Dynamic t Text -> DynValidation t e a) -- Validation
   -> (e -> Text) -- convert error to form for basic html validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
@@ -102,14 +102,14 @@ manageValidity validate' validator errorText renderInput = do
 manageValidation
   :: (DomBuilder t m, MonadHold t m)
   => Event t () -- When to validate
-  -> (Text -> Either e a) -- Validation
+  -> (Dynamic t Text -> DynValidation t e a) -- Validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
 manageValidation validate' validator renderInput = do
   input <- renderInput
   let currentVal = current $ value input
-  validatedInput <- fmap (fmap validator) $ buildDynamic (sample currentVal) $ tagPromptlyDyn (value input) validate'
-  return (input, toDynValidation validatedInput)
+  validatedInput <- fmap validator $ buildDynamic (sample currentVal) $ tagPromptlyDyn (value input) validate'
+  return (input, validatedInput)
 
 validateEmail :: Text -> Either Text Text
 validateEmail m = do
@@ -130,7 +130,9 @@ data ValidationConfig t m e a = ValidationConfig
   -- ^ For displaying the error in the browser with manual styling.
   , _validationConfig_errorText :: e -> Text
   -- ^ For the base HTML form validation, in which errors are non-empty strings.
-  , _validationConfig_validation :: Text -> Either e a
+  , _validationConfig_validation :: Dynamic t Text -> DynValidation t e a
+  -- ^ TODO it would be nice to not give the user the impression they can mix in
+  -- other events, since we only update when validate fires.
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
@@ -143,7 +145,7 @@ defValidationConfig :: DomBuilder t m => ValidationConfig t m Text a
 defValidationConfig = ValidationConfig
   { _validationConfig_feedback = const blank
   , _validationConfig_errorText = id
-  , _validationConfig_validation = const $ Left "Validation not configured"
+  , _validationConfig_validation = const $ toDynValidation $ pure $ Left "Validation not configured"
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
   , _validationConfig_invalidAttributes = mempty
