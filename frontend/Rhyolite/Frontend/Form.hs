@@ -136,19 +136,18 @@ manageValidation validator renderInput = do
 guardEither :: e -> Bool -> Either e ()
 guardEither e cond = if cond then Right () else Left e
 
-validateEmail :: Text -> Either Text Text
-validateEmail m = do
-  ne <- validateNonEmpty m
-  case T.breakOn "@" ne of
-    (_, xs) | T.length xs > 1 -> return ne
-    _ -> throwError "Invalid email"
-
-validateNonEmpty :: Text -> Either Text Text
+validateNonEmpty :: Text -> Either () Text
 validateNonEmpty m = do
   let txt = T.strip m
-  case T.null txt of
-    True -> throwError "Is empty"
-    False -> return txt
+  guardEither () $ not $ T.null txt
+  return txt
+
+validateEmail :: Text -> Either () Text
+validateEmail m = do
+  ne <- validateNonEmpty m
+  let (_, xs) = T.breakOn "@" ne
+  guardEither () $ T.length xs > 1
+  return ne
 
 data ValidationConfig t m e a = ValidationConfig
   { _validationConfig_feedback :: Either (Dynamic t e) (Dynamic t a) -> m ()
