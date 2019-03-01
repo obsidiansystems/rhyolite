@@ -17,6 +17,8 @@ import Control.Monad.Except
 import Data.Bifunctor
 import Data.Functor.Compose
 import Data.Map (Map)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Validation
@@ -125,18 +127,26 @@ manageValidation validator renderInput = do
 guardEither :: e -> Bool -> Either e ()
 guardEither e cond = if cond then Right () else Left e
 
-validateNonEmpty :: Text -> Either () Text
-validateNonEmpty m = do
+validateNonEmpty :: Text -> Validation () Text
+validateNonEmpty m = fromEither $ do
   let txt = T.strip m
   guardEither () $ not $ T.null txt
   return txt
 
-validateEmail :: Text -> Either () Text
-validateEmail m = do
-  ne <- validateNonEmpty m
+validateEmail :: Text -> Validation () Text
+validateEmail m = fromEither $ do
+  ne <- toEither $ validateNonEmpty m
   let (_, xs) = T.breakOn "@" ne
   guardEither () $ T.length xs > 1
   return ne
+
+validateUniqueName
+  :: Text
+  -> Set Text
+  -> Validation () Text
+validateUniqueName name otherNames = fromEither $ do
+  guardEither () $ not $ Set.member name otherNames
+  return name
 
 data ValidationConfig t m e a = ValidationConfig
   { _validationConfig_feedback :: Either (Dynamic t e) (Dynamic t a) -> m ()
