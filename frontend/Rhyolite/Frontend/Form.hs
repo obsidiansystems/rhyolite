@@ -83,15 +83,17 @@ tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMayb
 manageValidity
   :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
   => Event t () -- When to validate
-  -> (Text -> Either Text a) -- Validation
+  -> (Text -> Either e a) -- Validation
+  -> (e -> Text) -- convert error to form for basic html validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
-manageValidity validate' validator renderInput = do
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
+manageValidity validate' validator errorText renderInput = do
   v@(input, val) <- manageValidation validate' validator renderInput
   prerender blank $ do
     let rawEl = _inputElement_raw input
     performEvent_ $ ffor (tagPromptlyDyn (fromDynValidation val) validate') $ \case
-      Left msg -> do
+      Left typedMsg -> do
+        let msg = errorText typedMsg
         setCustomValidity rawEl msg
         reportValidity_ rawEl
       _ -> setCustomValidity rawEl ("" :: Text) -- NOTE setting empty text is how the browser "clears" the error
@@ -100,9 +102,9 @@ manageValidity validate' validator renderInput = do
 manageValidation
   :: (DomBuilder t m, MonadHold t m)
   => Event t () -- When to validate
-  -> (Text -> Either Text a) -- Validation
+  -> (Text -> Either e a) -- Validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t Text a)
+  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
 manageValidation validate' validator renderInput = do
   input <- renderInput
   let currentVal = current $ value input
@@ -123,9 +125,12 @@ validateNonEmpty m = do
     True -> throwError "Is empty"
     False -> return txt
 
-data ValidationConfig t m a = ValidationConfig
-  { _validationConfig_feedback :: Either (Dynamic t Text) (Dynamic t a) -> m ()
-  , _validationConfig_validation :: Text -> Either Text a
+data ValidationConfig t m e a = ValidationConfig
+  { _validationConfig_feedback :: Either (Dynamic t e) (Dynamic t a) -> m ()
+  -- ^ For displaying the error in the browser with manual styling.
+  , _validationConfig_errorText :: e -> Text
+  -- ^ For the base HTML form validation, in which errors are non-empty strings.
+  , _validationConfig_validation :: Text -> Either e a
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
@@ -134,9 +139,10 @@ data ValidationConfig t m a = ValidationConfig
   , _validationConfig_validate :: Event t ()
   }
 
-defValidationConfig :: DomBuilder t m => ValidationConfig t m a
+defValidationConfig :: DomBuilder t m => ValidationConfig t m Text a
 defValidationConfig = ValidationConfig
   { _validationConfig_feedback = const blank
+  , _validationConfig_errorText = id
   , _validationConfig_validation = const $ Left "Validation not configured"
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
@@ -146,23 +152,23 @@ defValidationConfig = ValidationConfig
   , _validationConfig_validate = never
   }
 
-data ValidationInput t m a = ValidationInput
+data ValidationInput t m e a = ValidationInput
   { _validationInput_input :: InputElement EventResult (DomBuilderSpace m) t
-  , _validationInput_value :: DynValidation t Text a
+  , _validationInput_value :: DynValidation t e a
   }
 
-instance HasValue (ValidationInput t m a) where
-  type Value (ValidationInput t m a) = DynValidation t Text a
+instance HasValue (ValidationInput t m e a) where
+  type Value (ValidationInput t m e a) = DynValidation t e a
   value = _validationInput_value
 
-instance Reflex t => HasDomEvent t (ValidationInput t m a) en where
-  type DomEventType (ValidationInput t m a) en = DomEventType (InputElement EventResult m t) en
+instance Reflex t => HasDomEvent t (ValidationInput t m e a) en where
+  type DomEventType (ValidationInput t m e a) en = DomEventType (InputElement EventResult m t) en
   domEvent en = domEvent en . _validationInput_input
 
 validationInput
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => ValidationConfig t m a
-  -> m (ValidationInput t m a)
+  => ValidationConfig t m e a
+  -> m (ValidationInput t m e a)
 validationInput config = do
   let validation' = _validationConfig_validation config
   rec (input, validated) <- manageValidation (_validationConfig_validate config) validation' $ do
