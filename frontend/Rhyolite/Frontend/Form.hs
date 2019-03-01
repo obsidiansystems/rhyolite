@@ -209,10 +209,8 @@ validationInput config = do
           inputAttrs = ffor eValidated $ \case
             Left _ -> fmap Just $ _validationConfig_invalidAttributes config
             Right _ -> fmap Just $ _validationConfig_validAttributes config
-  let bValidated = current $ fromDynValidation dValidated
-  dValidatedGated <- fmap toDynValidation $ buildDynamic (sample bValidated) eValidated
-  val <- eitherDyn $ fromDynValidation dValidatedGated
+  val <- eitherDyn $ fromDynValidation dValidated
   dyn_ $ _validationConfig_feedback config <$> val
-  return $ ValidationInput input dValidatedGated
+  return $ ValidationInput input dValidated
 
 makeLenses ''ValidationConfig
