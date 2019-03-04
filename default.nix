@@ -55,8 +55,8 @@ let
     aeson-gadt-th = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "aeson-gadt-th";
-      rev = "5aabb547893b8a1140ddad4fba5a266db1d08fbe";
-      sha256 = "0sywn3w7ph7b7r0byjz7c9cy41hb8p3ym8qljg1bd99d92hj3sig";
+      rev = "c7e6c6488c8292e4ff8f7406d9b9fa63828f80e7";
+      sha256 = "17whq0lk303gmn3yphqj26lxs0823z2hm837qqwvhq5rg6jlb90q";
     };
 
     # Newly added to hackage
@@ -88,8 +88,9 @@ let
     bytestring-trie = repos.bytestring-trie;
     reflex = repos.reflex;
     monoidal-containers = repos.monoidal-containers;
-    constraints-extras = repos.constraints-extras;
-    aeson-gadt-th = repos.aeson-gadt-th;
+    # These are commented out and manually overridden below to get around cross-compilation issue with markdown-unlit:
+    # constraints-extras = repos.constraints-extras;
+    # aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
   };
 
@@ -100,6 +101,10 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       reflex = haskellLib.dontCheck super.reflex;
+      aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" repos.aeson-gadt-th
+        { inherit (self.buildHaskellPackages) markdown-unlit; };
+      constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras
+        { inherit (self.buildHaskellPackages) markdown-unlit; };
     })
   ];
 
