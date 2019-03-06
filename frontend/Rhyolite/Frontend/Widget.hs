@@ -15,11 +15,12 @@ extensibleListWidget
   => Int -- ^ Minimum number of entries (be careful: if this is 0, the entire list is allowed to vanish)
   -> a -- ^ Initial entry for newly inserted items
   -> [a] -- ^ Initial sequence of entries
+  -> Event t () -- ^ Add an item at the end of the list
   -> (Dynamic t Int -> a -> m (Event t ListEdit, Dynamic t b))
   -- ^ Widget for a single item which is expected to include
   -- the list editing controls and pass through the resulting events.
   -> m (Dynamic t [b])
-extensibleListWidget n x0 xs0 itemWidget = extensibleListWidgetWithSize n x0 xs0 (\d -> itemWidget (fst <$> d))
+extensibleListWidget n x0 xs0 addAtEnd itemWidget = extensibleListWidgetWithSize n x0 xs0 addAtEnd (\d -> itemWidget (fst <$> d))
 
 -- | Like `extensibleListWidget`, but the items know the current size of the whole list, as well as their position.
 extensibleListWidgetWithSize
@@ -27,12 +28,13 @@ extensibleListWidgetWithSize
   => Int -- ^ Minimum number of entries (be careful: if this is 0, the entire list is allowed to vanish)
   -> a -- ^ Initial entry for newly inserted items
   -> [a] -- ^ Initial sequence of entries
+  -> Event t () -- ^ Add an item at the end of the list
   -> (Dynamic t (Int, Int) -> a -> m (Event t ListEdit, Dynamic t b))
   -- ^ Widget for a single item which is expected to include
   -- the list editing controls and pass through the resulting events.
   -- First argument is (item position, total number of items).
   -> m (Dynamic t [b])
-extensibleListWidgetWithSize n x0 xs0 itemWidget = do
+extensibleListWidgetWithSize n x0 xs0 addAtEnd itemWidget = do
   let genIndex :: Map Rational a -> Map Rational a -> Rational
       genIndex us vs =
         case (Map.maxViewWithKey us, Map.minViewWithKey vs) of
@@ -56,7 +58,15 @@ extensibleListWidgetWithSize n x0 xs0 itemWidget = do
             i = genIndex us' vs
         in Map.singleton i (Just x0)
       map0 :: Map Rational (Maybe a) = Map.fromList . zip [0..] $ fmap Just xs0
-  rec let updateEvent :: Event t (Map Rational (Maybe a)) = attachWith (\xs x -> handleChange x xs) (current listMapD) changeMapE
+  rec let attachList xs x = case x of
+            Nothing -> case Map.maxViewWithKey xs of
+              Nothing -> handleChange (0, ListEdit_InsertAfter) xs
+              Just ((k, _), _) -> handleChange (k, ListEdit_InsertAfter) xs
+            Just x' -> handleChange x' xs
+          updateEvent :: Event t (Map Rational (Maybe a)) = attachWith attachList (current listMapD) $ leftmost
+            [ Just <$> changeMapE
+            , Nothing <$ addAtEnd
+            ]
       listMapD :: Dynamic t (Map Rational a) <- fmap (Map.mapMaybe id) <$> foldDyn (\e m -> Map.union e m) map0 updateEvent
       let ixMapD :: Dynamic t (Map Rational Int) = fmap (Map.fromList . (`zip` [0::Int ..]) . Map.keys) listMapD
       resultMapD <- listHoldWithKey (Map.mapMaybe id map0) updateEvent $ \k v -> do
