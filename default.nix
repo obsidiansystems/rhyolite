@@ -38,8 +38,8 @@ let
     constraints-extras = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "constraints-extras";
-      rev = "841fafd55ae16e6c367ce0f87fc077b173a25667";
-      sha256 = "18hx7nfqfl945pkr8m2mflndszd1f1wgrwb8mpjz8yx5pqhyy41f";
+      rev = "134fa90bc70d64e2ba88d8122ad691880e6ce300";
+      sha256 = "0qr5dla3hdhs4pq5hgpcb0kph2gkgif8gkyw77k5nvz8c0sfl59l";
     };
 
     # Newly added to hackage
@@ -102,8 +102,7 @@ let
       reflex = haskellLib.dontCheck super.reflex;
       aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" repos.aeson-gadt-th
         { inherit (self.buildHaskellPackages) markdown-unlit; };
-      constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras
-        { inherit (self.buildHaskellPackages) markdown-unlit; };
+      constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras {};
     })
   ];
 
