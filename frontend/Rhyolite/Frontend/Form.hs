@@ -97,7 +97,9 @@ tagPromptlyDynValidation :: Reflex t => DynValidation t e b -> Event t a -> Even
 tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMaybe (\b' _ -> preview _Success b') b
 
 manageValidity
-  :: (DomBuilder t m, MonadHold t m, Prerender js m, PerformEvent t m)
+  :: ( DomBuilder t m, MonadHold t m, PerformEvent t m
+     , Prerender js t m, RawInputElement (DomBuilderSpace m) ~ HTMLInputElement
+     )
   => Event t () -- When to validate
   -> (Dynamic t Text -> DynValidation t e a) -- Validation
   -> (e -> Text) -- convert error to form for basic html validation
