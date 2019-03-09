@@ -94,6 +94,7 @@ let
         { inherit (self.buildHaskellPackages) markdown-unlit; };
       constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras
         { inherit (self.buildHaskellPackages) markdown-unlit; };
+      validation = haskellLib.dontCheck super.validation;
     })
   ];
 
