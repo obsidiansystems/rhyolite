@@ -90,6 +90,7 @@ let
     # aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
+    monoidal-containers = repos.monoidal-containers;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
