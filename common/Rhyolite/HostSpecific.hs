@@ -63,6 +63,9 @@ instance FromJSON FileId where
 
 instance HasId FileId
 
+_FileId :: Iso' FileId Text
+_FileId = iso unFileId FileId
+
 data UploadTarget = UploadTarget_EcosystemMap
   deriving (Show)
 makeJson ''UploadTarget
