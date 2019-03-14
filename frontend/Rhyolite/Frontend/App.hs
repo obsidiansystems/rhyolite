@@ -33,6 +33,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint (Dict (..))
 import Data.Default (Default)
+import qualified Data.IntMap as IntMap
 import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
@@ -455,3 +456,54 @@ instance Default FrontendConfig where
     , _frontendConfig_uriCallback = Nothing
     , _frontendConfig_warpPort = 3911
     }
+
+-- | Map application credentials into an "authenticated" subwidget
+-- This relieves us of having to carry around application credentials in parts of the application
+-- known to be accessible only to authenticated users.
+-- For example, you might define a view selector @VS (Map k) a@ and in the authenticated parts of the application
+-- the @k@ would be '()'. At top level, this the '()'s would be replaced by a 'QueryMorphism' with the actual credential to
+-- be sent to the backend.
+mapAuth
+  :: forall app a f t m.
+     ( MonadFix m
+     , PostBuild t m
+     , Query (ViewSelector app SelectedCount)
+     , Group (ViewSelector app SelectedCount)
+     , Additive (ViewSelector app SelectedCount)
+     , Group (f SelectedCount)
+     , Additive (f SelectedCount)
+     )
+  => AppCredential app
+  -- ^ The application's authentication token, used to transform api calls made by the authenticated child widget
+  -> QueryMorphism (f SelectedCount) (ViewSelector app SelectedCount)
+    -- ^ A morphism from a query type supplied by the user, "f", that represents queries made by authenticated widgets, to a the query
+    -- type of the application as a whole (which may have authenticated and public components)
+  -> QueryT t (f SelectedCount) (RequesterT t (ApiRequest () (PublicRequest app) (PrivateRequest app)) Identity m) a
+  -- ^ The authenticated child widget. It uses '()' as its credential for private requests
+  -> RhyoliteWidget app t m a
+mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
+  v <- askQueryResult
+  (a, vs) <- lift $ mapRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
+  tellQueryIncremental vs
+  return a
+  where
+    authorizeReq
+      :: forall x. ApiRequest () (PublicRequest app) (PrivateRequest app) x
+      -> ApiRequest (AppCredential app) (PublicRequest app) (PrivateRequest app) x
+    authorizeReq = \case
+      ApiRequest_Public a -> ApiRequest_Public a
+      ApiRequest_Private () a -> ApiRequest_Private token a
+
+-- TODO: Upstream to reflex
+mapRequesterT
+  :: (Reflex t, MonadFix m)
+  => (forall x. req x -> req' x)
+  -> (forall x. rsp' x -> rsp x)
+  -> RequesterT t req rsp m a
+  -> RequesterT t req' rsp' m a
+mapRequesterT freq frsp child = do
+  rec let rsp = fmap (runIdentity . traverseRequesterData (Identity . frsp)) rsp'
+      (a, req) <- lift $ runRequesterT child rsp
+      rsp' <- fmap (flip selectInt 0 . fanInt . fmapCheap unMultiEntry) $ requesting' $
+        fmapCheap (multiEntry . IntMap.singleton 0) $ fmap (runIdentity . traverseRequesterData (Identity . freq)) req
+  return a
