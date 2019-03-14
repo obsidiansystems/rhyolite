@@ -25,7 +25,9 @@ library
     , dependent-sum
     , file-embed
     , filepath
+    , ghcjs-dom
     , http-types
+    , jsaddle
     , lens
     , mime-mail
     , monad-control
@@ -34,6 +36,7 @@ library
     , network-uri
     , obelisk-route
     , reflex
+    , reflex-dom
     , resource-pool
     , template-haskell
     , text
@@ -51,6 +54,7 @@ library
     Rhyolite.Concurrent
     Rhyolite.Email
     Rhyolite.HList
+    Rhyolite.HostSpecific
     Rhyolite.Request.Class
     Rhyolite.Request.Common
     Rhyolite.Request.TH
