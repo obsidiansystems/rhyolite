@@ -32,6 +32,7 @@ import Data.Some (Some)
 import Data.String (fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Data.These
 import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Instances ()
@@ -278,12 +279,16 @@ deleteAndNotify aid = do
   deleteBy (fromId aid :: Key a BackendSpecific)
   notify NotificationType_Delete (notification aid) aid
 
-
 data Change a = Change
   { _change_id :: Id a
-  , _change_old :: Maybe a
-  , _change_new :: Maybe a
+  , _change_oldNew :: These a a
   } deriving (Generic)
+
+changeOld :: Change a -> Maybe a
+changeOld = these Just (const Nothing) (\old _ -> Just old) . _change_oldNew
+
+changeNew :: Change a -> Maybe a
+changeNew = these (const Nothing) Just (\_ new -> Just new) . _change_oldNew
 
 deriving instance (Eq (IdData a), Eq a) => Eq (Change a)
 deriving instance (Show (IdData a), Show a) => Show (Change a)
@@ -305,8 +310,7 @@ insertAndNotifyChangeWith f a = do
   let aid = f autokey
       change = Change
         { _change_id = aid
-        , _change_old = Nothing
-        , _change_new = Just a
+        , _change_oldNew = That a
         }
   notify NotificationType_Insert (changeNotification change) change
   return aid
@@ -344,8 +348,7 @@ updateAndNotifyChange tid f = do
     let newV = f oldV
         change = Change
           { _change_id = tid
-          , _change_old = Just oldV
-          , _change_new = Just newV
+          , _change_oldNew = These oldV newV
           }
     replace (fromId tid) newV
     notify NotificationType_Update (changeNotification change) change
@@ -368,8 +371,7 @@ deleteAndNotifyChange aid = do
   forM_ mv $ \v -> do
     let change = Change
           { _change_id = aid
-          , _change_old = Just v
-          , _change_new = Nothing
+          , _change_oldNew = This v
           }
     notify NotificationType_Delete (changeNotification change) change
 

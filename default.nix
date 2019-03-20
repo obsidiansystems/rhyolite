@@ -100,6 +100,7 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       reflex = haskellLib.dontCheck super.reflex;
+      validation = haskellLib.dontCheck super.validation;
       aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" repos.aeson-gadt-th
         { inherit (self.buildHaskellPackages) markdown-unlit; };
       constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras {};
