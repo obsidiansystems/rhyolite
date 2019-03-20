@@ -59,6 +59,7 @@ library
     , stm
     , template-haskell
     , text
+    , these
     , time
     , transformers
     , transformers-base

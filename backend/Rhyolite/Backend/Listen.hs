@@ -17,7 +17,7 @@ module Rhyolite.Backend.Listen where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TChan, atomically, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
-import Control.Monad (forever, void)
+import Control.Monad (forever, void, forM_)
 import Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Constraint.Extras
@@ -32,6 +32,7 @@ import Data.Some (Some)
 import Data.String (fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Data.These
 import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Instances ()
@@ -277,3 +278,103 @@ deleteAndNotify :: forall n a m.
 deleteAndNotify aid = do
   deleteBy (fromId aid :: Key a BackendSpecific)
   notify NotificationType_Delete (notification aid) aid
+
+data Change a = Change
+  { _change_id :: Id a
+  , _change_oldNew :: These a a
+  } deriving (Generic)
+
+changeOld :: Change a -> Maybe a
+changeOld = these Just (const Nothing) (\old _ -> Just old) . _change_oldNew
+
+changeNew :: Change a -> Maybe a
+changeNew = these (const Nothing) Just (\_ new -> Just new) . _change_oldNew
+
+deriving instance (Eq (IdData a), Eq a) => Eq (Change a)
+deriving instance (Show (IdData a), Show a) => Show (Change a)
+instance (ToJSON (IdData a), ToJSON a) => ToJSON (Change a)
+instance (FromJSON (IdData a), FromJSON a) => FromJSON (Change a)
+
+insertAndNotifyChangeWith
+  :: ( HasChangeNotification n a
+     , Has' ToJSON n Identity
+     , ForallF ToJSON n
+     , PersistBackend m
+     , DefaultKeyId a
+     , PersistEntity a
+     , ToJSON (IdData a)
+     )
+  => (AutoKey a -> Id a) -> a -> m (Id a)
+insertAndNotifyChangeWith f a = do
+  autokey <- insert a
+  let aid = f autokey
+      change = Change
+        { _change_id = aid
+        , _change_oldNew = That a
+        }
+  notify NotificationType_Insert (changeNotification change) change
+  return aid
+
+insertAndNotifyChange
+  :: ( HasChangeNotification n a
+     , Has' ToJSON n Identity
+     , ForallF ToJSON n
+     , PersistBackend m
+     , DefaultKeyId a
+     , PersistEntity a
+     , ToJSON (IdData a)
+     , DefaultKey a ~ AutoKey a
+     )
+  => a -> m (Id a)
+insertAndNotifyChange = insertAndNotifyChangeWith toId
+
+updateAndNotifyChange ::
+     ( HasChangeNotification n a
+     , Has' ToJSON n Identity
+     , ForallF ToJSON n
+     , ToJSON (IdData a)
+     , PersistEntity a
+     , PrimitivePersistField (Key a BackendSpecific)
+     , PersistBackend m
+     , DefaultKeyId a
+     , DefaultKey a ~ Key a BackendSpecific
+     )
+  => Id a
+  -> (a -> a)
+  -> m ()
+updateAndNotifyChange tid f = do
+  mv <- get (fromId tid)
+  forM_ mv $ \oldV -> do
+    let newV = f oldV
+        change = Change
+          { _change_id = tid
+          , _change_oldNew = These oldV newV
+          }
+    replace (fromId tid) newV
+    notify NotificationType_Update (changeNotification change) change
+
+deleteAndNotifyChange :: forall n a m.
+  ( HasChangeNotification n a
+  , Has' ToJSON n Identity
+  , ForallF ToJSON n
+  , PersistBackend m
+  , DefaultKeyId a
+  , PersistEntity a
+  , PrimitivePersistField (Key a BackendSpecific)
+  , ToJSON (IdData a)
+  , DefaultKey a ~ Key a BackendSpecific
+  )
+  => Id a -> m ()
+deleteAndNotifyChange aid = do
+  mv <- get (fromId aid)
+  deleteBy (fromId aid :: Key a BackendSpecific)
+  forM_ mv $ \v -> do
+    let change = Change
+          { _change_id = aid
+          , _change_oldNew = This v
+          }
+    notify NotificationType_Delete (changeNotification change) change
+
+class (HasId a) => HasChangeNotification n a | a -> n where
+  changeNotification :: proxy a -> n (Change a)
+
