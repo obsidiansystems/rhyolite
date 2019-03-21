@@ -62,7 +62,7 @@ import Rhyolite.Schema
 -- See instances below.
 class RunDb f where
   runDb :: ( MonadIO m
-           , MonadBaseControl IO m
+           , MonadBaseNoPureAborts IO m
            , ConnectionManager cm conn
            , PostgresRaw (DbPersist conn m)
            , PersistBackend (DbPersist conn m))

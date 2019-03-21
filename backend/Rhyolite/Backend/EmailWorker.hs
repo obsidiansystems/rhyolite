@@ -84,7 +84,7 @@ queueEmail m t = do
 clearMailQueue :: forall m f.
   ( RunDb f
   , MonadIO m
-  , MonadBaseControl IO m
+  , MonadBaseNoPureAborts IO m
   , MonadLogger m
   )
                => f (Pool Postgresql)
