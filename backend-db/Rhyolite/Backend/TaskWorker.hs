@@ -35,7 +35,7 @@ taskWorker
   :: forall m v c input b key a pk ready
   .  ( MonadLogger m
      , MonadIO m
-     , MonadBaseControl IO m
+     , MonadBaseNoPureAborts IO m
      , Projection input a
      , ProjectionDb input Postgresql
      , ProjectionRestriction input (RestrictionHolder v c)
