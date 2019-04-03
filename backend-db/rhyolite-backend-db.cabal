@@ -20,6 +20,7 @@ library
     , groundhog
     , groundhog-postgresql
     , groundhog-th
+    , http-conduit
     , io-streams
     , lens
     , lifted-base
@@ -30,6 +31,7 @@ library
     , mtl
     , postgresql-simple
     , postgresql-lo-stream
+    , push-notifications
     , resource-pool
     , rhyolite-common
     , template-haskell
@@ -41,6 +43,7 @@ library
 
   exposed-modules:
     Database.Groundhog.Postgresql.Orphans
+    Network.PushNotification.Worker
     Rhyolite.Backend.DB
     Rhyolite.Backend.DB.LargeObjects
     Rhyolite.Backend.DB.PsqlSimple

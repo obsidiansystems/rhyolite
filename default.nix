@@ -58,12 +58,19 @@ let
       sha256 = "0n2cmmplljq3z3n0piyiq4vvx8d48byi5isr520aq6dv35j5ixim";
     };
 
+    # Newly added to hackage
+    push-notifications = pkgs.fetchFromGitHub {
+      owner = "obsidiansystems";
+      repo = "push-notifications";
+      rev = "18ae57d88a17a63389fe2a9aa0d9e421294a8781";
+      sha256 = "1jhhnyfgfjv1x0gb59gyj9nvffp5czgqx8zjr4b4m15p7sx8j714";
+    };
+
     dependent-sum-aeson-orphans = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "dependent-sum-aeson-orphans";
       rev = "9c995128f416cc27dbd28d7dca1b6de4ac6c9c6d";
       sha256 = "1cinfpchl4g3lpkwbcg03n5h25fj340g0n7bbr7hcx5nx0cwbzbc";
-
     };
   };
 
@@ -91,6 +98,8 @@ let
     postgresql-lo-stream = repos.postgresql-lo-stream;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
     monoidal-containers = repos.monoidal-containers;
+    # Newly added to hackage
+    push-notifications = repos.push-notifications;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
