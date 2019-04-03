@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## v0.1.0.0
 
 * Add a server-side worker to handle sending of push notifications
 * Disallow using ExceptT and similar monads to host runDb calls
