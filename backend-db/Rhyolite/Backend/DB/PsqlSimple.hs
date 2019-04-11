@@ -17,7 +17,6 @@ module Rhyolite.Backend.DB.PsqlSimple
   , ToRow (..), FromRow (..)
   , ToField (..), FromField (..)
   , Query (..), sql, traceQuery, traceExecute
-  , liftWithConn
   , queryQ, executeQ, sqlQ, traceQueryQ, traceExecuteQ
   ) where
 
@@ -127,6 +126,10 @@ class PostgresRaw m where
   default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
   returning psql qs = lift $ returning psql qs
 
+  -- | Access raw @postgresql-simple@ connection.
+  liftWithConn :: (Connection -> IO a) -> m a
+  default liftWithConn :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => (Connection -> IO a) -> m a
+  liftWithConn f = lift $ liftWithConn f
 
 traceQuery :: (PostgresRaw m, MonadIO m, ToRow q, FromRow r) => Query -> q -> m [r]
 traceQuery p q = do
@@ -152,12 +155,9 @@ instance MonadIO m => PostgresRaw (DbPersist Postgresql m) where
   formatQuery psql qs = liftWithConn $ \conn -> Sql.formatQuery conn psql qs
   returning psql qs = liftWithConn $ \conn -> Sql.returning conn psql qs `catch` rethrowWithQueryMany conn psql qs
 
-liftWithConn :: MonadIO m
-             => (Connection -> IO a)
-             -> DbPersist Postgresql m a
-liftWithConn f = DbPersist $ do
-  (Postgresql conn) <- ask
-  liftIO (f conn)
+  liftWithConn f = DbPersist $ do
+    (Postgresql conn) <- ask
+    liftIO (f conn)
 
 instance (Monad m, PostgresRaw m) => PostgresRaw (StateT s m)
 instance (Monad m, PostgresRaw m) => PostgresRaw (Strict.StateT s m)
