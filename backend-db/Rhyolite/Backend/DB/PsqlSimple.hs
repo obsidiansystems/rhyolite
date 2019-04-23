@@ -18,6 +18,9 @@ module Rhyolite.Backend.DB.PsqlSimple
   , ToField (..), FromField (..)
   , Query (..), sql, traceQuery, traceExecute
   , queryQ, executeQ, sqlQ, traceQueryQ, traceExecuteQ
+  , execute, execute_, executeMany
+  , query, query_, queryWith, queryWith_
+  , formatQuery, returning, liftWithConn
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
@@ -89,75 +92,61 @@ rethrowWithQuery_ psql err =
     , _wrappedSqlError_error = err
     }
 
-class PostgresRaw m where
-  execute :: ToRow q => Query -> q -> m Int64
-  default execute :: ( m ~ t n , MonadTrans t , Monad n , PostgresRaw n , ToRow q) => Query -> q -> m Int64
-  execute psql qs = lift $ execute psql qs
+class MonadIO m => PostgresRaw m where
+  askConn :: m Connection
+  default askConn :: ( m ~ t n , MonadTrans t, Monad n, PostgresRaw n) => m Connection
+  askConn = lift askConn
 
-  execute_ :: Query -> m Int64
-  default execute_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) =>  Query -> m Int64
-  execute_ = lift . execute_
+execute :: (PostgresRaw m, ToRow q) => Query -> q -> m Int64
+execute psql qs = liftWithConn $ \conn ->
+  Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
 
-  executeMany :: ToRow q => Query -> [q] -> m Int64
-  default executeMany :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m Int64
-  executeMany psql qs = lift $ executeMany psql qs
+execute_ :: PostgresRaw m => Query -> m Int64
+execute_ psql = liftWithConn $ \conn -> Sql.execute_ conn psql `catch` rethrowWithQuery_ psql
 
-  query :: (ToRow q, FromRow r) => Query -> q -> m [r]
-  default query :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m [r]
-  query psql qs = lift $ query psql qs
+executeMany :: (PostgresRaw m, ToRow q) => Query -> [q] -> m Int64
+executeMany psql qs = liftWithConn $ \conn -> Sql.executeMany conn psql qs `catch` rethrowWithQueryMany conn psql qs
 
-  query_ :: FromRow r => Query -> m [r]
-  default query_ :: (m ~ t n, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> m [r]
-  query_ = lift . query_
+query :: (PostgresRaw m, ToRow q, FromRow r) => Query -> q -> m [r]
+query psql qs = liftWithConn $ \conn -> Sql.query conn psql qs `catch` rethrowWithQuery conn psql qs
 
-  queryWith :: ToRow q => RowParser r -> Query -> q -> m [r]
-  default queryWith :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> q -> m [r]
-  queryWith parser psql qs = lift $ queryWith parser psql qs
+query_ :: (PostgresRaw m, FromRow r) => Query -> m [r]
+query_ psql = liftWithConn $ \conn -> Sql.query_ conn psql `catch` rethrowWithQuery_ psql
 
-  queryWith_ :: RowParser r -> Query -> m [r]
-  default queryWith_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> m [r]
-  queryWith_ parser psql = lift $ queryWith_ parser psql
+queryWith :: (PostgresRaw m, ToRow q) => RowParser r -> Query -> q -> m [r]
+queryWith parser psql qs = liftWithConn $ \conn -> Sql.queryWith parser conn psql qs `catch` rethrowWithQuery_ psql
 
-  formatQuery :: ToRow q => Query -> q -> m BS.ByteString
-  default formatQuery :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m BS.ByteString
-  formatQuery psql qs = lift $ formatQuery psql qs
+queryWith_ :: PostgresRaw m => RowParser r -> Query -> m [r]
+queryWith_ parser psql = liftWithConn $ \conn -> Sql.queryWith_ parser conn psql `catch` rethrowWithQuery_ psql
 
-  returning :: (ToRow q, FromRow r) => Query -> [q] -> m [r]
-  default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
-  returning psql qs = lift $ returning psql qs
+formatQuery :: (PostgresRaw m, ToRow q) => Query -> q -> m BS.ByteString
+formatQuery psql qs = liftWithConn $ \conn -> Sql.formatQuery conn psql qs
 
-  -- | Access raw @postgresql-simple@ connection.
-  liftWithConn :: (Connection -> IO a) -> m a
-  default liftWithConn :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => (Connection -> IO a) -> m a
-  liftWithConn f = lift $ liftWithConn f
+returning :: (PostgresRaw m, ToRow q, FromRow r) => Query -> [q] -> m [r]
+returning psql qs = liftWithConn $ \conn -> Sql.returning conn psql qs `catch` rethrowWithQueryMany conn psql qs
 
-traceQuery :: (PostgresRaw m, MonadIO m, ToRow q, FromRow r) => Query -> q -> m [r]
+-- | Access raw @postgresql-simple@ connection.
+liftWithConn :: PostgresRaw m => (Connection -> IO a) -> m a
+liftWithConn f = do
+  conn <- askConn
+  liftIO (f conn)
+
+traceQuery :: (PostgresRaw m, ToRow q, FromRow r) => Query -> q -> m [r]
 traceQuery p q = do
   s <- formatQuery p q
   liftIO (BSC.putStrLn s)
   query p q
 
-traceExecute :: (PostgresRaw m, MonadIO m, ToRow q) => Query -> q -> m Int64
+traceExecute :: (PostgresRaw m, ToRow q) => Query -> q -> m Int64
 traceExecute p q = do
   s <- formatQuery p q
   liftIO (BSC.putStrLn s)
   execute p q
 
 instance MonadIO m => PostgresRaw (DbPersist Postgresql m) where
-  execute psql qs = liftWithConn $ \conn ->
-    Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
-  execute_ psql = liftWithConn $ \conn -> Sql.execute_ conn psql `catch` rethrowWithQuery_ psql
-  executeMany psql qs = liftWithConn $ \conn -> Sql.executeMany conn psql qs `catch` rethrowWithQueryMany conn psql qs
-  query psql qs = liftWithConn $ \conn -> Sql.query conn psql qs `catch` rethrowWithQuery conn psql qs
-  query_ psql = liftWithConn $ \conn -> Sql.query_ conn psql `catch` rethrowWithQuery_ psql
-  queryWith parser psql qs = liftWithConn $ \conn -> Sql.queryWith parser conn psql qs `catch` rethrowWithQuery_ psql
-  queryWith_ parser psql = liftWithConn $ \conn -> Sql.queryWith_ parser conn psql `catch` rethrowWithQuery_ psql
-  formatQuery psql qs = liftWithConn $ \conn -> Sql.formatQuery conn psql qs
-  returning psql qs = liftWithConn $ \conn -> Sql.returning conn psql qs `catch` rethrowWithQueryMany conn psql qs
-
-  liftWithConn f = DbPersist $ do
+  askConn = DbPersist $ do
     (Postgresql conn) <- ask
-    liftIO (f conn)
+    return conn
 
 instance (Monad m, PostgresRaw m) => PostgresRaw (StateT s m)
 instance (Monad m, PostgresRaw m) => PostgresRaw (Strict.StateT s m)
