@@ -293,7 +293,7 @@ runRhyoliteWidget
    -> RhyoliteWidget app t m b
    -> m (AppWebSocket t app, b)
 runRhyoliteWidget url child = do
-  rec appWebSocket <- openWebSocket' url request'' $ fmap (\c -> if c == mempty then Nothing else Just ()) <$> nubbedVs
+  rec appWebSocket <- openWebSocket' url request'' $ fmapMaybe (\c -> if c == mempty then Nothing else Just ()) <$> nubbedVs
       let notification = _appWebSocket_notification appWebSocket
           response = _appWebSocket_response appWebSocket
       (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
