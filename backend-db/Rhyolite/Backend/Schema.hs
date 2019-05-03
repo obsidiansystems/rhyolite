@@ -81,6 +81,8 @@ instance (Typeable a, FromJSON a) => FromField (Json a) where
       Left err -> fail err
       Right v' -> return $ Json v'
 
+instance NeverNull (Json a)
+
 fromDerivedId :: DerivedEntity v => Id v -> Id (DerivedEntityHead v)
 fromDerivedId = Id . unId
 
