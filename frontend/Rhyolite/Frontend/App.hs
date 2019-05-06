@@ -484,7 +484,8 @@ mapAuth
 mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
   v <- askQueryResult
   (a, vs) <- lift $ mapRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
-  tellQueryIncremental vs
+  -- tellQueryIncremental vs would seem simpler, but tellQueryDyn is more baked, subtracting off the removals properly.
+  tellQueryDyn $ incrementalToDynamic vs
   return a
   where
     authorizeReq
