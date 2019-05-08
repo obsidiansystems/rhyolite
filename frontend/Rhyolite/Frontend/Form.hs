@@ -200,6 +200,15 @@ validationInput
   => ValidationConfig t m e a
   -> m (ValidationInput t m e a)
 validationInput config = do
+  (vi, feedback) <- validationInputWithFeedback config
+  feedback
+  return vi
+
+validationInputWithFeedback
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => ValidationConfig t m e a
+  -> m (ValidationInput t m e a, m ())
+validationInputWithFeedback config = do
   let validation' = _validationConfig_validate config
   rec (input, dValidated) <- manageValidation (_validationConfig_validation config) $ do
         inputElement $ def
@@ -212,7 +221,7 @@ validationInput config = do
             Left _ -> fmap Just $ _validationConfig_invalidAttributes config
             Right _ -> fmap Just $ _validationConfig_validAttributes config
   val <- eitherDyn $ fromDynValidation dValidated
-  dyn_ $ _validationConfig_feedback config <$> val
-  return $ ValidationInput input dValidated
+  let feedback = dyn_ $ _validationConfig_feedback config <$> val
+  return $ (ValidationInput input dValidated, feedback)
 
 makeLenses ''ValidationConfig
