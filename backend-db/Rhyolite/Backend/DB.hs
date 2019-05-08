@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -18,7 +20,23 @@ module Rhyolite.Backend.DB where
 import Control.Arrow (first)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Trans.Control (MonadBaseControl)
+import Control.Monad.Logger (LoggingT)
+-- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
+import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
+import Control.Monad.Trans.Error (Error, ErrorT)
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.List (ListT)
+import Control.Monad.Trans.Maybe (MaybeT)
+-- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
+import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
+import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
+import Control.Monad.Trans.Reader (ReaderT)
+import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
+import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
+-- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
+import qualified Control.Monad.Trans.Writer.Lazy as Lazy (WriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -44,7 +62,7 @@ import Rhyolite.Schema
 -- See instances below.
 class RunDb f where
   runDb :: ( MonadIO m
-           , MonadBaseControl IO m
+           , MonadBaseNoPureAborts IO m
            , ConnectionManager cm conn
            , PostgresRaw (DbPersist conn m)
            , PersistBackend (DbPersist conn m))
@@ -171,3 +189,81 @@ withTime a = do
 
 ilike :: (SqlDb db, ExpressionOf db r a a') => a -> String -> Cond db r
 ilike a b = CondRaw $ operator 40 " ILIKE " a b
+
+class MonadTransControl t => MonadTransNoPureAborts t where
+  -- | This is basically a 'soft proof' that a transformer preserves the characteristic property
+  --   of 'MonadBaseNoPureAborts'.  It is intended to serve as a stumbling block to warn a user
+  --   who tries to construct an incorrect instance, rather than an airtight proof or a method
+  --   for actual use.  In particular, it's not that good at detecting reuse of continuations.
+  --
+  --   The proxy parameter is required because StT is not injective.
+  noPureAbortsT :: proxy t -> StT t a -> a
+
+newtype Flip f a b = Flip (f b a)
+
+-- | Groundhog invokes a transaction using the pattern 'begin >> (txn >> commit) `onException` abort'.
+--   This pattern assumes some things about the monad that are not captured by 'MonadBaseControl IO'.
+--   'MonadBaseNoPureAborts' exists to capture these assumptions: namely, that there is no reuse or
+--   discarding of continuations except via effects in the base monad.
+--
+--   An instance could exist for DbPersist, but this is purposely omitted in order to forbid attempts
+--   to nest transactions.
+--
+--   Instances should either be 'trivial' like the IO instance, or they should be default instances.
+class MonadBaseControl n m => MonadBaseNoPureAborts n m where
+  noPureAborts :: proxy m -> StM m a -> a
+  default noPureAborts :: forall t m' a proxy. (m ~ (t m'), StM m a ~ StM m' (StT t a), MonadBaseNoPureAborts n m', MonadTransNoPureAborts t) => proxy m -> StM m a -> a
+  noPureAborts p = noPureAbortsT (Flip $ Compose p) . noPureAborts (Compose p)
+
+instance MonadBaseNoPureAborts Identity Identity where
+  noPureAborts _ = id
+
+instance MonadBaseNoPureAborts IO IO where
+  noPureAborts _ = id
+
+-- instance MonadTransNoPureAborts (AccumT w) where
+--   noPureAbortsT _ = fst
+-- instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (AccumT w m)
+
+-- better error message
+instance (Error e, MonadBaseNoPureAborts n m, MonadTransNoPureAborts (ErrorT e)) => MonadBaseNoPureAborts n (ErrorT e m)
+instance (MonadBaseNoPureAborts n m, MonadTransNoPureAborts (ExceptT e)) => MonadBaseNoPureAborts n (ExceptT e m)
+instance (MonadBaseNoPureAborts n m, MonadTransNoPureAborts ListT) => MonadBaseNoPureAborts n (ListT m)
+
+instance MonadTransNoPureAborts LoggingT where
+  noPureAbortsT _ = id
+instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (LoggingT m)
+
+-- better error message
+instance (MonadBaseNoPureAborts n m, MonadTransNoPureAborts MaybeT) => MonadBaseNoPureAborts n (MaybeT m)
+
+instance MonadTransNoPureAborts (ReaderT r) where
+  noPureAbortsT _ = id
+instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (ReaderT r m)
+
+-- instance Monoid w => MonadTransNoPureAborts (CPS.RWST r w s) where
+--   noPureAbortsT _ (x,_,_) = x
+-- instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (CPS.RWST r w s m)
+instance Monoid w => MonadTransNoPureAborts (Lazy.RWST r w s) where
+  noPureAbortsT _ (x,_,_) = x
+instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (Lazy.RWST r w s m)
+instance Monoid w => MonadTransNoPureAborts (Strict.RWST r w s) where
+  noPureAbortsT _ (x,_,_) = x
+instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (Strict.RWST r w s m)
+
+instance MonadTransNoPureAborts (Lazy.StateT s) where
+  noPureAbortsT _ = fst
+instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (Lazy.StateT s m)
+instance MonadTransNoPureAborts (Strict.StateT s) where
+  noPureAbortsT _ = fst
+instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (Strict.StateT s m)
+
+-- instance Monoid w => MonadTransNoPureAborts (CPS.WriterT w) where
+--   noPureAbortsT _ = fst
+-- instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (CPS.WriterT w m)
+instance Monoid w => MonadTransNoPureAborts (Lazy.WriterT w) where
+  noPureAbortsT _ = fst
+instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (Lazy.WriterT w m)
+instance Monoid w => MonadTransNoPureAborts (Strict.WriterT w) where
+  noPureAbortsT _ = fst
+instance (Monoid w, MonadBaseNoPureAborts n m) => MonadBaseNoPureAborts n (Strict.WriterT w m)
