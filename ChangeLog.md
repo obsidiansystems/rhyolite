@@ -4,12 +4,11 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-05-08 - Unreleased
 
-* NeverNull for our Json newtype that encodes things as JSON in the DB.
-* Change-tracking DB notifications.
-* Some bugfixes to run{Prerendered,}RhyoliteWidget for when things were explicitly requested 0 times.
-* A fix to mapAuth to ensure that queries are correctly subtracted from the view selector when switching accounts.
-* Add a validationInputWithFeedback which separates the widget providing feedback on why their input wasn't valid,
-  allowing it to be placed separately in the DOM.
+* Add NeverNull instance for our Json newtype that encodes things as JSON in the DB.
+* Add change-tracking DB notifications. See `HasChangeNotification` in Rhyolite.Backend.Listen.
+* Fix bug in `runRhyoliteWidget` and `runPrerenderedRhyoliteWidget` when things were explicitly requested 0 times.
+* Fix `mapAuth` to ensure that queries are correctly subtracted from the view selector when switching accounts.
+* Add `validationInputWithFeedback` which separates the widget providing feedback on why their input wasn't valid, allowing it to be placed separately in the DOM.
 
 ## v0.1.0.0
 
