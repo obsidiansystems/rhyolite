@@ -264,7 +264,7 @@ runPrerenderedRhyoliteWidget
 runPrerenderedRhyoliteWidget url child = do
   rec (notification :: Event t (View app ()), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $
         prerender (return (never, never)) $ do
-          appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
+          appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmapMaybe (\c -> if c == mempty then Nothing else Just ()) <$> nubbedVs
           return ( _appWebSocket_notification appWebSocket
                  , _appWebSocket_response appWebSocket
                  )
@@ -293,7 +293,7 @@ runRhyoliteWidget
    -> RhyoliteWidget app t m b
    -> m (AppWebSocket t app, b)
 runRhyoliteWidget url child = do
-  rec appWebSocket <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
+  rec appWebSocket <- openWebSocket' url request'' $ fmapMaybe (\c -> if c == mempty then Nothing else Just ()) <$> nubbedVs
       let notification = _appWebSocket_notification appWebSocket
           response = _appWebSocket_response appWebSocket
       (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
@@ -484,7 +484,8 @@ mapAuth
 mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
   v <- askQueryResult
   (a, vs) <- lift $ mapRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
-  tellQueryIncremental vs
+  -- tellQueryIncremental vs would seem simpler, but tellQueryDyn is more baked, subtracting off the removals properly.
+  tellQueryDyn $ incrementalToDynamic vs
   return a
   where
     authorizeReq

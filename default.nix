@@ -92,8 +92,8 @@ let
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
-    # These are commented out and manually overridden below to get around cross-compilation issue with markdown-unlit:
-    # constraints-extras = repos.constraints-extras;
+    constraints-extras = repos.constraints-extras;
+    # This is commented out and manually overridden below to get around cross-compilation issue with markdown-unlit:
     # aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
@@ -109,8 +109,6 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" repos.aeson-gadt-th
-        { inherit (self.buildHaskellPackages) markdown-unlit; };
-      constraints-extras = self.callCabal2nix "constraints-extras" repos.constraints-extras
         { inherit (self.buildHaskellPackages) markdown-unlit; };
       validation = haskellLib.dontCheck super.validation;
     })
