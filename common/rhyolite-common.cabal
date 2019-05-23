@@ -42,6 +42,7 @@ library
     , transformers
     , transformers-base
     , vector
+    , witherable >= 0.2 && < 0.4
 
   exposed-modules:
     Data.MonoidMap

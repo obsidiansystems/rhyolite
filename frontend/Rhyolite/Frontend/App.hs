@@ -115,7 +115,7 @@ instance (HasView app, DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref 
   placeRawElement = RhyoliteWidget . placeRawElement
   wrapRawElement e = RhyoliteWidget . wrapRawElement e
 
-instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount), Query (ViewSelector app SelectedCount)) => Adjustable t (RhyoliteWidget app t m) where
+instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq (ViewSelector app SelectedCount), Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount), Query (ViewSelector app SelectedCount)) => Adjustable t (RhyoliteWidget app t m) where
   runWithReplace a0 a' = RhyoliteWidget $ runWithReplace (coerce a0) (coerceEvent a')
   traverseDMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
@@ -160,6 +160,7 @@ instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) wher
 deriving instance ( Reflex t
                   , Prerender js t m
                   , MonadFix m
+                  , Eq (ViewSelector app SelectedCount)
                   , Group (ViewSelector app SelectedCount)
                   , Additive (ViewSelector app SelectedCount)
                   , Query (ViewSelector app SelectedCount)

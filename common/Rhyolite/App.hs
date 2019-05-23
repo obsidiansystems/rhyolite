@@ -20,8 +20,8 @@ import Data.Map.Monoidal (MonoidalMap)
 import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as Semigroup
 import Data.Typeable (Typeable)
+import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
-import Reflex.FunctorMaybe (FunctorMaybe, fmapMaybe)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount, crop)
 import Reflex.Patch (Group, Additive)
 
@@ -39,7 +39,7 @@ class ( ToJSON (ViewSelector app ()), FromJSON (ViewSelector app ())
       , Monoid (ViewSelector app SelectedCount), Semigroup (ViewSelector app SelectedCount)
       , Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount)
       , Query (ViewSelector app SelectedCount), QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
-      , Align (ViewSelector app), FunctorMaybe (ViewSelector app), Foldable (ViewSelector app)
+      , Align (ViewSelector app), Filterable (ViewSelector app), Foldable (ViewSelector app)
       , Traversable (ViewSelector app)
       , Eq (ViewSelector app SelectedCount)
       , Eq (View app ()), Show (View app ()), Functor (View app), Eq (View app SelectedCount)
@@ -56,8 +56,8 @@ class (Request (PublicRequest app), Request (PrivateRequest app), ToJSON (AppCre
   type AppCredential app :: *
   type AppCredential app = Signed (AuthToken Identity)
 
-fmapMaybeFst :: FunctorMaybe f => (a -> Maybe b) -> f (a, c) -> f (b, c)
-fmapMaybeFst f = fmapMaybe $ \(a, c) -> case f a of
+fmapMaybeFst :: Filterable f => (a -> Maybe b) -> f (a, c) -> f (b, c)
+fmapMaybeFst f = mapMaybe $ \(a, c) -> case f a of
   Nothing -> Nothing
   Just b -> Just (b, c)
 
@@ -76,9 +76,9 @@ instance Semigroup a => Monoid (Single t a) where
   mempty = Single Nothing
   mappend = (Semigroup.<>)
 
-instance FunctorMaybe (Single t) where
-  fmapMaybe f (Single (Just (t, x))) | Just y <- f x = Single (Just (t, y))
-  fmapMaybe _ _ = Single Nothing
+instance Filterable (Single t) where
+  mapMaybe f (Single (Just (t, x))) | Just y <- f x = Single (Just (t, y))
+  mapMaybe _ _ = Single Nothing
 
 instance (FromJSON t, FromJSON a) => FromJSON (Single t a)
 instance (ToJSON t, ToJSON a) => ToJSON (Single t a)

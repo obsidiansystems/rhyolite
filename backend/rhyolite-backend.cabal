@@ -67,6 +67,7 @@ library
     , vector
     , websockets
     , websockets-snap
+    , witherable >= 0.2 && < 0.4
   if flag(support-systemd-journal) && os(linux)
     build-depends:
       libsystemd-journal

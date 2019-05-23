@@ -58,6 +58,7 @@ library
     , transformers-base
     , vector
     , validation
+    , witherable >= 0.2 && < 0.4
 
   exposed-modules:
     Rhyolite.Frontend.App

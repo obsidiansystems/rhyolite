@@ -35,10 +35,10 @@ import Data.Pool (Pool)
 import Data.Semigroup (Semigroup, (<>))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
+import Data.Witherable (Filterable(..))
 import Debug.Trace (trace)
 import Database.Groundhog.Postgresql (Postgresql (..))
 import qualified Database.PostgreSQL.Simple as Pg
-import Reflex.FunctorMaybe (FunctorMaybe (..))
 import Reflex.Patch (Group, negateG, (~~))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
@@ -374,7 +374,7 @@ transposeMonoidMap
      , Foldable qr
      , Functor q
      , Functor qr
-     , FunctorMaybe qr
+     , Filterable qr
      , Monoid (q (MonoidMap k a))
      , Monoid (QueryResult (q a))
      , QueryResult (q (MonoidMap k a)) ~ qr (MonoidMap k a')
@@ -389,7 +389,7 @@ transposeMonoidMap = QueryMorphism
     aggregateQueries :: MonoidMap k (q a) -> q (MonoidMap k a)
     aggregateQueries = fold . monoidMap . Map.mapWithKey (\k q -> fmap (monoidMap . Map.singleton k) q) . unMonoidMap
     distributeResults :: qr (MonoidMap k a') -> MonoidMap k (qr a')
-    distributeResults v = monoidMap $ Map.mapWithKey (\k _ -> fmapMaybe (Map.lookup k . unMonoidMap) v) $ fold $ fmap unMonoidMap v
+    distributeResults v = monoidMap $ Map.mapWithKey (\k _ -> mapMaybe (Map.lookup k . unMonoidMap) v) $ fold $ fmap unMonoidMap v
 
 mapQueryHandlerAndRecipient
   :: Functor f
