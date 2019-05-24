@@ -176,6 +176,8 @@ deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget app t m)
 type MonadRhyoliteFrontendWidget app t m =
     ( MonadRhyoliteWidget app t m
     , DomBuilderSpace m ~ GhcjsDomSpace
+    , MonadIO m
+    , MonadIO (Performable m)
     )
 
 class ( MonadWidget' t m
@@ -232,8 +234,6 @@ type MonadWidget' t m =
   , PostBuild t m
   , PerformEvent t m
   , TriggerEvent t m
-  , MonadIO m
-  , MonadIO (Performable m)
   -- , MonadJSM m
   -- , MonadJSM (Performable m)
   -- , HasJSContext m
@@ -257,7 +257,6 @@ runPrerenderedRhyoliteWidget
       , PostBuild t m, MonadHold t m
       , MonadFix m
       , Prerender x t m
-      , MonadIO (Performable m)
       )
    => Text
    -> RhyoliteWidget app t m b
@@ -275,7 +274,7 @@ runPrerenderedRhyoliteWidget url child = do
             _ -> Nothing)) request'
       ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
       nubbedVs :: Dynamic t (ViewSelector app SelectedCount) <- holdUniqDyn $ incrementalToDynamic (vs :: Incremental t (AdditivePatch (ViewSelector app SelectedCount)))
-      view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
+      view <- fmap join $ prerender (pure mempty) $ fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
   return a
 
 runRhyoliteWidget
