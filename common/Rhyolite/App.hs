@@ -2,9 +2,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -18,6 +20,8 @@ import qualified Data.AppendMap as MonoidalMap
 import Data.Functor.Identity (Identity)
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Semigroup (Semigroup)
+import Data.Witherable
+import Data.AppendMap() -- contains the orphan for Filterable MonoidalMap
 import qualified Data.Semigroup as Semigroup
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
@@ -33,6 +37,10 @@ singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (Monoi
 singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k
                                  , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
                                  }
+
+deriving instance FunctorMaybe (MonoidalMap k)
+instance Witherable (MonoidalMap k) where
+  wither f (MonoidalMap.MonoidalMap xs) = MonoidalMap.MonoidalMap <$> wither f xs
 
 class ( ToJSON (ViewSelector app ()), FromJSON (ViewSelector app ())
       , ToJSON (View app ()), FromJSON (View app ())
