@@ -23,6 +23,7 @@ import Data.Time
 import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Postgresql
+import qualified Database.PostgreSQL.Simple.Types as PG
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw, executeQ)
 
@@ -30,13 +31,14 @@ withSavepoint
   :: (PostgresRaw m, MonadBaseControl IO m, Exception e)
   => String -> m a -> m (Either e a)
 withSavepoint name action = do
-  [executeQ|SAVEPOINT ?name|]
+  let savePt = PG.Identifier $ T.pack name
+  [executeQ|SAVEPOINT ?savePt|]
   result <- catch (Right <$> action) $ \e -> return (Left e)
   case result of
     Left _ -> do
-      [executeQ|ROLLBACK TO SAVEPOINT ?name|]
+      [executeQ|ROLLBACK TO SAVEPOINT ?savePt|]
     Right _ -> do
-      [executeQ|RELEASE SAVEPOINT ?name|]
+      [executeQ|RELEASE SAVEPOINT ?savePt|]
   return result
 
 --TODO: Ensure Tasks are always properly indexed
