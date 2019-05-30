@@ -27,6 +27,7 @@ library
     , data-default
     , dependent-map
     , dependent-sum
+    , either
     , exception-transformers
     , filepath
     , font-awesome-type
