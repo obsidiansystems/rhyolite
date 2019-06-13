@@ -20,7 +20,7 @@ module Rhyolite.Backend.DB where
 import Control.Arrow (first)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger (LoggingT)
+import Control.Monad.Logger (LoggingT, NoLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
 import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
@@ -233,6 +233,10 @@ instance (MonadBaseNoPureAborts n m, MonadTransNoPureAborts ListT) => MonadBaseN
 instance MonadTransNoPureAborts LoggingT where
   noPureAbortsT _ = id
 instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (LoggingT m)
+
+instance MonadTransNoPureAborts NoLoggingT where
+  noPureAbortsT _ = id
+instance MonadBaseNoPureAborts n m => MonadBaseNoPureAborts n (NoLoggingT m)
 
 -- better error message
 instance (MonadBaseNoPureAborts n m, MonadTransNoPureAborts MaybeT) => MonadBaseNoPureAborts n (MaybeT m)
