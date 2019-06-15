@@ -49,12 +49,14 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn)
+import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn, in_)
 
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.Class
 import Rhyolite.Schema
+
+type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
 
 -- | Runs a database action using a given pool of database connections
 -- The 'f' parameter can be used to represent additional information about
@@ -189,6 +191,11 @@ withTime a = do
 
 ilike :: (SqlDb db, ExpressionOf db r a a') => a -> String -> Cond db r
 ilike a b = CondRaw $ operator 40 " ILIKE " a b
+
+-- | This is an alternative to groundhog's `==.`. It's useful because groundhog < 0.10 will turn `==.` into
+-- "IS NOT DISTINCT FROM", which has terrible performance and doesn't use indexes.
+(===.) ::  (SqlDb db, PrimitivePersistField b, Expression db r a, Expression db r b, Unifiable a b) => a -> b -> Cond db r
+(===.) a b = a `in_` [b]
 
 class MonadTransControl t => MonadTransNoPureAborts t where
   -- | This is basically a 'soft proof' that a transformer preserves the characteristic property
