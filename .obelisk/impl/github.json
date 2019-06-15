@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "cg-bytestring-config",
-  "rev": "911ee90aaa5b2e2524c5d6f10e69db9c3fbefcda",
-  "sha256": "0hlzn7jjdhqybwd7pf11hp1vpsvyldig47ppgvifrppcwcj4k7hs"
+  "branch": "develop",
+  "rev": "86a9584c6d7648bd5324ef57d62421fed1bf1978",
+  "sha256": "1lbii87j5530ncm6brfbzkd3wg16mgxazsf3l56zzv4c8cydilmh"
 }
