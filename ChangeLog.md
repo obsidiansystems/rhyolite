@@ -4,7 +4,8 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-06-14 - Unreleased
 
-* Bump obelisk to a version that no longer uses `*Tag` classes 
+* Bump obelisk to a version that no longer uses `*Tag` classes
+* Add alternative to groundhog's `==.`, which has severe performance issues before version 0.10 (to which we can't yet upgrade). See `Rhyolite.Backend.DB.===.`.
 
 ## 2019-05-08 - Unreleased
 
