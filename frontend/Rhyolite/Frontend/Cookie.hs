@@ -26,6 +26,14 @@ setPermanentCookie :: (MonadJSM m, HasJSContext m) => DOM.Document -> SetCookie 
 setPermanentCookie doc cookie = do
   DOM.setCookie doc $ decodeUtf8 $ LBS.toStrict $ toLazyByteString $ renderSetCookie cookie
 
+-- | Set or clear the given cookie with given expiration date
+--
+-- Example:
+-- > setExpiringCookie time doc =<< defaultCookie "key" (Just "value")
+setExpiringCookie :: (MonadJSM m, HasJSContext m) => UTCTime -> DOM.Document -> SetCookie -> m ()
+setExpiringCookie timestamp doc cookie = do
+  DOM.setCookie doc $ decodeUtf8 $ LBS.toStrict $ toLazyByteString $ renderSetCookie cookie {setCookieExpires = Just timestamp}
+
 -- | Make a cookie with sensible defaults
 defaultCookie
   :: (MonadJSM m, HasJSContext m)  -- TODO: verify
