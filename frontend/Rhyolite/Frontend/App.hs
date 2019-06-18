@@ -116,7 +116,16 @@ instance (HasView app, DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref 
   placeRawElement = RhyoliteWidget . placeRawElement
   wrapRawElement e = RhyoliteWidget . wrapRawElement e
 
-instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount), Query (ViewSelector app SelectedCount), Eq (ViewSelector app SelectedCount)) => Adjustable t (RhyoliteWidget app t m) where
+instance
+  ( Reflex t
+  , Additive (ViewSelector app SelectedCount)
+  , Adjustable t m
+  , Eq (ViewSelector app SelectedCount)
+  , Group (ViewSelector app SelectedCount)
+  , MonadFix m
+  , MonadHold t m
+  , Query (ViewSelector app SelectedCount))
+  => Adjustable t (RhyoliteWidget app t m) where
   runWithReplace a0 a' = RhyoliteWidget $ runWithReplace (coerce a0) (coerceEvent a')
   traverseDMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
@@ -161,6 +170,7 @@ instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) wher
 deriving instance ( Reflex t
                   , Prerender js t m
                   , MonadFix m
+                  , Eq (ViewSelector app SelectedCount)
                   , Group (ViewSelector app SelectedCount)
                   , Additive (ViewSelector app SelectedCount)
                   , Query (ViewSelector app SelectedCount)
@@ -177,6 +187,8 @@ deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget app t m)
 type MonadRhyoliteFrontendWidget app t m =
     ( MonadRhyoliteWidget app t m
     , DomBuilderSpace m ~ GhcjsDomSpace
+    , MonadIO m
+    , MonadIO (Performable m)
     )
 
 class ( MonadWidget' t m
@@ -258,7 +270,6 @@ runPrerenderedRhyoliteWidget
       , PostBuild t m, MonadHold t m
       , MonadFix m
       , Prerender x t m
-      , MonadIO (Performable m)
       )
    => Text
    -> RhyoliteWidget app t m b
@@ -276,7 +287,7 @@ runPrerenderedRhyoliteWidget url child = do
             _ -> Nothing)) request'
       ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
       nubbedVs :: Dynamic t (ViewSelector app SelectedCount) <- holdUniqDyn $ incrementalToDynamic (vs :: Incremental t (AdditivePatch (ViewSelector app SelectedCount)))
-      view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
+      view <- fmap join $ prerender (pure mempty) $ fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
   return a
 
 runRhyoliteWidget

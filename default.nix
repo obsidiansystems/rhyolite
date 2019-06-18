@@ -34,22 +34,6 @@ let
       sha256 = "1ar2w4rx0mh4nvwzpc125l3hj9xslargl43vnssmh9l6ynhi8ksv";
     };
 
-    # New version, recently added to hackage
-    constraints-extras = pkgs.fetchFromGitHub {
-      owner = "obsidiansystems";
-      repo = "constraints-extras";
-      rev = "5ec7cde73259ef902d801bf4a65983577def09ac";
-      sha256 = "15x45r31wl4g44xyldz6afw7dry41a6gsp5qfvc984j8nal268cb";
-    };
-
-    # Newly added to hackage
-    aeson-gadt-th = pkgs.fetchFromGitHub {
-      owner = "obsidiansystems";
-      repo = "aeson-gadt-th";
-      rev = "c7e6c6488c8292e4ff8f7406d9b9fa63828f80e7";
-      sha256 = "17whq0lk303gmn3yphqj26lxs0823z2hm837qqwvhq5rg6jlb90q";
-    };
-
     # Newly added to hackage
     postgresql-lo-stream = pkgs.fetchFromGitHub {
       owner = "obsidiansystems";
@@ -72,6 +56,8 @@ let
       rev = "9c995128f416cc27dbd28d7dca1b6de4ac6c9c6d";
       sha256 = "1cinfpchl4g3lpkwbcg03n5h25fj340g0n7bbr7hcx5nx0cwbzbc";
     };
+
+    aeson-gadt-th = reflex-platform.hackGet ./dep/aeson-gadt-th;
   };
 
   # Local packages. We override them below so that other packages can use them.
@@ -92,9 +78,7 @@ let
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
     bytestring-trie = repos.bytestring-trie;
-    constraints-extras = repos.constraints-extras;
-    # This is commented out and manually overridden below to get around cross-compilation issue with markdown-unlit:
-    # aeson-gadt-th = repos.aeson-gadt-th;
+    aeson-gadt-th = repos.aeson-gadt-th;
     postgresql-lo-stream = repos.postgresql-lo-stream;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
     monoidal-containers = repos.monoidal-containers;
@@ -108,8 +92,6 @@ let
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
-      aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" repos.aeson-gadt-th
-        { inherit (self.buildHaskellPackages) markdown-unlit; };
       validation = haskellLib.dontCheck super.validation;
     })
   ];
