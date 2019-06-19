@@ -35,6 +35,7 @@ import Data.Constraint (Dict (..))
 import Data.Default (Default)
 import qualified Data.IntMap as IntMap
 import Data.Dependent.Map (DSum (..))
+import Data.Witherable
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Text (Text)
@@ -43,10 +44,9 @@ import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI)
 import qualified Reflex as R
-import Reflex.Dom.Core hiding (MonadWidget, Request, fmapMaybe)
+import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
-import Reflex.FunctorMaybe
 
 import Rhyolite.Api
 import Rhyolite.App
@@ -245,14 +245,6 @@ type MonadWidget' t m =
   , PostBuild t m
   , PerformEvent t m
   , TriggerEvent t m
-  -- , MonadIO m
-  , MonadIO (Performable m)
-  -- , MonadJSM m
-  -- , MonadJSM (Performable m)
-  -- , HasJSContext m
-  -- , HasJSContext (Performable m)
-  -- , MonadAsyncException m
-  -- , MonadAsyncException (Performable m)
   , MonadRef m
   , Ref m ~ Ref IO
   , MonadRef (Performable m)

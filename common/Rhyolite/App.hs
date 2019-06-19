@@ -38,7 +38,6 @@ singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singlet
                                  , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
                                  }
 
-deriving instance FunctorMaybe (MonoidalMap k)
 instance Witherable (MonoidalMap k) where
   wither f (MonoidalMap.MonoidalMap xs) = MonoidalMap.MonoidalMap <$> wither f xs
 
@@ -68,8 +67,6 @@ fmapMaybeFst :: Filterable f => (a -> Maybe b) -> f (a, c) -> f (b, c)
 fmapMaybeFst f = mapMaybe $ \(a, c) -> case f a of
   Nothing -> Nothing
   Just b -> Just (b, c)
-
-
 
 -- | A view for a single piece of data, supporting update and delete.
 newtype Single t a = Single { unSingle :: Maybe (Semigroup.First (Maybe t), a) }
