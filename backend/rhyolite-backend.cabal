@@ -57,6 +57,7 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
+    , safe
     , smtp-mail
     , snap-core
     , split

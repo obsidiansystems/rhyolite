@@ -32,6 +32,7 @@ import System.IO
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Data.Default (def)
+import Safe (readMay)
 
 import Rhyolite.Backend.Logging (withLogging, LoggingConfig (..), RhyoliteLogAppender (..))
 
@@ -53,11 +54,11 @@ data HaveIBeenPwnedResult
   deriving (Eq, Ord, Show)
 
 class Monad m => MonadPwned m where
-  -- | returns the number of disclosures the supplied password has been seen in.
+  -- | Returns the number of disclosures the supplied password has been seen in.
   --
-  -- if this is not zero, do not use the supplied password, it is known to hackers.
-  -- if it is *is* zero, it might still not be safe, only that if it is
-  -- compramised, that is not yet known
+  -- If this is not zero, do not use the supplied password, it is known to hackers.
+  -- If it *is* zero, it might still not be safe, only that if it is
+  -- compromised, that is not yet known.
   --
   -- https://haveibeenpwned.com/API/v2#SearchingPwnedPasswordsByRange
   haveIBeenPwned :: Text -> m HaveIBeenPwnedResult
@@ -89,34 +90,36 @@ instance (MonadLogger m, MonadIO m) => MonadPwned (PwnedT m) where
       $(logError) $ T.pack $ show @ HttpException $ err
       return HaveIBeenPwnedResult_ApiError
     Right result -> case responseStatus result of
-      Status 200 _ -> return $ case parseHIBPResponse (responseBody result) rest of
-        0 -> HaveIBeenPwnedResult_Undisclosed
-        n -> HaveIBeenPwnedResult_Disclosed n
+      Status 200 _ -> case parseHIBPResponse (responseBody result) rest of
+        Just 0 -> pure HaveIBeenPwnedResult_Undisclosed
+        Just n -> pure $ HaveIBeenPwnedResult_Disclosed n
+        Nothing -> do
+          $(logError) $ "Parsing number of occurrences failed. (Not an Int)."
+          pure HaveIBeenPwnedResult_ApiError
       Status code phrase -> do
         $(logError) $ T.pack $ show $ Status code phrase
         return HaveIBeenPwnedResult_ApiError
 
 
--- | get the sha1 digest for the supplied password, split into two two parts, to agree with the
---   hibp api
+-- | Get the sha1 digest for the supplied password, split into two parts, to agree with the
+--   hibp api.
 passwdDigest :: Text -> (Text, Text)
 passwdDigest passwd = (T.take 5 digest, T.drop 5 digest)
   where digest = T.toUpper $ T.pack $ show $ sha1 $ encodeUtf8 passwd
         sha1 :: ByteString -> Digest SHA1
         sha1 = hash
 
--- | the hibp response is a line separated list of colon separated hash
--- *suffixes* and a number indicationg the number of times that password(hash)
+-- | The hibp response is a line separated list of colon separated hash
+-- *suffixes* and a number indicating the number of times that password(hash)
 -- has been seen in known publicly disclosed leaks
-
-parseHIBPResponse :: LBS.ByteString -> Text -> Int
+parseHIBPResponse :: LBS.ByteString -> Text -> Maybe Int
 parseHIBPResponse response suffix =
   let
-    digests :: [(LT.Text, Int)]
-    digests = fmap (fmap (read . LT.unpack . LT.drop 1) . LT.breakOn ":") $ LT.lines $ Data.Text.Lazy.Encoding.decodeUtf8 response
+    digests :: [(LT.Text, Maybe Int)]
+    digests = fmap (fmap (readMay . LT.unpack . LT.drop 1) . LT.breakOn ":") $ LT.lines $ Data.Text.Lazy.Encoding.decodeUtf8 response
   in case filter ((LT.fromStrict suffix ==) . fst) digests of
     ((_,n):_) -> n
-    [] -> 0
+    [] -> Just 0
 
 -- a really simple demo of the hibp functionality
 consoleHaveIBeenPwned :: IO ()
