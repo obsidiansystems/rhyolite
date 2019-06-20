@@ -25,6 +25,7 @@ library
     , constraints
     , constraints-extras
     , containers
+    , cryptohash
     , data-default
     , dependent-sum
     , dependent-sum-aeson-orphans
@@ -35,6 +36,9 @@ library
     , groundhog-th
     , HaskellNet
     , HaskellNet-SSL
+    , http-client
+    , http-client-tls
+    , http-types
     , io-streams
     , lens
     , lifted-base
@@ -76,6 +80,7 @@ library
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
+    Rhyolite.Backend.HaveIBeenPwned
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
