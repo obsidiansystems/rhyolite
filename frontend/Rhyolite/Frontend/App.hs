@@ -26,7 +26,7 @@ import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.Ref
 import Control.Monad.State.Strict
-import Data.Aeson
+import Data.Aeson as Aeson
 import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
@@ -35,13 +35,16 @@ import Data.Constraint (Dict (..))
 import Data.Default (Default)
 import qualified Data.IntMap as IntMap
 import Data.Dependent.Map (DSum (..))
+import Data.Functor.Sum
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI)
+import Network.URI (URI, parseURI)
 import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
@@ -51,6 +54,10 @@ import Rhyolite.Api
 import Rhyolite.App
 import Rhyolite.Request.Class
 import Rhyolite.WebSocket
+
+import Obelisk.Configs
+import Obelisk.Route hiding (Decoder)
+import Obelisk.Route.Frontend hiding (Decoder)
 
 #if defined(ghcjs_HOST_OS)
 import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
@@ -246,6 +253,29 @@ type MonadWidget' t m =
   , Ref (Performable m) ~ Ref IO
   )
 
+runObeliskRhyoliteWidget ::
+  ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
+  , HasView app
+  , HasRequest app
+  , Eq (ViewSelector app SelectedCount)
+  , PerformEvent t m
+  , TriggerEvent t m
+  , PostBuild t m, MonadHold t m
+  , MonadFix m
+  , Prerender x t m
+  , HasConfigs m
+  )
+  => Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
+  -> Encoder Identity Identity (R (Sum backendRoute obeliskRoute)) PageName -- ^ Checked route encoder
+  -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
+  -> RoutedT t r (RhyoliteWidget app t m) a -- ^ Child widget
+  -> RoutedT t r m a
+runObeliskRhyoliteWidget configRoute enc listenRoute child = do
+  obR <- askRoute
+  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
+  lift $ runPrerenderedRhyoliteWidget wsUrl $ flip runRoutedT obR $ child
+
 runPrerenderedRhyoliteWidget
    :: forall app m t b x.
       ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
@@ -325,8 +355,8 @@ identifyTags
      , Request v
      )
   => Event t (RequesterData v)
-  -> Event t (Data.Aeson.Value, Data.Aeson.Value)
-  -> m ( Event t [(Data.Aeson.Value, Data.Aeson.Value)]
+  -> Event t (Aeson.Value, Aeson.Value)
+  -> m ( Event t [(Aeson.Value, Aeson.Value)]
        , Event t (RequesterData Identity)
        )
 identifyTags send recv = do
@@ -391,7 +421,7 @@ openWebSocket' url request vs = do
   rec let platformDecode = decodeValue' . LBS.fromStrict
       ws <- webSocket url $ def
 #endif
-        & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . encode)) (mconcat
+        & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . Aeson.encode)) (mconcat
           [ fmap (map WebSocketRequest_Api) request
           , fmap ((:[]) . WebSocketRequest_ViewSelector) $ updated vs :: Event t [WebSocketRequest app (AppRequest app)]
           , tag (fmap ((:[]) . WebSocketRequest_ViewSelector) $ current vs) $ _webSocket_open ws

@@ -39,6 +39,7 @@ library
     , mtl
     , network-uri
     , obelisk-route
+    , obelisk-executable-config-lookup
     , prim-uniq
     , primitive
     , raw-strings-qq

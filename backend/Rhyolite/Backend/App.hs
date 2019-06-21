@@ -353,6 +353,29 @@ serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe =
 convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
 convertPostgresPool = coerce
 
+-- | This is typically useful to provide as a last argument to serveDbOverWebsockets, as it handles
+-- the combinatorics of aggregating the queries of connected clients as provided to the handler for
+-- database notifications, and disaggregating the corresponding results of the queries accordingly.
+standardPipeline
+  :: forall m k q qr a.
+    ( QueryResult (q (MonoidMap k a)) ~ qr (MonoidMap k a)
+    , QueryResult (q a) ~ qr a
+    , Functor m
+    , Ord k
+    , Foldable qr
+    , Functor q
+    , Filterable qr
+    , Eq a
+    , Eq (qr a)
+    , Eq (q (MonoidMap k a))
+    , Monoid a
+    , Monoid (qr a)
+    , Monoid (q (MonoidMap k a))
+    , Eq (q a)
+    , Monoid (q a)
+    )
+  => Pipeline m (MonoidalMap k (q a)) (q (MonoidMap k a))
+standardPipeline = queryMorphismPipeline $ transposeMonoidMap Cat.<<< monoidMapQueryMorphism
 
 -------------------------------------------------------------------------------
 
