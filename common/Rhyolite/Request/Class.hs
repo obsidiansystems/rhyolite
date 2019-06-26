@@ -1,22 +1,19 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Rhyolite.Request.Class where
 
-import Data.Aeson (FromJSON, ToJSON, Value, parseJSON, toJSON)
-import Data.Aeson.Types (Parser)
-import Data.Constraint (Dict)
+import Data.Aeson (FromJSON, ToJSON, toJSON)
+import Data.Constraint.Forall
+import Data.Constraint.Extras
+import Data.Some
 
-data SomeRequest t where
-    SomeRequest :: (FromJSON x, ToJSON x) => t x -> SomeRequest t
+type Request r = (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r)
 
-class Request r where
-  requestToJSON :: r a -> Value
-  requestParseJSON :: Value -> Parser (SomeRequest r)
-  requestResponseToJSON :: r a -> Dict (ToJSON a)
-  requestResponseFromJSON :: r a -> Dict (FromJSON a)
-
-instance Request r => FromJSON (SomeRequest r) where
-  parseJSON = requestParseJSON
-
-instance Request r => ToJSON (SomeRequest r) where
-  toJSON (SomeRequest r) = requestToJSON r
+-- TODO: Move this very important orphan
+instance (ForallF ToJSON r) => ToJSON (Some r) where
+  toJSON (Some (x :: r a)) = whichever @ToJSON @r @a (toJSON x)

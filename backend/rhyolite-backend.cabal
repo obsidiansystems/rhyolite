@@ -65,6 +65,7 @@ library
     , transformers-base
     , unordered-containers
     , vector
+    , vessel
     , websockets
     , websockets-snap
     , witherable >= 0.2 && < 0.4
