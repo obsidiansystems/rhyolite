@@ -13,7 +13,3 @@ import Data.Constraint.Extras
 import Data.Some
 
 type Request r = (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r)
-
--- TODO: Move this very important orphan
-instance (ForallF ToJSON r) => ToJSON (Some r) where
-  toJSON (Some (x :: r a)) = whichever @ToJSON @r @a (toJSON x)
