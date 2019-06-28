@@ -20,7 +20,7 @@ module Rhyolite.Backend.App
 import Control.Category (Category)
 import qualified Control.Category as Cat
 import Control.Concurrent (forkIO, killThread)
-import Control.Exception (bracket)
+import Control.Exception (SomeException(..), bracket, try)
 import Control.Lens (imapM_)
 import Control.Monad (forever, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -36,6 +36,7 @@ import Data.Pool (Pool)
 import Data.Semigroup (Semigroup, (<>))
 import Data.Some (Some(Some))
 import Data.Text (Text)
+import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import Debug.Trace (trace)
@@ -271,7 +272,7 @@ vesselQueryToGroup = mapV (\_ -> Const (SelectedCount 1))
 -- Data taken from 'getNextNotification' is pushed into the pipeline and
 -- when the pipeline pulls data, it is retrieved using 'qh'
 feedPipeline
-  :: (Monoid q, Semigroup q)
+  :: (Monoid q, Semigroup q, DiffQuery q)
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available
@@ -283,9 +284,11 @@ feedPipeline
   -- ^ A way for the pipeline to request data
 feedPipeline getNextNotification qh r = do
   currentQuery <- newIORef mempty
-  let qhSaveQuery = QueryHandler $ \q -> do
-        atomicModifyIORef' currentQuery $ \old -> (q <> old, ())
-        runQueryHandler qh q
+  let qhSaveQuery = QueryHandler $ \new -> do
+        qDiff <- atomicModifyIORef' currentQuery $ \old ->
+          let diff = diffQuery new old
+          in (new, maybe mempty id diff)
+        runQueryHandler qh qDiff
   tid <- forkIO . forever $ do
     nm <- getNextNotification
     q <- readIORef currentQuery
@@ -369,6 +372,7 @@ serveDbOverWebsockets
      , Monoid (QueryResult q)
      , Eq (QueryResult q)
      , FromJSON notifyMessage
+     , DiffQuery q'
      )
   => Pool Postgresql
   -> RequestHandler r IO
@@ -376,7 +380,10 @@ serveDbOverWebsockets
   -> QueryHandler q' IO
   -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (Snap (), IO ())
-serveDbOverWebsockets = serveDbOverWebsocketsRaw withWebsocketsConnection
+serveDbOverWebsockets pool rh nh qh pipeline = do
+  mver <- try (T.readFile "version")
+  let version = either (\(SomeException _) -> "") id mver
+  serveDbOverWebsocketsRaw withWebsocketsConnection version pool rh nh qh pipeline
 
 serveDbOverWebsocketsRaw
   :: forall notifyMessage q q' r m a.
@@ -391,19 +398,21 @@ serveDbOverWebsocketsRaw
      , Monoid (QueryResult q)
      , Eq (QueryResult q)
      , FromJSON notifyMessage
+     , DiffQuery q'
      )
   => ((WS.Connection -> IO ()) -> m a)
+  -> Text -- ^ version
   -> Pool Postgresql
   -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (m a, IO ())
-serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe = do
+serveDbOverWebsocketsRaw withWsConn version db handleApi handleNotify handleQuery pipe = do
   (getNextNotification, finalizeListener) <- startNotificationListener db
   rec (qh, finalizeFeed) <- feedPipeline (handleNotify <$> getNextNotification) handleQuery r
       (qh', r) <- unPipeline pipe qh r'
-      (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn "" handleApi qh'
+      (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn version handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
 
 convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
