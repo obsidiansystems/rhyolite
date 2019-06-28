@@ -2,48 +2,47 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Rhyolite.Api where
 
-import Data.Aeson (ToJSON, FromJSON, parseJSON, toJSON)
-import Data.Constraint (Dict (..))
-
-import Rhyolite.App (AppCredential, PublicRequest, PrivateRequest)
-import Rhyolite.Request.Class (Request, SomeRequest (..), requestToJSON, requestParseJSON, requestResponseToJSON, requestResponseFromJSON)
-import Rhyolite.HList (HList (HNil, HCons))
+import Data.Aeson
+import Data.Some
+import Data.Constraint.Extras
 
 data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Public :: public a -> ApiRequest cred public private a
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a
   deriving (Show)
 
-type AppRequest app = ApiRequest (AppCredential app) (PublicRequest app) (PrivateRequest app)
+instance (ArgDict c public, ArgDict c private) => ArgDict c (ApiRequest cred public private) where
+  type ConstraintsFor (ApiRequest cred public private) c = (ConstraintsFor public c, ConstraintsFor private c)
+  argDict = \case
+    ApiRequest_Public x -> argDict x
+    ApiRequest_Private _ x -> argDict x
 
-instance (Request private, Request public, ToJSON cred, FromJSON cred) => Request (ApiRequest cred public private) where
-  requestToJSON r = case r of
-    ApiRequest_Public p -> case (requestResponseToJSON p, requestResponseFromJSON p) of
-      (Dict, Dict) -> toJSON ("Public"::String, SomeRequest p `HCons` HNil)
-    ApiRequest_Private token p -> case (requestResponseToJSON p, requestResponseFromJSON p) of
-      (Dict, Dict) -> toJSON ("Private"::String, token `HCons` SomeRequest p `HCons` HNil)
-  requestParseJSON v = do
-    (tag, body) <- parseJSON v
-    case tag of
-      ("Public"::String) -> do
-        SomeRequest p `HCons` HNil <- parseJSON body
-        return $ SomeRequest $ ApiRequest_Public p
-      ("Private"::String) -> do
-        token `HCons` SomeRequest p `HCons` HNil <- parseJSON body
-        return $ SomeRequest $ ApiRequest_Private token p
-      e -> error $ "Could not parse tag: " ++ e
-  requestResponseToJSON = \case
-    ApiRequest_Public p -> requestResponseToJSON p
-    ApiRequest_Private _ p -> requestResponseToJSON p
-  requestResponseFromJSON = \case
-    ApiRequest_Public p -> requestResponseFromJSON p
-    ApiRequest_Private _ p -> requestResponseFromJSON p
-
-public :: PublicRequest app t -> AppRequest app t
+public :: public t -> ApiRequest cred public private t
 public = ApiRequest_Public
 
-private :: AppCredential app -> PrivateRequest app t -> AppRequest app t
+private :: cred -> private t -> ApiRequest cred public private t
 private = ApiRequest_Private
+
+instance (ToJSON cred, ToJSON (public a), ToJSON (private a)) => ToJSON (ApiRequest cred public private a) where
+  toJSON = \case
+    ApiRequest_Public x -> toJSON ("public", toJSON x)
+    ApiRequest_Private c x -> toJSON ("private", (toJSON x, toJSON c))
+
+instance (FromJSON cred, FromJSON (Some public), FromJSON (Some private)) => FromJSON (Some (ApiRequest cred public private)) where
+  parseJSON v = do
+    (tag,rest) <- parseJSON v
+    case tag of
+      "public" -> do
+        Some x <- parseJSON rest
+        return (Some (ApiRequest_Public x))
+      "private" -> do
+        (Some x, c) <- parseJSON rest
+        return (Some (ApiRequest_Private c x))
+      _ -> fail "Request appears neither public nor private"

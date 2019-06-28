@@ -19,6 +19,7 @@ library
     , base
     , bytestring
     , constraints
+    , constraints-extras
     , containers
     , data-default
     , dependent-map
@@ -43,6 +44,7 @@ library
     , transformers-base
     , vector
     , witherable
+    , vessel
 
   exposed-modules:
     Data.MonoidMap
@@ -54,7 +56,6 @@ library
     Rhyolite.HList
     Rhyolite.Request.Class
     Rhyolite.Request.Common
-    Rhyolite.Request.TH
     Rhyolite.Route
     Rhyolite.Schema
     Rhyolite.Schema.Task
