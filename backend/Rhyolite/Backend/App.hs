@@ -50,12 +50,11 @@ import qualified Network.WebSockets as WS
 import Data.Coerce (coerce)
 import Data.Vessel
 
--- import Rhyolite.Api
+import Rhyolite.Api
 import Rhyolite.App
 import Rhyolite.Backend.Listen (startNotificationListener)
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Rhyolite.Request.Class
 import Rhyolite.Backend.Sign (readSignedWithKey)
 import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
 

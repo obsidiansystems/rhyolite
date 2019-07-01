@@ -54,7 +54,6 @@ library
     Rhyolite.Concurrent
     Rhyolite.Email
     Rhyolite.HList
-    Rhyolite.Request.Class
     Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Schema
