@@ -31,7 +31,7 @@ import Data.Constraint.Extras
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
-import Data.IORef (atomicModifyIORef', newIORef, readIORef)
+import Data.IORef (atomicModifyIORef', newIORef, readIORef, writeIORef)
 import Data.MonoidMap (MonoidMap (..), monoidMap)
 import Data.Pool (Pool)
 import Data.Semigroup (Semigroup, (<>))
@@ -272,7 +272,7 @@ vesselQueryToGroup = mapV (\_ -> Const (SelectedCount 1))
 -- Data taken from 'getNextNotification' is pushed into the pipeline and
 -- when the pipeline pulls data, it is retrieved using 'qh'
 feedPipeline
-  :: (Monoid q, Semigroup q, DiffQuery q)
+  :: (Monoid q, Semigroup q)
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available
@@ -285,10 +285,8 @@ feedPipeline
 feedPipeline getNextNotification qh r = do
   currentQuery <- newIORef mempty
   let qhSaveQuery = QueryHandler $ \new -> do
-        qDiff <- atomicModifyIORef' currentQuery $ \old ->
-          let diff = diffQuery new old
-          in (new, maybe mempty id diff)
-        runQueryHandler qh qDiff
+        writeIORef currentQuery new
+        runQueryHandler qh new
   tid <- forkIO . forever $ do
     nm <- getNextNotification
     q <- readIORef currentQuery
