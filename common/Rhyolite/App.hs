@@ -25,10 +25,18 @@ import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
 import Reflex.Query.Class
+import Data.These
+import Data.Align
 
 -- | Set-subtraction operation for queries.
 class (Query q, Eq q) => DiffQuery q where
   diffQuery :: q -> q -> Maybe q -- ^ diffQuery x y indicates interest in the part of x which is not indicated by y. Results in Nothing if this difference is empty.
+
+-- | This can be used to implement an instance of DiffQuery for Functor-style queries/views, in terms of the other instances already required for those.
+standardDiffQuery :: (Eq (q a), Monoid (q a), Filterable q, Align q) => q a -> q a -> Maybe (q a)
+standardDiffQuery x y =
+    let d = mapMaybe id $ alignWith (\t -> case t of This a -> Just a; _ -> Nothing) x y
+    in if d == mempty then Nothing else Just d
 
 singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
 singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k

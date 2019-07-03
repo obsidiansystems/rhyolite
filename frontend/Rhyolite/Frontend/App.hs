@@ -55,7 +55,6 @@ import Reflex.FunctorMaybe
 
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.Request.Class
 import Rhyolite.WebSocket
 
 import Obelisk.Configs
