@@ -7,6 +7,7 @@ module Rhyolite.Backend.TaskWorker where
 
 import Rhyolite.Backend.Schema.Task
 
+import Control.Monad.Cont
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.Thread.Delay
@@ -156,3 +157,20 @@ withWorker d work child = do
         go nextStartVar
   bracket (liftIO $ async $ go initialStartVar) (liftIO . cancel) $ \_ -> child wakeup
 
+-- | Run multiple workers in parallel on the same task
+withConcurrentWorkers
+  :: forall r a. Int
+  -> NominalDiffTime
+  -> (a -> IO Bool)
+  -> (Int -> a)
+  -> (IO () -> IO r)
+  -> IO r
+withConcurrentWorkers n0 d work argFn = runContT $ go n0
+  where
+    go :: Int -> ContT r IO (IO ())
+    go n = do
+      wakeup <- ContT $ withWorker d (work $ argFn n)
+      wakeupRest <- if (n > 1)
+        then go (n-1)
+        else return $ return ()
+      return (wakeup *> wakeupRest)
