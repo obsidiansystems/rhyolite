@@ -15,5 +15,6 @@ import Database.Groundhog.TH
 import Rhyolite.Backend.Schema.TH
 
 mkRhyolitePersist Nothing [groundhog|
+  - embedded: RawTask
   - embedded: Task
 |]
