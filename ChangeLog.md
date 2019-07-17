@@ -22,6 +22,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Fix bug in `runRhyoliteWidget` and `runPrerenderedRhyoliteWidget` when things were explicitly requested 0 times.
 * Fix `mapAuth` to ensure that queries are correctly subtracted from the view selector when switching accounts.
 * Add `validationInputWithFeedback` which separates the widget providing feedback on why their input wasn't valid, allowing it to be placed separately in the DOM.
+* Create a `RawTask`, useful for jobs where it's inconvenient to track "job complete" separate from the other job ready conditions.
 
 ## v0.1.0.0
 
