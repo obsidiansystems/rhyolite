@@ -15,7 +15,7 @@ import System.Directory (doesFileExist)
 -- or a file with a database url
 --
 -- withDb takes a String, which represents the path to a database, and a
--- function that returns database connection information as arguements in
+-- function that returns database connection information as arguments in
 -- order to open and start the database. Otherwise, it will create the
 -- database for you if it doesn't exist.
 withDb :: String -> (Pool Postgresql -> IO a) -> IO a
@@ -24,7 +24,7 @@ withDb dbPath a = do
   if dbExists
     -- use the file contents as the uri for an existing server
     then C8.readFile dbPath >>= openDb . head . C8.lines >>= a
-    -- otherwise assume its a folder for a local database
+    -- otherwise assume it's a folder for a local database
     else do
       g <- postgresNix
       withGargoyle g dbPath $ openDb >=> a

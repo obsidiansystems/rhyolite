@@ -68,7 +68,6 @@ defaultCookie key mv = do
 defaultCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => Text -> Maybe v -> m SetCookie
 defaultCookieJson k = defaultCookie k . fmap (decodeUtf8 . LBS.toStrict . encode)
 
-{-# DEPRECATED setPermanentCookieWithLocation "Use defaultCookie instead" #-}
 setPermanentCookieWithLocation :: (MonadJSM m, HasJSContext m) => DOM.Document -> Maybe ByteString -> Text -> Maybe Text -> m ()
 setPermanentCookieWithLocation doc loc key mv = do
   cookie <- defaultCookie key mv
@@ -80,7 +79,6 @@ getCookie doc key = do
   cookieString <- DOM.getCookie doc
   return $ lookup key $ parseCookiesText $ encodeUtf8 cookieString
 
-{-# DEPRECATED setPermanentCookieJson "Use defaultCookieJson instead" #-}
 setPermanentCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => DOM.Document -> Text -> Maybe v -> m ()
 setPermanentCookieJson d k = setPermanentCookie d <=< defaultCookieJson k
 

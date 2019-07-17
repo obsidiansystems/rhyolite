@@ -22,15 +22,15 @@ import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Logger (LoggingT, NoLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
-import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
+import Control.Monad.Trans.Control -- (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.List (ListT)
 import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Reader (ReaderT(..))
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
-import Control.Monad.Trans.Reader (ReaderT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
@@ -45,11 +45,12 @@ import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
+import Database.PostgreSQL.Simple.Transaction (withTransactionSerializable)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
-import Database.Groundhog.Generic (mapAllRows)
+import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.Schema
@@ -65,20 +66,35 @@ type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
 class RunDb f where
   runDb :: ( MonadIO m
            , MonadBaseNoPureAborts IO m
-           , ConnectionManager cm conn
-           , PostgresRaw (DbPersist conn m)
-           , PersistBackend (DbPersist conn m))
+           , ConnectionManager cm Postgresql
+           , PostgresRaw (DbPersist Postgresql m)
+           , PersistBackend (DbPersist Postgresql m))
         => f (Pool cm)
-        -> DbPersist conn m b
+        -> DbPersist Postgresql m b
         -> m b
 
 -- | Runs a database action in the public schema
 instance RunDb Identity where
-  runDb (Identity db) = withResource db . runDbConn . withSchema (SchemaName "public")
+  runDb (Identity db) = runDb $ WithSchema (SchemaName "public") db
 
 -- | Runs a database action in a specific schema
 instance RunDb WithSchema where
-  runDb (WithSchema schema db) = withResource db . runDbConn . withSchema schema
+  runDb (WithSchema schema db) = withResource db
+    . runDbConnNoTransaction
+    . (\(DbPersist (ReaderT f)) -> DbPersist $ ReaderT $ \conn@(Postgresql conn') ->
+          (liftBaseThrough (withTransactionSerializable conn')) $ f conn)
+    . withSchema schema
+
+-- TODO upstream this
+liftBaseThrough
+  :: (MonadBaseControl b m, Monad m, Monad b)
+  => (b (StM m a) -> b (StM m c))
+  -> m a
+  -> m c
+liftBaseThrough f t = do
+  st <- liftBaseWith $ \run -> do
+    f $ run t
+  restoreM st
 
 getSearchPath :: PersistBackend m => m String
 getSearchPath = do
