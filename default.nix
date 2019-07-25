@@ -1,8 +1,9 @@
-{ obelisk ? import ./.obelisk/impl {}
-, pkgs ? obelisk.nixpkgs, ... } @ args:
+{ config ? {}
+, ... } @ args:
 
 let
-
+  obelisk = import ./.obelisk/impl { inherit config; };
+  pkgs = obelisk.nixpkgs;
   reflex-platform = obelisk.reflex-platform;
   inherit (pkgs) lib;
   haskellLib = pkgs.haskell.lib;
