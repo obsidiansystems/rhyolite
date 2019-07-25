@@ -246,8 +246,6 @@ filterLog minLoggedLvl m (LoggingEnv f) =
     when (maybe False (lvl >=) filterLvl) $ do
       f loc src lvl msg
 
-
--- | handle `LoggingT` nicely.
 withLogging
   :: forall l m a. (LogAppender l, MonadMask m, MonadIO m)
   => [LoggingConfig l]
@@ -255,7 +253,6 @@ withLogging
   -> m a
 withLogging = withLoggingMinLevel (Just LevelWarn)
 
--- | handle `LoggingT` nicely.
 withLoggingMinLevel
   :: forall l m a. (LogAppender l, MonadMask m, MonadIO m)
   => Maybe LogLevel -- ^ Min level to log in case of no filter match. Specify (Just LevelWarn) to log errors and warnings even if they dont match any filter.
