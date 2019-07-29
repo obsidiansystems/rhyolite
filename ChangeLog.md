@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-24 - Unreleased
+
+* Generalized `=:` from `MonoidalMap` to any [`At s`](http://hackage.haskell.org/package/lens-4.17.1/docs/Control-Lens-At.html#t:At)
+
 ## 2019-08-19 - Unreleased
 
 * Added `standardPipeline` as a good example of a last argument you can use for serveDbOverWebsockets, in the case that you have a Functor-style query/view type. It now uses condense/disperse from the Vessel library.

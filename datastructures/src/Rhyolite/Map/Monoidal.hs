@@ -3,14 +3,16 @@
 {-# LANGUAGE StandaloneDeriving #-}
 module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
+import Control.Lens (At, Index, IxValue, set, at)
 import Data.AppendMap as X
 import Data.Map.Monoidal as X
 
 import qualified Data.Set as Set
 
 -- | Operator for creating a singleton 'Map'
-(=:) :: k -> a -> MonoidalMap k a
-k =: v = singleton k v
+(=:) :: (Monoid s, At s) => Index s -> IxValue s -> s
+k =: v = set (at k) (Just v) mempty
+{-# INLINE (=:) #-}
 infixr 7 =:
 
 -- TODO: Use built-in implementation after upgrading 'containers'.
