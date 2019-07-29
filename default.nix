@@ -1,17 +1,18 @@
-{ obelisk ? import ./.obelisk/impl {}
-, pkgs ? obelisk.nixpkgs, ... } @ args:
+{ pkgs ? null, ... } @ args:
 
 let
 
+  obelisk = import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"]);
   reflex-platform = obelisk.reflex-platform;
-  inherit (pkgs) lib;
-  haskellLib = pkgs.haskell.lib;
+  nixpkgs = if pkgs == null then obelisk.nixpkgs else pkgs;
+  inherit (nixpkgs) lib;
+  haskellLib = nixpkgs.haskell.lib;
 
   # Some dependency thunks needed
   repos = {
 
     # Point to OS fork of groundhog
-    groundhog = pkgs.fetchFromGitHub {
+    groundhog = nixpkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "groundhog";
       rev = "f68d1c91a92a9514e771fc432ec2ea9cf93c78af";
@@ -19,7 +20,7 @@ let
     };
 
     # bytestring-trie in hackage doesn’t support base 4.11+
-    bytestring-trie = pkgs.fetchFromGitHub {
+    bytestring-trie = nixpkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "bytestring-trie";
       rev = "27117ef4f9f01f70904f6e8007d33785c4fe300b";
@@ -27,7 +28,7 @@ let
     };
 
     # Unreleased version, includes fromList = fromListWith (<>)
-    monoidal-containers = pkgs.fetchFromGitHub {
+    monoidal-containers = nixpkgs.fetchFromGitHub {
       owner = "bgamari";
       repo = "monoidal-containers";
       rev = "a34c9fbe191725ef9a9c7783e103c24796bd91e3";
@@ -35,7 +36,7 @@ let
     };
 
     # Newly added to hackage
-    postgresql-lo-stream = pkgs.fetchFromGitHub {
+    postgresql-lo-stream = nixpkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "postgresql-lo-stream";
       rev = "33e1a64c1f65d7d1e26d6d08d2ddb85eb795f94c";
@@ -43,14 +44,14 @@ let
     };
 
     # Newly added to hackage
-    push-notifications = pkgs.fetchFromGitHub {
+    push-notifications = nixpkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "push-notifications";
       rev = "18ae57d88a17a63389fe2a9aa0d9e421294a8781";
       sha256 = "1jhhnyfgfjv1x0gb59gyj9nvffp5czgqx8zjr4b4m15p7sx8j714";
     };
 
-    dependent-sum-aeson-orphans = pkgs.fetchFromGitHub {
+    dependent-sum-aeson-orphans = nixpkgs.fetchFromGitHub {
       owner = "obsidiansystems";
       repo = "dependent-sum-aeson-orphans";
       rev = "9c995128f416cc27dbd28d7dca1b6de4ac6c9c6d";
