@@ -19,6 +19,7 @@ import Control.Monad.Except
 import Data.Bifunctor
 import Data.Functor.Compose
 import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -120,10 +121,10 @@ manageValidity validate' validator errorText renderInput = do
   return v
 
 manageValidation
-  :: (DomBuilder t m, MonadHold t m)
-  => (Dynamic t Text -> m (DynValidation t e a)) -- Validation
-  -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
-  -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
+  :: (DomBuilder t m, HasValue w, Value w ~ Dynamic t v, MonadHold t m)
+  => (Dynamic t v -> m (DynValidation t e a)) -- Validation
+  -> m w -- Render input
+  -> m (w, DynValidation t e a)
 manageValidation validator renderInput = do
   input <- renderInput
   validated <- validator $ value input
@@ -137,6 +138,9 @@ validateNonEmpty m = fromEither $ do
   let txt = T.strip m
   guardEither () $ not $ T.null txt
   return txt
+
+validateJust :: Maybe a -> Validation () a
+validateJust = fromEither . maybe (Left ()) pure
 
 validateEmail :: Text -> Validation () Text
 validateEmail m = fromEither $ do
@@ -153,31 +157,47 @@ validateUniqueName name otherNames = fromEither $ do
   guardEither () $ not $ Set.member name otherNames
   return name
 
-data ValidationConfig t m e a = ValidationConfig
+-- | Configure how to perform validation of an input widget
+--
+-- - `e` is the error type of the validation
+-- - `a` is the result type of the validation
+-- - `v` is the value used (typically `Text`) internally by the widget
+data ValidationConfig t m e a v = ValidationConfig
   { _validationConfig_feedback :: Either (Dynamic t e) (Dynamic t a) -> m ()
   -- ^ For displaying the error in the browser with manual styling.
   , _validationConfig_errorText :: e -> Text
   -- ^ For the base HTML form validation, in which errors are non-empty strings.
-  , _validationConfig_validation :: Dynamic t Text -> DynValidation t e a
+  , _validationConfig_validation :: Dynamic t v -> DynValidation t e a
   -- ^ Input is always being reevaluated, including when external dynamics
   -- "mixed in" with this change. But rather than pushing changes downstream,
   -- downstream needed to ask for them (poll) with the 'validate' field.
-  , _validationConfig_validationM :: Maybe (Dynamic t Text -> m (DynValidation t e a))
+  , _validationConfig_validationM :: Maybe (Dynamic t v -> m (DynValidation t e a))
   -- ^ This validation allows for the use of monadic effects (e.g. ask a
   -- server). The results of `_validationConfig_validatation` and
   -- `_validationConfig_validationM` will be combined by `*>`.
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
-  , _validationConfig_initialValue :: Text
-  , _validationConfig_setValue :: Maybe (Event t Text)
+  , _validationConfig_initialValue :: v
+  , _validationConfig_setValue :: Maybe (Event t v)
   , _validationConfig_validate :: Event t ()
   -- ^ When to show validations and open the gate so downstream gets a new
   -- result. Fresh errors is the price for fresh results.
   }
 
-defValidationConfig :: DomBuilder t m => ValidationConfig t m Text a
-defValidationConfig = ValidationConfig
+-- | Like mkValidationConfig but for monoidal widget values
+defValidationConfig
+  :: (DomBuilder t m, Monoid v)
+  => ValidationConfig t m Text a v
+defValidationConfig = mkValidationConfig mempty
+
+-- | Make a ValidationConfig with base values.
+mkValidationConfig
+  :: DomBuilder t m
+  => v
+  -- ^ Initial value to use in the widget
+  -> ValidationConfig t m Text a v
+mkValidationConfig ini = ValidationConfig
   { _validationConfig_feedback = const blank
   , _validationConfig_errorText = id
   , _validationConfig_validation = const $ toDynValidation $ pure $ Left "Validation not configured"
@@ -185,7 +205,7 @@ defValidationConfig = ValidationConfig
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
   , _validationConfig_invalidAttributes = mempty
-  , _validationConfig_initialValue = ""
+  , _validationConfig_initialValue = ini
   , _validationConfig_setValue = Nothing
   , _validationConfig_validate = never
   }
@@ -195,20 +215,62 @@ data ValidationInput t m e a = ValidationInput
   , _validationInput_value :: DynValidation t e a
   }
 
+data ValidationTextArea t m e a = ValidationTextArea
+  { _validationTextArea_input :: TextAreaElement EventResult (DomBuilderSpace m) t
+  , _validationTextArea_value :: DynValidation t e a
+  }
+
+data ValidationDropdown t e a = ValidationDropdown
+  { _validationDropdown_input :: Dropdown t (Maybe a)
+  , _validationDropdown_value :: DynValidation t e a
+  }
+
 instance HasValue (ValidationInput t m e a) where
   type Value (ValidationInput t m e a) = DynValidation t e a
   value = _validationInput_value
+
+instance HasValue (ValidationTextArea t m e a) where
+  type Value (ValidationTextArea t m e a) = DynValidation t e a
+  value = _validationTextArea_value
+
+instance HasValue (ValidationDropdown t e a) where
+  type Value (ValidationDropdown t e a) = DynValidation t e a
+  value = _validationDropdown_value
 
 instance Reflex t => HasDomEvent t (ValidationInput t m e a) en where
   type DomEventType (ValidationInput t m e a) en = DomEventType (InputElement EventResult m t) en
   domEvent en = domEvent en . _validationInput_input
 
+instance Reflex t => HasDomEvent t (ValidationTextArea t m e a) en where
+  type DomEventType (ValidationTextArea t m e a) en = DomEventType (TextAreaElement EventResult m t) en
+  domEvent en = domEvent en . _validationTextArea_input
+
 validationInput
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, Semigroup e)
-  => ValidationConfig t m e a
+  => ValidationConfig t m e a Text
   -> m (ValidationInput t m e a)
 validationInput config = do
   (vi, feedback) <- validationInputWithFeedback config
+  feedback
+  return vi
+
+validationTextArea
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, Semigroup e)
+  => ValidationConfig t m e a Text
+  -> m (ValidationTextArea t m e a)
+validationTextArea config = do
+  (vi, feedback) <- validationTextAreaWithFeedback config
+  feedback
+  return vi
+
+validationDropdown
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, Semigroup e, Ord a)
+  => Maybe a
+  -> Dynamic t (Map (Maybe a) Text)
+  -> ValidationConfig t m e a (Maybe a)
+  -> m (ValidationDropdown t e a)
+validationDropdown k0 options config = do
+  (vi, feedback) <- validationDropdownWithFeedback k0 options config
   feedback
   return vi
 
@@ -217,35 +279,78 @@ validationInputWithFeedback
   .  ( DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m
      , Semigroup e , Reflex t
      )
-  => ValidationConfig t m e a
+  => ValidationConfig t m e a Text
   -> m (ValidationInput t m e a, m ())
-validationInputWithFeedback config = do
-    let validateL = _validationConfig_validate config
-        validationL = combineValidators
-          (_validationConfig_validation config) (_validationConfig_validationM config)
-    rec (input, dValidated) <- manageValidation validationL $ do
-          inputElement $ def
-            & initialAttributes .~ _validationConfig_initialAttributes config
-            & modifyAttributes .~ inputAttrs
-            & inputElementConfig_initialValue .~ _validationConfig_initialValue config
-            & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
-        let eValidated = tagPromptlyDyn (fromDynValidation dValidated) validateL
-            inputAttrs = ffor eValidated $ \case
-              Left _ -> fmap Just $ _validationConfig_invalidAttributes config
-              Right _ -> fmap Just $ _validationConfig_validAttributes config
-    val <- eitherDyn $ fromDynValidation dValidated
-    let feedback = dyn_ $ _validationConfig_feedback config <$> val
-    return $ (ValidationInput input dValidated, feedback)
-  where
-    combineValidators
-      :: (Dynamic t Text -> DynValidation t e a)
-      -> Maybe (Dynamic t Text -> m (DynValidation t e a))
-      -> Dynamic t Text -> m (DynValidation t e a)
-    combineValidators pValidator mValidator t =
-      case mValidator of
-        Nothing -> pure $ pValidator t
-        Just mv -> do
-          r <- mv t
-          pure (pValidator t *> r)
+validationInputWithFeedback config = validationCustomInputWithFeedback config ValidationInput $ \inputAttrs ->
+  inputElement $ def
+    & initialAttributes .~ _validationConfig_initialAttributes config
+    & modifyAttributes .~ (fmap Just <$> inputAttrs)
+    & inputElementConfig_initialValue .~ _validationConfig_initialValue config
+    & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
+
+validationTextAreaWithFeedback
+  :: forall t m e a
+  .  ( DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m
+     , Semigroup e , Reflex t
+     )
+  => ValidationConfig t m e a Text
+  -> m (ValidationTextArea t m e a, m ())
+validationTextAreaWithFeedback config = validationCustomInputWithFeedback config ValidationTextArea $ \inputAttrs ->
+  textAreaElement $ def
+    & initialAttributes .~ _validationConfig_initialAttributes config
+    & modifyAttributes .~ (fmap Just <$> inputAttrs)
+    & textAreaElementConfig_initialValue .~ _validationConfig_initialValue config
+    & textAreaElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
+
+validationDropdownWithFeedback
+  :: forall t m e a
+  .  ( DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m
+     , Semigroup e, Reflex t, Ord a
+     )
+  => Maybe a
+  -> Dynamic t (Map (Maybe a) Text)
+  -> ValidationConfig t m e a (Maybe a)
+  -> m (ValidationDropdown t e a, m ())
+validationDropdownWithFeedback k0 options config = validationCustomInputWithFeedback config ValidationDropdown $
+  \inputAttrs -> do
+    attrs <- holdDyn (_validationConfig_initialAttributes config) inputAttrs
+    let attrs' = Map.mapKeysMonotonic (\(AttributeName _ v) -> v) <$> attrs
+    dropdown k0 options $ def
+      & dropdownConfig_attributes .~ attrs'
+      & dropdownConfig_setValue %~ maybe id const (_validationConfig_setValue config)
+
+validationCustomInputWithFeedback
+  :: forall t m e a v vi w
+  .  ( DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m
+     , Semigroup e, Reflex t, HasValue w, Value w ~ Dynamic t v
+     )
+  => ValidationConfig t m e a v
+  -> (w -> DynValidation t e a -> vi)
+  -> (Event t (Map AttributeName Text) -> m w)
+  -> m (vi, m ())
+validationCustomInputWithFeedback config mkVi w = do
+  let validateL = _validationConfig_validate config
+      validationL = combineValidators
+        (_validationConfig_validation config) (_validationConfig_validationM config)
+  rec (input, dValidated) <- manageValidation validationL $ w inputAttrs
+      let eValidated = tagPromptlyDyn (fromDynValidation dValidated) validateL
+          inputAttrs = ffor eValidated $ \case
+            Left _ -> _validationConfig_invalidAttributes config
+            Right _ -> _validationConfig_validAttributes config
+  val <- eitherDyn $ fromDynValidation dValidated
+  let feedback = dyn_ $ _validationConfig_feedback config <$> val
+  return (mkVi input dValidated, feedback)
+
+combineValidators
+  :: (Reflex t, Monad m, Semigroup e)
+  => (Dynamic t v -> DynValidation t e a)
+  -> Maybe (Dynamic t v -> m (DynValidation t e a))
+  -> Dynamic t v -> m (DynValidation t e a)
+combineValidators pValidator mValidator t =
+  case mValidator of
+    Nothing -> pure $ pValidator t
+    Just mv -> do
+      r <- mv t
+      pure $ pValidator t *> r
 
 makeLenses ''ValidationConfig
