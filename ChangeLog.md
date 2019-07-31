@@ -4,6 +4,9 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-06-14 - Unreleased
 
+* Add `Rhyolite.Frontend.Modal.*` modules for conveniently creating modals that do not require the use of `z-index` to position correctly.
+* Add `withLoggingMinLevel` function in `Rhyolite.Backend.Logging` which allows you to pick the fallback filter when no other filters match.
+* Bump obelisk to a version that no longer uses `*Tag` classes.
 * Add `validationDropdown` and `validationTextArea`
   * Add an extra type parameter `v` specifying the widget value type (typically `Text`) to `ValidationConfig`
   * Add `mkValidationConfig` which is like `defValidationConfig` but takes the initial value
