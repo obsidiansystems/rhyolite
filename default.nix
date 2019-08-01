@@ -33,6 +33,7 @@ let
     monoidal-containers = repos.monoidal-containers;
     # Newly added to hackage
     push-notifications = repos.push-notifications;
+    reflex = repos.reflex;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
