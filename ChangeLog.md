@@ -2,6 +2,14 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-01 - Unreleased
+
+* Use `HasId`, `Id`, and related types/functions from database-id-class and database-id-groundhog. Remove the implementations in Rhyolite.Schema and Rhyolite.Backend.Schema
+* Remove Rhyolite.Backend.DB.TH since the code there was redundant with Rhyolite.Backend.Schema.TH
+* Convert all dependencies in default.nix to thunks in `dep/`
+* Update to use monoidal-containers 0.5
+* Add a test that builds all the rhyolite submodules to `test/`
+
 ## 2019-06-14 - Unreleased
 
 * Add `withLoggingMinLevel` function in `Rhyolite.Backend.Logging` which allows you to pick the fallback filter when no other filters match.
