@@ -48,7 +48,6 @@ library
     Rhyolite.Backend.DB.LargeObjects
     Rhyolite.Backend.DB.PsqlSimple
     Rhyolite.Backend.DB.PsqlSimple.Orphans
-    Rhyolite.Backend.DB.TH
     Rhyolite.Backend.TaskWorker
     Rhyolite.Backend.Schema
     Rhyolite.Backend.Schema.Class
