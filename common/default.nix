@@ -4,7 +4,7 @@
 , mime-mail, monad-control, monad-logger, monoidal-containers, mtl
 , network-uri, reflex, resource-pool, stdenv, template-haskell
 , text, these, time, transformers, transformers-base, vector
-, aeson-gadt-th
+, aeson-gadt-th, database-id-class
 , hostPlatform
 }:
 mkDerivation {

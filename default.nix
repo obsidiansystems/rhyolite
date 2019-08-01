@@ -15,7 +15,6 @@ let
     rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
-    rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
     rhyolite-backend-snap = ./backend-snap;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
@@ -34,6 +33,9 @@ let
     # Newly added to hackage
     push-notifications = repos.push-notifications;
     reflex = repos.reflex;
+    database-id-class = repos.database-id + /class;
+    database-id-groundhog = repos.database-id + /groundhog;
+    database-id-obelisk = repos.database-id + /obelisk;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -66,16 +68,15 @@ in obelisk // {
       rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
-      rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
       rhyolite-backend-snap = ./backend-snap;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
+      rhyolite-test-suite = ./test;
     };
     shells = rec {
       ghc = [
         "rhyolite-backend"
         "rhyolite-backend-db"
-        "rhyolite-backend-db-gargoyle"
         "rhyolite-backend-snap"
       ] ++ ghcjs;
       ghcjs = [

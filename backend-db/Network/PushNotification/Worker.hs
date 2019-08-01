@@ -19,8 +19,10 @@ import Data.Pool
 import Database.Groundhog
 import Database.Groundhog.TH
 import Database.Groundhog.Postgresql
+import Database.Id.Class
+import Database.Id.Groundhog
+import Database.Id.Groundhog.TH
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.Schema
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
 import Rhyolite.Request.TH

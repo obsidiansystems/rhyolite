@@ -50,10 +50,11 @@ import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Id.Class
+import Database.Id.Groundhog
 
 import Rhyolite.Backend.DB.PsqlSimple
-import Rhyolite.Backend.Schema
-import Rhyolite.Backend.Schema.Class
+import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))

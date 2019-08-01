@@ -17,6 +17,8 @@ library
     , base
     , bytestring
     , containers
+    , database-id-class
+    , database-id-groundhog
     , groundhog
     , groundhog-postgresql
     , groundhog-th
