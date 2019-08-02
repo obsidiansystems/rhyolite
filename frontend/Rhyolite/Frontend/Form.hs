@@ -245,6 +245,12 @@ instance Reflex t => HasDomEvent t (ValidationTextArea t m e a) en where
   type DomEventType (ValidationTextArea t m e a) en = DomEventType (TextAreaElement EventResult m t) en
   domEvent en = domEvent en . _validationTextArea_input
 
+-- | Get the event that triggers when the dropdown selection changes
+--
+-- Use this function as there is no HasDomEvent instance for Reflex's Dropdown
+validationDropdownChangeEvent :: Reflex t => ValidationDropdown t e a -> Event t ()
+validationDropdownChangeEvent = void . _dropdown_change . _validationDropdown_input
+
 validationInput
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, Semigroup e)
   => ValidationConfig t m e a Text
