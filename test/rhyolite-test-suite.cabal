@@ -1,0 +1,24 @@
+name: rhyolite-test-suite
+version: 0.1
+synopsis: Tests for rhyolite
+license: BSD3
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+category: Web
+build-type: Simple
+cabal-version: >=1.2
+
+executable rhyolite-test-suite
+  hs-source-dirs: src-bin
+  main-is: test.hs
+  build-depends: base
+               , rhyolite-aeson-orphans
+               , rhyolite-backend
+               , rhyolite-backend-db
+               , rhyolite-backend-snap
+               , rhyolite-common
+               , rhyolite-datastructures
+               , rhyolite-frontend
+
+  ghc-options: -threaded -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts

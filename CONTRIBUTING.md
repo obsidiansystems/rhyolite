@@ -51,7 +51,7 @@ Make sure the project builds and that the tests pass! This will generally also b
 
 You can run the tests like this:
 ```bash
-nix-build
+nix-build release.nix
 ```
 
 ### Documentation
