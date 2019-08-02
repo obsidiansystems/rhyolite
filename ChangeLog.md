@@ -7,6 +7,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Add `validationDropdown` and `validationTextArea`
   * Add an extra type parameter `v` specifying the widget value type (typically `Text`) to `ValidationConfig`
   * Add `mkValidationConfig` which is like `defValidationConfig` but takes the initial value
+  * Add `validationDropdownChangeEvent` that returns the change event of the ValidationDropdown
 * Add `withLoggingMinLevel` function in `Rhyolite.Backend.Logging` which allows you to pick the fallback filter when no other filters match.
 * Bump obelisk to a version that no longer uses `*Tag` classes.
 * Add alternative to groundhog's `==.`, which has severe performance issues before version 0.10 (to which we can't yet upgrade). See `Rhyolite.Backend.DB.===.`.
