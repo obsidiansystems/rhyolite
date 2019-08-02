@@ -9,6 +9,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Convert all dependencies in default.nix to thunks in `dep/`
 * Update to use monoidal-containers 0.5
 * Add a test that builds all the rhyolite submodules to `test/`
+* Remove `withDb`, which can now be found in [gargoyle-postgresql-connect](https://github.com/obsidiansystems/gargoyle/tree/develop/gargoyle-postgresql-connect)
 
 ## 2019-06-14 - Unreleased
 

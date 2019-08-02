@@ -30,6 +30,11 @@ let
     postgresql-lo-stream = repos.postgresql-lo-stream;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
     monoidal-containers = repos.monoidal-containers;
+    # Newer versions than those in reflex-platform
+    gargoyle = repos.gargoyle + /gargoyle;
+    gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
+    gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
+    gargoyle-postgresql-connect = repos.gargoyle + /gargoyle-postgresql-connect;
     # Newly added to hackage
     push-notifications = repos.push-notifications;
     reflex = repos.reflex;
