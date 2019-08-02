@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-02 - Unreleased
+
+* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk. 
+
 ## 2019-08-01 - Unreleased
 
 * Use `HasId`, `Id`, and related types/functions from database-id-class and database-id-groundhog. Remove the implementations in Rhyolite.Schema and Rhyolite.Backend.Schema
