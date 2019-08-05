@@ -45,10 +45,12 @@ library
     , monoidal-containers
     , mtl
     , network
+    , obelisk-route
     , parsec
     , postgresql-simple
     , pwstore-fast
     , reflex
+    , reflex-dom
     , resource-pool
     , rhyolite-backend-db
     , rhyolite-common
@@ -60,6 +62,7 @@ library
     , template-haskell
     , text
     , time
+    , timerep
     , transformers
     , transformers-base
     , unordered-containers
