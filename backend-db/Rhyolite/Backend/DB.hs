@@ -50,11 +50,12 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
+import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Id.Class (Id, IdData)
+import Database.Id.Groundhog (DefaultKeyId, toId)
 
 import Rhyolite.Backend.DB.PsqlSimple
-import Rhyolite.Backend.Schema
-import Rhyolite.Backend.Schema.Class
+import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))

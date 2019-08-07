@@ -37,7 +37,7 @@ import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Rhyolite.Backend.DB.TH (deriveNewtypePersistBackend)
+import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Sign
