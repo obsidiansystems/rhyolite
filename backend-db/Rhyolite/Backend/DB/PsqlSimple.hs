@@ -32,6 +32,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Int (Int64)
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
+import Database.Id.Class (Id(..), IdData)
 import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
@@ -55,8 +56,6 @@ import qualified Control.Monad.Trans.Writer.Strict
 -- transformers >= 0.5.3
 -- import qualified Control.Monad.Trans.Select
 -- import qualified Control.Monad.Trans.Accum
-
-import Rhyolite.Schema (Id (..), IdData)
 
 data WrappedSqlError = WrappedSqlError
   { _wrappedSqlError_rawQuery :: BS.ByteString
