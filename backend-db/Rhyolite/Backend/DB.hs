@@ -15,14 +15,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-deprecations #-} -- For Control.Monad.Trans.Error and Control.Monad.Trans.List
+
 module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Logger (LoggingT, NoLoggingT)
--- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
-import Control.Monad.Trans.Control -- (MonadBaseControl, MonadTransControl, StM, StT)
+import Control.Monad.Trans.Control (MonadBaseControl (liftBaseWith, restoreM), MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.List (ListT)
@@ -50,11 +51,11 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import Database.Id.Class (Id, IdData)
 import Database.Id.Groundhog (DefaultKeyId, toId)
 
-import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw, Only (..), execute_, execute, sql)
 import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
 
@@ -83,7 +84,7 @@ instance RunDb WithSchema where
   runDb (WithSchema schema db) = withResource db
     . runDbConnNoTransaction
     . (\(DbPersist (ReaderT f)) -> DbPersist $ ReaderT $ \conn@(Postgresql conn') ->
-          (liftBaseThrough (withTransactionSerializable conn')) $ f conn)
+          liftBaseThrough (withTransactionSerializable conn') $ f conn)
     . withSchema schema
 
 -- TODO upstream this
