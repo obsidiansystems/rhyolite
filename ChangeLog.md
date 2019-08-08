@@ -4,6 +4,10 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-06-14 - Unreleased
 
+* Add `validationDropdown` and `validationTextArea`
+  * Add an extra type parameter `v` specifying the widget value type (typically `Text`) to `ValidationConfig`
+  * Add `mkValidationConfig` which is like `defValidationConfig` but takes the initial value
+  * Add `validationDropdownChangeEvent` that returns the change event of the ValidationDropdown
 * Remove the "HasView" and "HasRequest" classes, and the general concept of having a type level "app" identifier. Instead, everything is explicitly parametrised on query and request types directly, and the query type is no longer *required* to be a Functor/Align/etc. so that Vessel becomes an option for defining queries and views.
 * Remove the "Request" class, as it has been subsumed by more general machinery. You can use deriveArgDict from constraints-extras and deriveJSONGADT from aeson-gadt-th on your request datatypes to obtain the same powers (and more).
 * In its place, there is a Request type synonym which stands for (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r). 
