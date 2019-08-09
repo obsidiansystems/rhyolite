@@ -20,11 +20,12 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.Typeable (Typeable)
+import Database.Id.Class (HasId, Id)
 import GHC.Generics (Generic)
 import Obelisk.Route(Encoder, isoEncoder)
 
 import Rhyolite.Request.TH (makeJson)
-import Rhyolite.Schema (HasId, Email, Id)
+import Rhyolite.Schema (Email)
 import Rhyolite.Sign (Signed(..))
 
 

@@ -26,6 +26,8 @@ library
     , constraints-extras
     , containers
     , data-default
+    , database-id-class
+    , database-id-groundhog
     , dependent-sum
     , dependent-sum-aeson-orphans
     , exceptions
@@ -61,6 +63,7 @@ library
     , stm
     , template-haskell
     , text
+    , these
     , time
     , timerep
     , transformers
@@ -69,6 +72,7 @@ library
     , vector
     , websockets
     , websockets-snap
+    , witherable >= 0.2 && < 0.4
   if flag(support-systemd-journal) && os(linux)
     build-depends:
       libsystemd-journal
@@ -81,7 +85,6 @@ library
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
-    Rhyolite.Backend.TH
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell

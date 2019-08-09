@@ -4,3 +4,4 @@ result
 result-*
 *.project.local
 .ghc.*
+.attr-cache

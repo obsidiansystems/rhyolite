@@ -21,6 +21,7 @@ library
     , constraints
     , containers
     , data-default
+    , database-id-class
     , dependent-map
     , dependent-sum
     , file-embed
@@ -42,6 +43,7 @@ library
     , transformers
     , transformers-base
     , vector
+    , witherable >= 0.2 && < 0.4
 
   exposed-modules:
     Data.MonoidMap

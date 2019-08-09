@@ -47,7 +47,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Builder.Static
-import Rhyolite.Backend.DB.TH (deriveNewtypePersistBackend)
+import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Sign
