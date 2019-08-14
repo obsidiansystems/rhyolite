@@ -117,28 +117,42 @@ sendEmailFrom name' email recipients sub body =
 
 deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailEnv $m |]) 'EmailT 'unEmailT
 
+data WidgetEmailCfg br fr = WidgetEmailCfg
+  { _widgetEmailName :: Text
+  -- ^ Name to use in the "from:" field.
+  , _widgetEmailAddress :: Text
+  -- ^ Email address to use in the "from:" field.
+  , _widgetEmailBaseURL :: Text
+  -- ^ Base URL to build URLs for
+  , _widgetEmailRouteEncoder :: (Encoder Identity Identity (R (Sum br (ObeliskRoute fr))) PageName)
+  -- ^ Encoder to use for routes; usually the project's checkedRouteEncoder
+  }
+
 -- | Build and send an email using a StaticWidget that can use frontend routes.
 sendWidgetEmailFrom
   :: forall k (x :: k) a t r br m.
      (MonadIO m, MonadEmail m, Reflex t)
-  => Text
-  -- ^ Name to use in the "from:" field.
-  -> Text
-  -- ^ Email address to use in the "from:" field.
+  => WidgetEmailCfg br r
+  -- ^ Configuration for email sender
   -> NonEmpty Text
   -- ^ List of recipients
   -> Text
   -- ^ Subject line
-  -> Text
-  -- ^ Base URL to build URLs for
-  -> (Encoder Identity Identity (R (Sum br (ObeliskRoute r))) PageName)
-  -- ^ Encoder to use for routes; usually the project's checkedRouteEncoder
   -> Maybe ((RouteToUrlT (R r) Identity) Text)
   -- ^ Body plaintext, with route decoder
   -> SetRouteT t (R r) (RouteToUrlT (R r) (StaticWidget x)) a
   -- ^ Body widget for the email
   -> m ()
-sendWidgetEmailFrom name' email recipients sub baseUrl routeEncoder plainText bodyWidget = do
+sendWidgetEmailFrom cfg recipients sub plainText bodyWidget = do
+  let
+    WidgetEmailCfg
+        { _widgetEmailName = name'
+        , _widgetEmailAddress = email
+        , _widgetEmailBaseURL = baseUrl
+        , _widgetEmailRouteEncoder = routeEncoder } = cfg
+    renderRouteForEmail = (baseUrl <>) . renderFrontendRoute routeEncoder
+    runEmailWidget = fmap snd . renderStatic . flip runRouteToUrlT renderRouteForEmail . runSetRouteT
+    runEmailPlaintext = runIdentity . flip runRouteToUrlT renderRouteForEmail
   t <- liftIO $ getCurrentTime
   let formattedTime = formatTimeRFC2822 $ utcToZonedTime utc t
   body <- liftIO $ LT.fromStrict . decodeUtf8 <$> runEmailWidget bodyWidget
@@ -150,10 +164,6 @@ sendWidgetEmailFrom name' email recipients sub baseUrl routeEncoder plainText bo
     []
     [("Subject", sub), ("Date", formattedTime)]
     [maybeToList (plainPart <$> bodyText) <> [htmlPart body]]
-  where
-    renderRouteForEmail = (baseUrl <>) . renderFrontendRoute routeEncoder
-    runEmailWidget = fmap snd . renderStatic . flip runRouteToUrlT renderRouteForEmail . runSetRouteT
-    runEmailPlaintext = runIdentity . flip runRouteToUrlT renderRouteForEmail
 
 emailTemplate :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> Html -> m Html
 emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml = do
