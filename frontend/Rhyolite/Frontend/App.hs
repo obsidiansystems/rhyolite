@@ -354,16 +354,6 @@ apiRequestJson r =
   , \v -> has @FromJSON r $ parseMaybe parseJSON v
   )
 
-apiRequestJson
-  :: Request v
-  => v a
-  -> (Aeson.Value, Aeson.Value -> Maybe a)
-apiRequestJson r =
-  ( requestToJSON r
-  , \v -> case requestResponseFromJSON r of
-      Dict -> parseMaybe parseJSON v
-  )
-
 fromNotifications :: forall m (t :: *) vs. (Query vs, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult vs))
                   => Dynamic t vs
                   -> Event t (QueryResult vs)
