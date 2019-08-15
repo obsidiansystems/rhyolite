@@ -4,11 +4,7 @@
 , mime-mail, monad-control, monad-logger, monoidal-containers, mtl
 , network-uri, reflex, resource-pool, stdenv, template-haskell
 , text, these, time, transformers, transformers-base, vector
-<<<<<<< HEAD
-, aeson-gadt-th, constraints-extras
-=======
-, aeson-gadt-th, database-id-class
->>>>>>> origin/develop
+, aeson-gadt-th, constraints-extras, database-id-class
 , hostPlatform
 }:
 mkDerivation {
