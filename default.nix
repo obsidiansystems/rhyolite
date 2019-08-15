@@ -52,6 +52,7 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       validation = haskellLib.dontCheck super.validation;
+      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ nixpkgs.postgresql ]; };
     })
   ];
 
