@@ -1,15 +1,14 @@
-{ obelisk ? import ./.obelisk/impl {}
-, pkgs ? obelisk.nixpkgs, ... } @ args:
+{ pkgs ? null, ... } @ args:
 
 let
 
+  obelisk = import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"]);
   reflex-platform = obelisk.reflex-platform;
-  inherit (pkgs) lib;
-  haskellLib = pkgs.haskell.lib;
 
-  # Some dependency thunks needed
-  dep = import ./dep reflex-platform.hackGet;
-  #TODO: Consider whether to prefer using thunkSet here.
+  nixpkgs = if pkgs == null then obelisk.nixpkgs else pkgs;
+  inherit (nixpkgs) lib;
+  haskellLib = nixpkgs.haskell.lib;
+  repos = obelisk.nixpkgs.thunkSet ./dep;
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
@@ -17,18 +16,35 @@ let
     rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
-    rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
     rhyolite-backend-snap = ./backend-snap;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
   };
 
-  # srcs used for overrides.
-  overrideSrcs = rhyolitePackages // (dep // {
-    groundhog = dep.groundhog + /groundhog;
-    groundhog-postgresql = dep.groundhog + /groundhog-postgresql;
-    groundhog-th = dep.groundhog + /groundhog-th;
-  });
+  # srcs used for overrides
+  overrideSrcs = rhyolitePackages // {
+    groundhog = repos.groundhog + /groundhog;
+    groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
+    groundhog-th = repos.groundhog + /groundhog-th;
+    bytestring-trie = repos.bytestring-trie;
+    aeson-gadt-th = repos.aeson-gadt-th;
+    postgresql-lo-stream = repos.postgresql-lo-stream;
+    dependent-monoidal-map = repos.dependent-monoidal-map;
+    dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
+    monoidal-containers = repos.monoidal-containers;
+    # Newer versions than those in reflex-platform
+    gargoyle = repos.gargoyle + /gargoyle;
+    gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
+    gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
+    gargoyle-postgresql-connect = repos.gargoyle + /gargoyle-postgresql-connect;
+    # Newly added to hackage
+    push-notifications = repos.push-notifications;
+    reflex = repos.reflex;
+    database-id-class = repos.database-id + /class;
+    database-id-groundhog = repos.database-id + /groundhog;
+    database-id-obelisk = repos.database-id + /obelisk;
+    vessel = repos.vessel;
+  };
 
   # You can use these manually if you don’t want to use rhyolite.project.
   # It will be needed if you need to combine with multiple overrides.
@@ -60,16 +76,15 @@ in obelisk // {
       rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
-      rhyolite-backend-db-gargoyle = ./backend-db-gargoyle;
       rhyolite-backend-snap = ./backend-snap;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
+      rhyolite-test-suite = ./test;
     };
     shells = rec {
       ghc = [
         "rhyolite-backend"
         "rhyolite-backend-db"
-        "rhyolite-backend-db-gargoyle"
         "rhyolite-backend-snap"
       ] ++ ghcjs;
       ghcjs = [

@@ -42,14 +42,14 @@ instance FromJSON (QueryResult q) => FromJSON (WebSocketResponse q)
 instance ToJSON (QueryResult q) => ToJSON (WebSocketResponse q)
 
 -- | A request tagged with an identifier
-data TaggedRequest r = TaggedRequest Value (Some r)
+data TaggedRequest r = TaggedRequest Int (Some r)
   deriving (Typeable, Generic)
 
 instance FromJSON (Some r) => FromJSON (TaggedRequest r)
 instance ToJSON (Some r) => ToJSON (TaggedRequest r)
 
 -- | A response tagged with an identifier matching the one in the 'TaggedRequest'. The identifier is the first argument.
-data TaggedResponse = TaggedResponse Value Value
+data TaggedResponse = TaggedResponse Int Value
   deriving (Typeable, Generic)
 
 instance FromJSON TaggedResponse

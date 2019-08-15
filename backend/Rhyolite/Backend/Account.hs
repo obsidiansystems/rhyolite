@@ -41,6 +41,9 @@ import Database.Groundhog
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql.Functions
 import Database.Groundhog.TH (defaultCodegenConfig, groundhog, mkPersist)
+import Database.Id.Class
+import Database.Id.Groundhog
+import Database.Id.Groundhog.TH
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes as A
@@ -48,8 +51,6 @@ import Text.Blaze.Html5.Attributes as A
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.Email
 import Rhyolite.Backend.Listen
-import Rhyolite.Backend.Schema
-import Rhyolite.Backend.Schema.TH
 
 import Rhyolite.Account
 import Rhyolite.Email

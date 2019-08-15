@@ -13,8 +13,6 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.Thread.Delay
 import Control.Exception.Lifted (bracket, catch, throw, Exception, SomeException(..))
-import Control.Monad
-import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Monad.Trans.Control
 import Data.Functor.Identity

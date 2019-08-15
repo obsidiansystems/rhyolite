@@ -18,15 +18,12 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.AppendMap as MonoidalMap
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Semigroup (Semigroup)
-import Data.Witherable
 import Data.AppendMap() -- contains the orphan for Filterable MonoidalMap
 import qualified Data.Semigroup as Semigroup
 import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
 import Reflex.Query.Class
-import Data.These
-import Data.Align
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where
