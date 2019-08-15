@@ -1,8 +1,7 @@
-{ pkgs ? null, ... } @ args:
+{ obelisk ? import ./.obelisk/impl {}
+, pkgs ? obelisk.nixpkgs }:
 
 let
-
-  obelisk = import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"]);
   reflex-platform = obelisk.reflex-platform;
 
   nixpkgs = if pkgs == null then obelisk.nixpkgs else pkgs;
