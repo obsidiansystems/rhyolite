@@ -74,27 +74,6 @@ deriveNewtypePersistBackend toT fromT to from =
       , 'getList =: [| $(conE to) . getList |]
       ]
 
-makeDefaultKeyIdInt64 :: Name -> Name -> Q [Dec]
-makeDefaultKeyIdInt64 n k = do
-  pv <- newName "pv"
-  [d|
-    instance IdDataIs $(conT n) Int64 => DefaultKeyId $(conT n) where
-      toIdData _ dk = case $(lamE [conP k [varP pv]] (varE pv)) dk of
-        PersistInt64 x -> x
-        _ -> error "makeDefaultKeyIdInt64: pattern match failure (this should be impossible)"
-      fromIdData _ = $(conE k) . PersistInt64
-    |]
-
-makeDefaultKeyIdSimple :: Name -> Name -> Q [Dec]
-makeDefaultKeyIdSimple n k = do
-  pv <- newName "pv"
-  [d|
-    instance DefaultKeyId $(conT n) where
-      toIdData _ = $(lamE [conP k [varP pv]] (varE pv))
-      fromIdData _ = $(conE k)
-    |]
-
-
 -- | Run Database.Groundhog.TH.mkPersist with rhyolite-specific defaults
 --
 -- Record field names are expected to look like _dataTypeName_fieldName

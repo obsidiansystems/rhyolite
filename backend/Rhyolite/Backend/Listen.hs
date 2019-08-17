@@ -37,15 +37,15 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Instances ()
 import Database.Groundhog.Postgresql
+import Database.Id.Class (HasId, Id, IdData)
+import Database.Id.Groundhog (fromId, toId, DefaultKeyId)
 import qualified Database.PostgreSQL.Simple as PG
 import qualified Database.PostgreSQL.Simple.Notification as PG
 import GHC.Generics (Generic)
 
 import Rhyolite.Backend.DB (getSearchPath)
-import Rhyolite.Backend.Schema (toId, fromId)
-import Rhyolite.Backend.Schema.Class (DefaultKeyId)
 import Rhyolite.Request.Common (decodeValue')
-import Rhyolite.Schema (SchemaName (..), HasId, Id, IdData)
+import Rhyolite.Schema (SchemaName (..))
 
 data NotificationType = NotificationType_Insert
                       | NotificationType_Update

@@ -23,7 +23,7 @@ import Data.Typeable (Typeable, typeOf)
 import Database.Groundhog (DbPersist)
 import qualified Web.ClientSession as CS
 
-import Rhyolite.Backend.DB.TH (deriveNewtypePersistBackend)
+import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
 import Rhyolite.Email (MonadEmail)
 import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)

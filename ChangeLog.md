@@ -2,9 +2,27 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-02 - Unreleased
+
+* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk. 
+* Frontend.App: Use reflex's `matchResponsesWithRequests` instead of `identifyTags` (now deleted). Change the identifier used by `TaggedRequest` and `TaggedResponse` to an `Int`
+* Remove `mapRequesterT`. This has been upstreamed to reflex as `withRequesterT`
+* Remove Frontend.Request and Frontend.WebSocket
+
+## 2019-08-01 - Unreleased
+
+* Use `HasId`, `Id`, and related types/functions from database-id-class and database-id-groundhog. Remove the implementations in Rhyolite.Schema and Rhyolite.Backend.Schema
+* Remove Rhyolite.Backend.DB.TH since the code there was redundant with Rhyolite.Backend.Schema.TH
+* Convert all dependencies in default.nix to thunks in `dep/`
+* Update to use monoidal-containers 0.5
+* Add a test that builds all the rhyolite submodules to `test/`
+* Remove `withDb`, which can now be found in [gargoyle-postgresql-connect](https://github.com/obsidiansystems/gargoyle/tree/develop/gargoyle-postgresql-connect)
+
 ## 2019-06-14 - Unreleased
 
-* Bump obelisk to a version that no longer uses `*Tag` classes
+* Add `Rhyolite.Frontend.Modal.*` modules for conveniently creating modals that do not require the use of `z-index` to position correctly.
+* Add `withLoggingMinLevel` function in `Rhyolite.Backend.Logging` which allows you to pick the fallback filter when no other filters match.
+* Bump obelisk to a version that no longer uses `*Tag` classes.
 * Add alternative to groundhog's `==.`, which has severe performance issues before version 0.10 (to which we can't yet upgrade). See `Rhyolite.Backend.DB.===.`.
 
 ## 2019-05-08 - Unreleased
