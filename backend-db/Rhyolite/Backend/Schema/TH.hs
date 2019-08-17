@@ -13,7 +13,14 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-redundant-constraints #-}
 
-module Rhyolite.Backend.Schema.TH where
+module Rhyolite.Backend.Schema.TH
+  ( deriveNewtypePersistBackend
+  , makeDefaultKeyIdInt64
+  , makeDefaultKeyIdSimple
+  , mkRhyolitePersist
+  , makePersistFieldNewtype
+  , module Rhyolite.Backend.Schema
+  ) where
 
 import Control.Lens ((%~), _head)
 import Control.Monad
@@ -29,6 +36,7 @@ import Database.Groundhog.TH.Settings (PersistDefinitions(..))
 import Language.Haskell.TH
 
 import Rhyolite.TH (conName)
+import Rhyolite.Backend.Schema -- Not needed for this module, but without it, the generated code fails to compile in a way which is confusing, so we re-export it.
 import Rhyolite.Backend.Schema.Class
 
 deriveNewtypePersistBackend :: (TypeQ -> TypeQ) -> (TypeQ -> TypeQ) -> Name -> Name -> DecsQ

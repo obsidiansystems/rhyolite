@@ -106,4 +106,11 @@ toShowUniverse = toField . T.pack . show
 
 instance Exception VisibleUniverseFailure
 
-makePersistFieldNewtype ''SchemaName
+instance PersistField SchemaName where
+  persistName _ = "SchemaName"
+  toPersistValues (SchemaName x) = toPersistValues x
+  fromPersistValues pv = do
+    (x, pv') <- fromPersistValues pv
+    return (SchemaName x, pv')
+  dbType p (SchemaName x) = dbType p x
+
