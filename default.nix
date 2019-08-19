@@ -30,6 +30,7 @@ let
     groundhog-th = repos.groundhog + /groundhog-th;
     monoidal-containers = repos.monoidal-containers;
     postgresql-lo-stream = repos.postgresql-lo-stream;
+    postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + /gargoyle;
     gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;

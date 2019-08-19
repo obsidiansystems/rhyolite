@@ -20,6 +20,7 @@ module Rhyolite.Backend.DB.PsqlSimple
   , Query (..), sql, traceQuery, traceExecute, traceExecute_
   , liftWithConn
   , queryQ, executeQ, executeQ_, sqlQ, traceQueryQ, traceExecuteQ, traceExecuteQ_
+  , queryQi, executeQi, executeQi_, traceQueryQi, traceExecuteQi, traceExecuteQi_
   , fromIdRow
   ) where
 
@@ -38,6 +39,7 @@ import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser, fromRow)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
+import Database.PostgreSQL.Simple.SqlQQ.Interpolated (quoteInterpolatedSql)
 import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
 import Database.PostgreSQL.Simple.Types ((:.), Binary, In (..), Only (..), PGArray (..), Query, Values (..),
@@ -248,3 +250,31 @@ extractVars = extractVars'
 
 fromIdRow :: (Only (Id v) :. v) -> (Id v, v)
 fromIdRow (Only k Sql.:. v) = (k, v)
+
+
+-- | Same as 'query' but replaces anything of the form @${haskell-expr}@ with @?@ in the
+-- statement and passes it as a statement parameter.
+queryQi :: QuasiQuoter
+queryQi = (defaultQQ "queryQ") { quoteExp = appE [| uncurry query |] . quoteInterpolatedSql }
+
+-- | Same as 'execute' but replaces anything of the form @${haskell-expr}@ with @?@ in the
+-- statement and passes it as a statement parameter.
+executeQi :: QuasiQuoter
+executeQi = (defaultQQ "executeQ") { quoteExp = appE [| uncurry execute |] . quoteInterpolatedSql }
+
+-- | Same as 'execute_' but replaces anything of the form @${haskell-expr}@ with @?@ in the
+-- statement and passes it as a statement parameter.
+executeQi_ :: QuasiQuoter
+executeQi_ = (defaultQQ "executeQ_") { quoteExp = appE [| uncurry execute_ |] . quoteInterpolatedSql }
+
+-- | Same as 'queryQi' but uses 'traceQuery' instead of 'query'.
+traceQueryQi :: QuasiQuoter
+traceQueryQi = (defaultQQ "traceQueryQ") { quoteExp = appE [| uncurry traceQuery |] . quoteInterpolatedSql }
+
+-- | Same as 'executeQi' but uses 'traceExecute' instead of 'execute'.
+traceExecuteQi :: QuasiQuoter
+traceExecuteQi = (defaultQQ "traceExecuteQ") { quoteExp = appE [| uncurry traceExecute |] . quoteInterpolatedSql }
+
+-- | Same as 'executeQi_' but uses 'traceExecute_' instead of 'execute_'.
+traceExecuteQi_ :: QuasiQuoter
+traceExecuteQi_ = (defaultQQ "traceExecuteQ_") { quoteExp = appE [| uncurry traceExecute_ |] . quoteInterpolatedSql }
