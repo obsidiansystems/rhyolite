@@ -2,6 +2,11 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-19 - Unreleased
+
+* Added `standardPipeline` as a good example of a last argument you can use for serveDbOverWebsockets, in the case that you have a Functor-style query/view type. It now uses condense/disperse from the Vessel library.
+* Added `runObeliskRhyoliteWidget` for integration with obelisk applications.
+
 ## 2019-08-02 - Unreleased
 
 * Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk. 

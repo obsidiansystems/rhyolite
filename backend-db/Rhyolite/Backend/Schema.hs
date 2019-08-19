@@ -29,7 +29,6 @@ import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.Types (Binary (..), Identifier (..))
 
 import Rhyolite.Schema (Json (..), SchemaName(..), LargeObjectId(..))
-import Rhyolite.Backend.Schema.TH (makePersistFieldNewtype)
 import Rhyolite.Backend.Schema.Class (DerivedEntity, DerivedEntityHead)
 
 instance ToField SchemaName where
@@ -106,4 +105,11 @@ toShowUniverse = toField . T.pack . show
 
 instance Exception VisibleUniverseFailure
 
-makePersistFieldNewtype ''SchemaName
+instance PersistField SchemaName where
+  persistName _ = "SchemaName"
+  toPersistValues (SchemaName x) = toPersistValues x
+  fromPersistValues pv = do
+    (x, pv') <- fromPersistValues pv
+    return (SchemaName x, pv')
+  dbType p (SchemaName x) = dbType p x
+

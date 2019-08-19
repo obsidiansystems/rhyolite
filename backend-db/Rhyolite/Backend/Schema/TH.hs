@@ -13,15 +13,22 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-redundant-constraints #-}
 
-module Rhyolite.Backend.Schema.TH where
+module Rhyolite.Backend.Schema.TH
+  ( deriveNewtypePersistBackend
+  , makeDefaultKeyIdInt64
+  , makeDefaultKeyIdSimple
+  , mkRhyolitePersist
+  , makePersistFieldNewtype
+  , module Rhyolite.Backend.Schema
+  ) where
 
 import Control.Lens ((%~), _head)
 import Control.Monad
 import Control.Monad.State (mapStateT)
 import Data.Char (toLower)
-import Data.Int (Int64)
 import Database.Groundhog
 import Database.Groundhog.Core
+import Database.Id.Groundhog.TH
 import Data.Semigroup ((<>))
 import Data.List (isPrefixOf)
 import Database.Groundhog.TH (migrationFunction, namingStyle, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, defaultCodegenConfig)
@@ -29,7 +36,7 @@ import Database.Groundhog.TH.Settings (PersistDefinitions(..))
 import Language.Haskell.TH
 
 import Rhyolite.TH (conName)
-import Rhyolite.Backend.Schema.Class
+import Rhyolite.Backend.Schema -- Not needed for this module, but without it, the generated code fails to compile in a way which is confusing, so we re-export it.
 
 deriveNewtypePersistBackend :: (TypeQ -> TypeQ) -> (TypeQ -> TypeQ) -> Name -> Name -> DecsQ
 deriveNewtypePersistBackend toT fromT to from =
