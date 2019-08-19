@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -16,9 +17,10 @@ module Rhyolite.Backend.DB.PsqlSimple
   , Binary (..), (:.)(..), PGArray (..)
   , ToRow (..), FromRow (..)
   , ToField (..), FromField (..)
-  , Query (..), sql, traceQuery, traceExecute
+  , Query (..), sql, traceQuery, traceExecute, traceExecute_
   , liftWithConn
-  , queryQ, executeQ, sqlQ, traceQueryQ, traceExecuteQ
+  , queryQ, executeQ, executeQ_, sqlQ, traceQueryQ, traceExecuteQ, traceExecuteQ_
+  , fromIdRow
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
@@ -30,6 +32,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Int (Int64)
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
+import Database.Id.Class (Id(..), IdData)
 import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
@@ -53,8 +56,6 @@ import qualified Control.Monad.Trans.Writer.Strict
 -- transformers >= 0.5.3
 -- import qualified Control.Monad.Trans.Select
 -- import qualified Control.Monad.Trans.Accum
-
-import Rhyolite.Schema (Id (..), IdData)
 
 data WrappedSqlError = WrappedSqlError
   { _wrappedSqlError_rawQuery :: BS.ByteString
@@ -140,6 +141,9 @@ traceExecute p q = do
   liftIO (BSC.putStrLn s)
   execute p q
 
+traceExecute_ :: (PostgresRaw m, MonadIO m, ToRow q) => Query -> q -> m ()
+traceExecute_ p q = void $ traceExecute p q
+
 instance MonadIO m => PostgresRaw (DbPersist Postgresql m) where
   execute psql qs = liftWithConn $ \conn ->
     Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
@@ -205,6 +209,15 @@ executeQ = QuasiQuoter
   , quoteDec  = error "executeQ: quasiquoter used in declaration context"
   }
 
+executeQ_ :: QuasiQuoter
+executeQ_ = QuasiQuoter
+  { quotePat  = error "executeQ: quasiquoter used in pattern context"
+  , quoteType = error "executeQ: quasiquoter used in type context"
+  , quoteExp  = \s -> appE [| uncurry execute_ |] (sqlQExp s)
+  , quoteDec  = error "executeQ: quasiquoter used in declaration context"
+  }
+
+
 traceQueryQ :: QuasiQuoter
 traceQueryQ = QuasiQuoter
   { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
@@ -220,6 +233,15 @@ traceExecuteQ = QuasiQuoter
   , quoteExp  = \s -> appE [| uncurry traceExecute |] (sqlQExp s)
   , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
   }
+
+traceExecuteQ_ :: QuasiQuoter
+traceExecuteQ_ = QuasiQuoter
+  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
+  , quoteType = error "traceQueryQ: quasiquoter used in type context"
+  , quoteExp  = \s -> appE [| uncurry traceExecute |] (sqlQExp s)
+  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
+  }
+
 
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
 -- consisting of the Query string itself and a tuple of variables in corresponding order.
@@ -252,3 +274,6 @@ extractVars = extractVars'
       let (pre,post) = break (=='?') s'
           (s'',vars) = extractVars' post
       in (pre ++ s'', vars)
+
+fromIdRow :: (Only (Id v) :. v) -> (Id v, v)
+fromIdRow (Only k Sql.:. v) = (k, v)

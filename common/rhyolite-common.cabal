@@ -21,6 +21,7 @@ library
     , constraints
     , containers
     , data-default
+    , database-id-class
     , dependent-map
     , dependent-sum
     , file-embed

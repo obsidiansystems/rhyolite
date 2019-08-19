@@ -1,7 +1,7 @@
 module Rhyolite.Backend.WebSocket where
 
 import Data.Semigroup ((<>))
-import Control.Exception (SomeException (..), handle, displayException, throwIO, AssertionFailed (..))
+import Control.Exception (SomeException (..), handle, throwIO, AssertionFailed (..))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, ToJSON, eitherDecode', encode)
 import qualified Network.WebSockets as WS
@@ -10,21 +10,27 @@ import qualified Network.WebSockets.Stream as WS
 import Network.WebSockets.Snap (runWebSocketsSnap)
 import Snap.Core (MonadSnap)
 
--- | Accepts a websockets connection and runs the supplied action with it
-withWebsocketsConnection :: MonadSnap m => (WS.Connection -> IO ()) -> m ()
-withWebsocketsConnection f = runWebSocketsSnap $ withPendingWebsocketConnection f
+-- | Accepts a websockets connection and runs the supplied action with it using the given logging function
+--   when an error occurs.
+withWebsocketsConnectionLogging :: MonadSnap m => (String -> SomeException -> IO ()) -> (WS.Connection -> IO ()) -> m ()
+withWebsocketsConnectionLogging logger f = runWebSocketsSnap $ withPendingWebsocketConnection logger f
 
-withPendingWebsocketConnection :: (WS.Connection -> IO ()) -> WS.PendingConnection -> IO ()
-withPendingWebsocketConnection f pc = do
+-- | Like 'withWebsocketsConnectionLogging' but with a default logging function using 'putStrLn'.
+withWebsocketsConnection :: MonadSnap m => (WS.Connection -> IO ()) -> m ()
+withWebsocketsConnection f = runWebSocketsSnap $ withPendingWebsocketConnection logger f
+  where
+    logger str e = putStrLn $ "withWebsocketsConnection: " <> (if null str then "" else str <> ": ") <> show e
+
+withPendingWebsocketConnection :: (String -> SomeException -> IO ()) -> (WS.Connection -> IO ()) -> WS.PendingConnection -> IO ()
+withPendingWebsocketConnection logger f pc = do
   conn <- WS.acceptRequest pc
   handleSomeException $ handleConnectionException $ f conn
   where
-    handleSomeException = handle $ \(SomeException e) -> putStrLn $ "withWebsocketsConnection: " <> displayException e
+    handleSomeException = handle $ \e -> logger "" e
     handleConnectionException = handle $ \e -> case e of
       WS.ConnectionClosed -> return ()
       WS.CloseRequest _ _ -> print e >> WS.close (WS.pendingStream pc) >> throwIO e
-      _ -> do putStr $ "withWebsocketsConnection: Exception: " <> displayException e
-              throwIO e
+      _ -> logger "Exception" (SomeException e) *> throwIO e
 
 
 -- | Attempts to json decode a websockets data message
