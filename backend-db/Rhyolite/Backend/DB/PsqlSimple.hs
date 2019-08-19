@@ -216,7 +216,7 @@ traceExecuteQ :: QuasiQuoter
 traceExecuteQ = (defaultQQ "traceExecuteQ") { quoteExp = appE [| uncurry traceExecute |] . sqlQExp }
 
 traceExecuteQ_ :: QuasiQuoter
-traceExecuteQ_ = (defaultQQ "traceExecuteQ_") { quoteExp = appE [| uncurry traceExecute |] . sqlQExp }
+traceExecuteQ_ = (defaultQQ "traceExecuteQ_") { quoteExp = appE [| uncurry traceExecute_ |] . sqlQExp }
 
 
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
