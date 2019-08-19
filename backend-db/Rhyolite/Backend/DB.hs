@@ -15,10 +15,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
-import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Logger (LoggingT, NoLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
@@ -36,6 +37,7 @@ import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
 import qualified Control.Monad.Trans.Writer.Lazy as Lazy (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import Data.Functor (void)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
 import Data.Map (Map)

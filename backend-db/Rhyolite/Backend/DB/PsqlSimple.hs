@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans -Wno-deprecations #-}
 
 module Rhyolite.Backend.DB.PsqlSimple
   ( PostgresRaw (..)
