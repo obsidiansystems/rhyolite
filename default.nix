@@ -1,13 +1,16 @@
-{ pkgs ? null, ... } @ args:
+{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"])
+, pkgs ? obelisk.nixpkgs
+, ... } @ args:
 
 let
-
-  obelisk = import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"]);
   reflex-platform = obelisk.reflex-platform;
-  nixpkgs = if pkgs == null then obelisk.nixpkgs else pkgs;
-  inherit (nixpkgs) lib;
-  haskellLib = nixpkgs.haskell.lib;
-  repos = obelisk.nixpkgs.thunkSet ./dep;
+  inherit (pkgs) lib;
+  haskellLib = pkgs.haskell.lib;
+  repos = pkgs.thunkSet ./dep;
+
+  # Some dependency thunks needed
+  dep = import ./dep reflex-platform.hackGet;
+  #TODO: Consider whether to prefer using thunkSet here.
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
@@ -41,6 +44,8 @@ let
     database-id-class = repos.database-id + /class;
     database-id-groundhog = repos.database-id + /groundhog;
     database-id-obelisk = repos.database-id + /obelisk;
+    dependent-monoidal-map = repos.dependent-monoidal-map;
+    vessel = repos.vessel;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -50,7 +55,8 @@ let
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       validation = haskellLib.dontCheck super.validation;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ nixpkgs.postgresql ]; };
+      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
+      dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
     })
   ];
 

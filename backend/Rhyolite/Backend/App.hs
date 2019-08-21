@@ -8,6 +8,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Rhyolite.Backend.App
@@ -21,12 +22,12 @@ import qualified Control.Category as Cat
 import Control.Concurrent (forkIO, killThread)
 import Control.Exception (bracket)
 import Control.Lens (imapM_)
-import Control.Monad (forever, void, when)
+import Control.Monad (forever, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.State.Strict (evalStateT, get, put)
-import Control.Monad.Trans (lift)
-import Data.Aeson (FromJSON, toJSON)
 import qualified Data.Map as BaseMap
+import Data.Aeson (FromJSON, ToJSON, toJSON)
+import Data.Align
+import Data.Constraint.Extras
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
@@ -34,26 +35,27 @@ import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.MonoidMap (MonoidMap (..), monoidMap)
 import Data.Pool (Pool)
 import Data.Semigroup (Semigroup, (<>))
+import Data.Some (Some(Some))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import Debug.Trace (trace)
 import Database.Groundhog.Postgresql (Postgresql (..))
 import qualified Database.PostgreSQL.Simple as Pg
-import Reflex.Patch (Group, negateG, (~~))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
 import qualified Network.WebSockets as WS
 import Data.Coerce (coerce)
+import Data.Vessel
 
-import Rhyolite.Api (AppRequest)
-import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
+-- import Rhyolite.Api
+import Rhyolite.App
 import Rhyolite.Backend.Listen (startNotificationListener)
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Rhyolite.Request.Class (SomeRequest (..))
+import Rhyolite.Request.Class
 import Rhyolite.Backend.Sign (readSignedWithKey)
 import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
 
@@ -62,26 +64,26 @@ import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketRes
 -- The request format expected here is 'TaggedRequest'
 -- The response format expected here is 'TaggedResponse'
 handleAppRequests
-  :: (MonadSnap m, HasRequest app)
-  => (forall a. AppRequest app a -> IO a)
+  :: (MonadSnap m, Request r)
+  => (forall a. r a -> IO a)
   -> m ()
 handleAppRequests f = withWebsocketsConnection $ forever . handleAppRequest f
 
 handleAppRequest
-  :: (HasRequest app)
-  => (forall a. AppRequest app a -> IO a)
+  :: (Request r)
+  => (forall a. r a -> IO a)
   -> WS.Connection
   -> IO ()
 handleAppRequest f conn = do
-  (TaggedRequest reqId (SomeRequest req)) <- getDataMessage conn
+  (TaggedRequest reqId (Some req)) <- getDataMessage conn
   a <- f req
-  sendEncodedDataMessage conn $ TaggedResponse reqId (toJSON a)
+  sendEncodedDataMessage conn $ TaggedResponse reqId (has @ToJSON req (toJSON a))
 
 -------------------------------------------------------------------------------
 
 -- | Handles API requests
-newtype RequestHandler app m = RequestHandler
-  { runRequestHandler :: forall a. AppRequest app a -> m a }
+newtype RequestHandler r m = RequestHandler
+  { runRequestHandler :: forall a. r a -> m a }
 
 -------------------------------------------------------------------------------
 
@@ -103,6 +105,20 @@ newtype Registrar q = Registrar { unRegistrar :: Recipient q IO -> IO (QueryHand
 -- q is the consumer side
 -- q' is the datasource side
 newtype Pipeline m q q' = Pipeline { unPipeline :: QueryHandler q' m -> Recipient q m -> IO (QueryHandler q m, Recipient q' m) }
+
+tracePipeline :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
+tracePipeline tag = Pipeline $ \qh r -> do
+  putStrLn $ tag ++ "(start)"
+  return 
+    ( QueryHandler $ \q -> do
+        putStrLn $ tag ++ "(query): " ++ show q
+        qr <- runQueryHandler qh q
+        putStrLn $ tag ++ "(result): " ++ show qr
+        return qr
+    , Recipient $ \qr -> do
+        putStrLn $ tag ++ "(rcpt): " ++ show qr
+        tellRecipient r qr
+    )
 
 instance Category (Pipeline m) where
   id = Pipeline $ \qh r -> return (qh, r)
@@ -148,7 +164,7 @@ fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler q
 --             a. A 'QueryHandler' for the newly registered client
 --             b. A removal callback to de-register a particular client
 multiplexQuery
-  :: (MonadIO m, Group q)
+  :: (MonadIO m, Monoid q, DiffQuery q)
   => (ClientKey -> QueryHandler q m)
   -> IO ( ClientKey -> IO (Recipient q m)
         , Recipient q m -> IO (QueryHandler q m, m ())
@@ -174,23 +190,21 @@ multiplexQuery lookupQueryHandler = do
         ((ClientKey (unClientKey cid + 1), BaseMap.insert cid (s, mempty) recipients), cid)
       let
         queryHandler = QueryHandler $ \q -> do
-          liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
-            ((nextCid, BaseMap.update (\(r, oldQ) -> Just (r, oldQ <> q)) cid recipients), ())
-          runQueryHandler (lookupQueryHandler cid) q
-
+          qOld <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
+            ((nextCid, BaseMap.update (\(r, _) -> Just (r, q)) cid recipients), maybe mempty snd $ BaseMap.lookup cid recipients)
+          case diffQuery q qOld of
+            Nothing -> do
+              return mempty
+            Just qDiff -> do
+              runQueryHandler (lookupQueryHandler cid) qDiff
         unregisterRecipient = do
-          antiQ <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
+          liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
             case BaseMap.updateLookupWithKey (\_ _ -> Nothing) cid recipients of
               (Nothing, _) -> trace
                 ("Rhyolite.Backend.App.multiplexQuery: Tried to unregister a client key that is not registered " <> show cid)
-                ((nextCid, recipients), mempty)
-              (Just (_, removedQuery), newRecipients) -> ((nextCid, newRecipients), negateG removedQuery)
-
-          -- TODO: Should we have a way of ensuring that this doesn't actually cause a query to be run?
-          -- It shouldn't cause the query to be run again but it depends on if the callee will notice
-          -- that the new query is strictly smaller than the old one.
-          runQueryHandler (lookupQueryHandler cid) antiQ
-          return ()
+                ((nextCid, recipients), ())
+              (Just (_, _removedQuery), newRecipients) -> ((nextCid, newRecipients), ())
+                -- TODO: Do we need to do anything with the query that was removed now?
 
       return (queryHandler, unregisterRecipient)
 
@@ -198,46 +212,58 @@ multiplexQuery lookupQueryHandler = do
 
 -- | Like 'handleWebsocketConnection' but customized for 'Snap'.
 handleWebsocket
-  :: forall app.
-     ( HasView app
-     , HasRequest app
-     , Eq (ViewSelector app SelectedCount) )
+  :: forall r q.
+     ( Request r
+     , Eq (QueryResult q)
+     , Monoid (QueryResult q)
+     , ToJSON (QueryResult q)
+     , FromJSON q
+     , Monoid q
+     , DiffQuery q
+     )
   => Text -- ^ Version
-  -> RequestHandler app IO -- ^ Handler for API requests
-  -> Registrar (ViewSelector app SelectedCount)
+  -> RequestHandler r IO -- ^ Handler for API requests
+  -> Registrar q
   -> Snap ()
 handleWebsocket v rh register = withWebsocketsConnection (handleWebsocketConnection v rh register)
 
 -- | Handles a websocket connection given a raw connection.
 handleWebsocketConnection
-  :: forall app.
-    ( HasView app
-    , HasRequest app
-    , Eq (ViewSelector app SelectedCount) )
+  :: forall r q.
+    ( Request r
+    , Eq (QueryResult q)
+    , ToJSON (QueryResult q)
+    , FromJSON q
+    , Monoid q
+    , DiffQuery q
+    )
   => Text -- ^ Version
-  -> RequestHandler app IO -- ^ Handler for API requests
-  -> Registrar (ViewSelector app SelectedCount)
+  -> RequestHandler r IO -- ^ Handler for API requests
+  -> Registrar q
   -> WS.Connection
   -> IO ()
 handleWebsocketConnection v rh register conn = do
-  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (void a) :: WebSocketResponse app)
-  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse app)
-  bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> flip evalStateT mempty $ forever $ do
-    (wsr :: WebSocketRequest app (AppRequest app)) <- liftIO $ getDataMessage conn
+  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View a :: WebSocketResponse q)
+  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse q)
+  bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> forever $ do
+    (wsr :: WebSocketRequest q r) <- liftIO $ getDataMessage conn
     case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (SomeRequest req)) -> lift $ do
+      WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
         a <- runRequestHandler rh req
         sendEncodedDataMessage conn
-          (WebSocketResponse_Api $ TaggedResponse reqId (toJSON a) :: WebSocketResponse app)
+          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse q)
       WebSocketRequest_ViewSelector new -> do
-        old <- get
-        let new' = SelectedCount 1 <$ new
-            vsDiff = new' ~~ old
-        when (vsDiff /= mempty) $ do
-          qr <- lift $ runQueryHandler vsHandler vsDiff
-          put new'
-          when (qr /= mempty) $ lift $
-            sendEncodedDataMessage conn (WebSocketResponse_View (void qr) :: WebSocketResponse app)
+        qr <- runQueryHandler vsHandler new
+        when (qr /= mempty) $ do
+          sendEncodedDataMessage conn (WebSocketResponse_View qr :: WebSocketResponse q)
+
+functorQueryToGroup :: (Functor f) => f () -> f SelectedCount
+functorQueryToGroup = (SelectedCount 1 <$) 
+
+vesselQueryToGroup :: (View v)
+  => v (Const ()) -> v (Const SelectedCount)
+vesselQueryToGroup = mapV (\_ -> Const (SelectedCount 1))
+
 
 -------------------------------------------------------------------------------
 
@@ -270,25 +296,39 @@ feedPipeline getNextNotification qh r = do
 
 -- | Connects the pipeline to websockets consumers
 connectPipelineToWebsockets
-  :: (HasView app, HasRequest app, Eq (ViewSelector app SelectedCount))
+  :: ( Request r
+     , Monoid q
+     , Monoid (QueryResult q)
+     , Eq (QueryResult q)
+     , FromJSON q
+     , ToJSON (QueryResult q)
+     , DiffQuery q
+     )
   => Text
-  -> RequestHandler app IO
+  -> RequestHandler r IO
   -- ^ API handler
-  -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
+  -> QueryHandler (MonoidalMap ClientKey q) IO
   -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, Snap ())
+  -> IO (Recipient (MonoidalMap ClientKey q) IO, Snap ())
   -- ^ A way to send data to many consumers and a handler for websockets connections
 connectPipelineToWebsockets = connectPipelineToWebsocketsRaw withWebsocketsConnection
 
 connectPipelineToWebsocketsRaw
-  :: (HasView app, HasRequest app, Eq (ViewSelector app SelectedCount))
+  :: ( Request r
+     , Monoid q
+     , Monoid (QueryResult q)
+     , Eq (QueryResult q)
+     , FromJSON q
+     , ToJSON (QueryResult q)
+     , DiffQuery q
+     )
   => ((WS.Connection -> IO ()) -> m a) -- ^ Websocket handler
   -> Text -- ^ Version
-  -> RequestHandler app IO
+  -> RequestHandler r IO
   -- ^ API handler
-  -> QueryHandler (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO
+  -> QueryHandler (MonoidalMap ClientKey q) IO
   -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (MonoidalMap ClientKey (ViewSelector app SelectedCount)) IO, m a)
+  -> IO (Recipient (MonoidalMap ClientKey q) IO, m a)
   -- ^ A way to send data to many consumers and a handler for websockets connections
 connectPipelineToWebsocketsRaw withWsConn ver rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
@@ -297,7 +337,10 @@ connectPipelineToWebsocketsRaw withWsConn ver rh qh = do
 -- | Like 'connectPipelineToWebsockets' but returns a Registrar that can
 -- be used to construct a handler for a particular client
 connectPipelineToWebsockets'
-  :: (Monoid (QueryResult q), Group q)
+  :: ( Monoid q
+     , Monoid (QueryResult q)
+     , DiffQuery q
+     )
   => QueryHandler (MonoidalMap ClientKey q) IO
   -> IO (Recipient (MonoidalMap ClientKey q) IO, Registrar q)
   -- ^ A way to send data to many consumers, and a way to register new consumers
@@ -316,33 +359,46 @@ extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
 -------------------------------------------------------------------------------
 
 serveDbOverWebsockets
-  :: ( HasRequest app
-     , HasView app
-     , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
-     , Monoid q', Semigroup q'
+  :: ( Request r
+     , Monoid q'
+     , Semigroup q'
+     , Eq q
+     , Monoid q
+     , FromJSON q
+     , DiffQuery q
+     , ToJSON (QueryResult q)
+     , Monoid (QueryResult q)
+     , Eq (QueryResult q)
      , FromJSON notifyMessage
      )
   => Pool Postgresql
-  -> RequestHandler app IO
+  -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
-  -> Pipeline IO q q'
+  -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (Snap (), IO ())
 serveDbOverWebsockets = serveDbOverWebsocketsRaw withWebsocketsConnection
 
 serveDbOverWebsocketsRaw
-  :: ( HasRequest app
-     , HasView app
-     , q ~ MonoidalMap ClientKey (ViewSelector app SelectedCount)
-     , Monoid q', Semigroup q'
+  :: forall notifyMessage q q' r m a.
+     ( Request r
+     , Monoid q'
+     , Semigroup q'
+     , Eq q
+     , FromJSON q
+     , Monoid q
+     , DiffQuery q
+     , ToJSON (QueryResult q)
+     , Monoid (QueryResult q)
+     , Eq (QueryResult q)
      , FromJSON notifyMessage
      )
   => ((WS.Connection -> IO ()) -> m a)
   -> Pool Postgresql
-  -> RequestHandler app IO
+  -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
-  -> Pipeline IO q q'
+  -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (m a, IO ())
 serveDbOverWebsocketsRaw withWsConn db handleApi handleNotify handleQuery pipe = do
   (getNextNotification, finalizeListener) <- startNotificationListener db
@@ -358,25 +414,33 @@ convertPostgresPool = coerce
 -- the combinatorics of aggregating the queries of connected clients as provided to the handler for
 -- database notifications, and disaggregating the corresponding results of the queries accordingly.
 standardPipeline
-  :: forall m k q qr a.
-    ( QueryResult (q (MonoidMap k a)) ~ qr (MonoidMap k a)
-    , QueryResult (q a) ~ qr a
+  :: forall m k q qr.
+    ( QueryResult (q (MonoidalMap k ())) ~ qr (MonoidalMap k ())
+    , QueryResult (q ()) ~ qr ()
     , Functor m
     , Ord k
+    , Align q
     , Foldable qr
-    , Functor q
     , Filterable qr
-    , Eq a
-    , Eq (qr a)
-    , Eq (q (MonoidMap k a))
-    , Monoid a
-    , Monoid (qr a)
-    , Monoid (q (MonoidMap k a))
-    , Eq (q a)
-    , Monoid (q a)
     )
-  => Pipeline m (MonoidalMap k (q a)) (q (MonoidMap k a))
-standardPipeline = queryMorphismPipeline $ transposeMonoidMap Cat.<<< monoidMapQueryMorphism
+  => Pipeline m (MonoidalMap k (q ())) (q (MonoidalMap k ()))
+standardPipeline = queryMorphismPipeline $ QueryMorphism condense disperse
+
+-- | This is also useful as a final argument to serveDbOverWebsockets, in the case that you're using Vessel-style queries/views.
+vesselPipeline
+  :: forall m t v.
+    ( QueryResult (t (v (Const ()))) ~ t (v Identity)
+    , QueryResult (v (Compose t (Const ()))) ~ v (Compose t Identity)
+    , Monoid (v (Compose t (Const ())))
+    , Monoid (v (Const ()))
+    , Functor m
+    , View v
+    , Foldable t
+    , Filterable t
+    , Align t
+    )
+  => Pipeline m (t (v (Const ()))) (v (Compose t (Const ())))
+vesselPipeline = queryMorphismPipeline transposeView
 
 -------------------------------------------------------------------------------
 

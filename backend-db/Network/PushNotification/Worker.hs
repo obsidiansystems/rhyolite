@@ -4,6 +4,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Network.PushNotification.Worker where
 
@@ -25,7 +26,6 @@ import Database.Id.Groundhog.TH
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
-import Rhyolite.Request.TH
 import Rhyolite.Schema
 import GHC.Generics
 
@@ -51,10 +51,11 @@ makeDefaultKeyIdInt64 ''ApplePushMessage 'ApplePushMessageKey
 
 data AndroidPushMessage = AndroidPushMessage
   { _androidPushMessage_payload :: Json FcmPayload }
+  deriving (Generic)
 
+instance ToJSON AndroidPushMessage
+instance FromJSON AndroidPushMessage
 instance HasId AndroidPushMessage
-
-makeJson ''AndroidPushMessage
 
 mkRhyolitePersist (Just "migrateAndroidPushMessage") [groundhog|
   - entity: AndroidPushMessage
