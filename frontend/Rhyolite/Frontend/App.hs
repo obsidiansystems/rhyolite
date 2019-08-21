@@ -56,7 +56,6 @@ import Reflex.Time (throttleBatchWithLag)
 
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.Request.Class
 import Rhyolite.WebSocket
 
 import Obelisk.Configs
@@ -519,3 +518,5 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
+
+
