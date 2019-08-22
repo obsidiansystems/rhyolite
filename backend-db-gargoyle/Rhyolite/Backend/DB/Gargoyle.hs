@@ -1,4 +1,4 @@
-module Rhyolite.Backend.DB.Gargoyle (withDb, openDb) where
+module Rhyolite.Backend.DB.Gargoyle (withDb, openDb, withDbConnString) where
 
 import Control.Monad ((>=>))
 import Data.ByteString (ByteString)
@@ -28,6 +28,21 @@ withDb dbPath a = do
     else do
       g <- postgresNix
       withGargoyle g dbPath $ openDb >=> a
+
+-- | Either connects to a database at the given connection string in the Left
+-- case, or uses gargoyle at the filepath specified in the Right case.  Allows
+-- to keep the connection string at a different place from the gargoyle
+-- cluster.
+withDbConnString :: Either ByteString FilePath -> (Pool Postgresql -> IO a) -> IO a
+withDbConnString dbPath a = case dbPath of
+  -- dbExists <- doesFileExist dbPath
+  -- if dbExists
+    -- use the file contents as the uri for an existing server
+    Left connStr -> openDb connStr >>= a
+    -- otherwise assume it's a folder for a local database
+    Right gargoylePath -> do
+      g <- postgresNix
+      withGargoyle g gargoylePath $ openDb >=> a
 
 openDb :: ByteString -> IO (Pool Postgresql)
 openDb dbUri = do
