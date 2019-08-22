@@ -1,15 +1,18 @@
-{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveTraversable #-}
 module Data.MonoidMap where
 
+import Data.Witherable
+import Data.AppendMap
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Map.Monoidal as Map
 import Data.Semigroup (Semigroup, (<>))
-import Reflex (Query, QueryResult, crop)
+import Reflex (Query, QueryResult, crop, Group(..), Additive)
 
 newtype MonoidMap k v = MonoidMap { unMonoidMap :: MonoidalMap k v }
-  deriving (Show, Eq, Ord, Foldable)
+  deriving (Show, Eq, Ord, Foldable, Functor, Traversable, Filterable)
 
 monoidMap :: (Ord k, Eq v, Monoid v) => MonoidalMap k v -> MonoidMap k v
 monoidMap = MonoidMap . Map.filter (/= mempty)
@@ -32,3 +35,8 @@ instance (Monoid a, Eq a, Ord k) => Semigroup (MonoidMap k a) where
 instance (Ord k, Monoid a, Eq a) => Monoid (MonoidMap k a) where
   mempty = MonoidMap Map.empty
   mappend = (<>)
+
+instance (Ord k, Monoid a, Eq a, Group a) => Group (MonoidMap k a) where
+  negateG = fmap negateG
+
+instance (Ord k, Monoid a, Eq a, Group a, Additive a) => Additive (MonoidMap k a)

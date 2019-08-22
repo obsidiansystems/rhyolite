@@ -71,27 +71,27 @@ import Rhyolite.Request.Common (decodeValue')
 
 import Data.Vessel
 
--- | This query morphism translates between un-annotated queries for use over the wire, and ones with SelectedCount annotations used in the frontend to do reference counting, and in the backend to be able to more easily diff. This version is for use with the older Functor style of queries and results.
-functorWireQueryMorphism
+-- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
+functorToWire
   :: ( Filterable q
      , Functor v
      , QueryResult (q ()) ~ v ()
      , QueryResult (q SelectedCount) ~ v SelectedCount)
   => QueryMorphism (q SelectedCount) (q ())
-functorWireQueryMorphism = QueryMorphism
-  { _queryMorphism_mapQuery = mapMaybe (\n -> if n == mempty then Nothing else Just ())
+functorToWire = QueryMorphism
+  { _queryMorphism_mapQuery = mapMaybe (\n -> if n < 0 then Nothing else Just ())
   , _queryMorphism_mapQueryResult = fmap (const (SelectedCount 1))
   }
 
--- | This query morphism translates between un-annotated queries for use over the wire, and ones with SelectedCount annotations used in the frontend to do reference counting, and in the backend to be able to more easily diff. This version is for use with the newer-style functor-parametric view types (such as Vessel).
-viewWireQueryMorphism
+-- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the newer-style functor-parametric view types (such as Vessel).
+vesselToWire
   :: ( View v
      , Monoid (v (Const ()))
      , QueryResult (v (Const ())) ~ v Identity
      , QueryResult (v (Const SelectedCount)) ~ v Identity
      )
   => QueryMorphism (v (Const SelectedCount)) (v (Const ()))
-viewWireQueryMorphism = QueryMorphism
+vesselToWire = QueryMorphism
   { _queryMorphism_mapQuery = \q -> 
       let deplete (Const n) = if n == mempty then Nothing else Just (Const ())
       in case mapMaybeV deplete q of
@@ -298,7 +298,6 @@ runObeliskRhyoliteWidget ::
   , Monoid (QueryResult qFrontend)
   , FromJSON (QueryResult qWire)
   , ToJSON qWire
-  , DiffQuery qWire
   )
   => QueryMorphism qFrontend qWire
   -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
@@ -328,7 +327,6 @@ runPrerenderedRhyoliteWidget
       , Monoid (QueryResult qFrontend)
       , FromJSON (QueryResult qWire)
       , ToJSON qWire
-      , DiffQuery qWire
       )
    => QueryMorphism qFrontend qWire
    -> Text
@@ -393,7 +391,6 @@ openWebSocket'
      , MonadHold t m
      , FromJSON (QueryResult q)
      , ToJSON q
-     , DiffQuery q
      , Request r
      )
   => Text -- ^ A complete URL
@@ -449,7 +446,6 @@ openWebSocket
      , Request r
      , FromJSON (QueryResult q)
      , ToJSON q
-     , DiffQuery q
      )
   => Text -- ^ A complete URL
   -> Event t [TaggedRequest r] -- ^ Outbound requests

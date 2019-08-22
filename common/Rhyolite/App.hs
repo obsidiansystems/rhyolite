@@ -25,14 +25,14 @@ import Data.These
 import Data.Align
 
 -- | Set-subtraction operation for queries.
-class (Query q, Eq q) => DiffQuery q where
-  diffQuery :: q -> q -> Maybe q -- ^ diffQuery x y indicates interest in the part of x which is not indicated by y. Results in Nothing if this difference is empty.
+class PositivePart q where
+  positivePart :: q -> Maybe q -- ^ Filter a query to only those parts which are selected a positive amount.
 
--- | This can be used to implement an instance of DiffQuery for Functor-style queries/views, in terms of the other instances already required for those.
-standardDiffQuery :: (Eq (q a), Monoid (q a), Filterable q, Align q) => q a -> q a -> Maybe (q a)
-standardDiffQuery x y =
-    let d = mapMaybe id $ alignWith (\t -> case t of This a -> Just a; _ -> Nothing) x y
-    in if d == mempty then Nothing else Just d
+-- | This can be used to implement an instance of PositivePart for Functor-style queries/views, in terms of the other instances already required for those.
+standardPositivePart :: (Eq (q a), Monoid (q a), Num a, Ord a, Filterable q) => q a -> Maybe (q a)
+standardPositivePart x =
+  let u = mapMaybe (\n -> if n > 0 then Just n else Nothing) x
+  in if u == mempty then Nothing else Just u
 
 singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
 singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k
