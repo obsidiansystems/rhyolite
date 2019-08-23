@@ -5,12 +5,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Rhyolite.Account where
 
@@ -22,10 +20,9 @@ import Data.Time (UTCTime)
 import Data.Typeable (Typeable)
 import Database.Id.Class (HasId, Id)
 import GHC.Generics (Generic)
-import Obelisk.Route(Encoder, isoEncoder)
 
-import Rhyolite.Request.TH (makeJson)
 import Rhyolite.Schema (Email)
+import Obelisk.Route(Encoder, isoEncoder)
 import Rhyolite.Sign (Signed(..))
 
 
@@ -55,7 +52,10 @@ deriving instance (Ord (f (Id Account))) => Ord (PasswordResetToken f)
 deriving instance (ToJSON (f (Id Account))) => ToJSON (PasswordResetToken f)
 deriving instance (FromJSON (f (Id Account))) => FromJSON (PasswordResetToken f)
 
-newtype AccountRoute f = AccountRoute_PasswordReset { unAccountRoute :: Signed (PasswordResetToken f) } deriving (Show, Read, Eq, Ord)
+newtype AccountRoute f = AccountRoute_PasswordReset { unAccountRoute :: Signed (PasswordResetToken f) } deriving (Show, Read, Eq, Ord, Generic)
+
+instance ToJSON (AccountRoute f)
+instance FromJSON (AccountRoute f)
 
 _AccountRoute :: Iso (AccountRoute f) (AccountRoute g) (Signed (PasswordResetToken f)) (Signed (PasswordResetToken g))
 _AccountRoute = iso unAccountRoute AccountRoute_PasswordReset
@@ -64,5 +64,3 @@ _Signed = iso unSigned Signed
 
 accountRouteEncoder :: (Applicative check, Applicative parse) => Encoder check parse (AccountRoute f) Text
 accountRouteEncoder = isoEncoder (_AccountRoute . _Signed)
-
-makeJson ''AccountRoute
