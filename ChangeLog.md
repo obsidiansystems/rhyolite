@@ -9,10 +9,11 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-08-02 - Unreleased
 
-* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk. 
+* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk.
 * Frontend.App: Use reflex's `matchResponsesWithRequests` instead of `identifyTags` (now deleted). Change the identifier used by `TaggedRequest` and `TaggedResponse` to an `Int`
 * Remove `mapRequesterT`. This has been upstreamed to reflex as `withRequesterT`
 * Remove Frontend.Request and Frontend.WebSocket
+* Add SQL QuasiQuote variants supporting anti-quotation of arbitrary Haskell expressions (`Rhyolite.Backend.DB.PsqlSimple.queryQi` et al.)
 
 ## 2019-08-01 - Unreleased
 
