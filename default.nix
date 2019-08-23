@@ -1,13 +1,16 @@
-{ pkgs ? null, ... } @ args:
+{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"])
+, pkgs ? obelisk.nixpkgs
+, ... } @ args:
 
 let
-
-  obelisk = import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"]);
   reflex-platform = obelisk.reflex-platform;
-  nixpkgs = if pkgs == null then obelisk.nixpkgs else pkgs;
-  inherit (nixpkgs) lib;
-  haskellLib = nixpkgs.haskell.lib;
-  repos = obelisk.nixpkgs.thunkSet ./dep;
+  inherit (pkgs) lib;
+  haskellLib = pkgs.haskell.lib;
+  repos = pkgs.thunkSet ./dep;
+
+  # Some dependency thunks needed
+  dep = import ./dep reflex-platform.hackGet;
+  #TODO: Consider whether to prefer using thunkSet here.
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
@@ -24,6 +27,7 @@ let
   overrideSrcs = rhyolitePackages // {
     aeson-gadt-th = repos.aeson-gadt-th;
     bytestring-trie = repos.bytestring-trie;
+    dependent-monoidal-map = repos.dependent-monoidal-map;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
     groundhog = repos.groundhog + /groundhog;
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
@@ -42,6 +46,7 @@ let
     database-id-obelisk = repos.database-id + /obelisk;
     push-notifications = repos.push-notifications;
     reflex = repos.reflex;
+    vessel = repos.vessel;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -50,7 +55,8 @@ let
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ nixpkgs.postgresql ]; };
+      dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
+      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
       validation = haskellLib.dontCheck super.validation;
     })
   ];

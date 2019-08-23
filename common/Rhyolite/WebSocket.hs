@@ -8,12 +8,12 @@ module Rhyolite.WebSocket where
 
 import Data.Aeson
 import Data.Semigroup ((<>))
+import Data.Some
 import Data.Text (Text)
 import Data.Typeable
 import GHC.Generics
 import Network.URI (URI(..))
-import Rhyolite.App
-import Rhyolite.Request.Class
+import Reflex.Query.Class
 
 websocketUri :: URI -> URI
 websocketUri uri = uri
@@ -25,28 +25,28 @@ websocketUri uri = uri
   }
 
 -- | Represents a WebSocket message from one of two channels: ViewSelector declarations or API requests
-data WebSocketRequest app r = WebSocketRequest_ViewSelector (ViewSelector app ())
-                            | WebSocketRequest_Api (TaggedRequest r)
+data WebSocketRequest q r = WebSocketRequest_ViewSelector q
+                          | WebSocketRequest_Api (TaggedRequest r)
   deriving (Typeable, Generic)
 
-instance (Request r, FromJSON (ViewSelector app ())) => FromJSON (WebSocketRequest app r)
-instance (Request r, ToJSON (ViewSelector app ())) => ToJSON (WebSocketRequest app r)
+instance (FromJSON q, FromJSON (Some r)) => FromJSON (WebSocketRequest q r)
+instance (ToJSON q, ToJSON (Some r)) => ToJSON (WebSocketRequest q r)
 
 -- | Represents a WebSocket response from one of three channels: incoming 'View's, API responses, or version info
-data WebSocketResponse app = WebSocketResponse_View (View app ())
-                           | WebSocketResponse_Api TaggedResponse
-                           | WebSocketResponse_Version Text
+data WebSocketResponse q = WebSocketResponse_View (QueryResult q)
+                         | WebSocketResponse_Api TaggedResponse
+                         | WebSocketResponse_Version Text
   deriving (Typeable, Generic)
 
-instance FromJSON (View app ()) => FromJSON (WebSocketResponse app)
-instance ToJSON (View app ()) => ToJSON (WebSocketResponse app)
+instance FromJSON (QueryResult q) => FromJSON (WebSocketResponse q)
+instance ToJSON (QueryResult q) => ToJSON (WebSocketResponse q)
 
 -- | A request tagged with an identifier
-data TaggedRequest r = TaggedRequest Int (SomeRequest r)
+data TaggedRequest r = TaggedRequest Int (Some r)
   deriving (Typeable, Generic)
 
-instance Request r => FromJSON (TaggedRequest r)
-instance Request r => ToJSON (TaggedRequest r)
+instance FromJSON (Some r) => FromJSON (TaggedRequest r)
+instance ToJSON (Some r) => ToJSON (TaggedRequest r)
 
 -- | A response tagged with an identifier matching the one in the 'TaggedRequest'. The identifier is the first argument.
 data TaggedResponse = TaggedResponse Int Value
