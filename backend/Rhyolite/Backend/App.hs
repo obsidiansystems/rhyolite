@@ -27,8 +27,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (FromJSON, ToJSON, toJSON)
 import Data.Align
 import Data.Constraint.Extras
-import qualified Data.Map as BaseMap
-
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
@@ -195,32 +193,33 @@ multiplexQuery
         , Recipient q m -> IO (QueryHandler q m, m ())
         )
 multiplexQuery lookupQueryHandler = do
-  clients <- newIORef (ClientKey 0, BaseMap.empty :: BaseMap.Map ClientKey (Recipient q m, q))
+  clients <- newIORef (ClientKey 0, Map.empty :: MonoidalMap ClientKey (Recipient q m, q))
   let
     lookupRecipient k = do
       (_, cs) <- readIORef clients
-      case BaseMap.lookup k cs of
+      case Map.lookup k cs of
         Nothing -> do
           putStrLn $ mconcat
             [ "Rhyolite.Backend.App.multiplexQuery: Failed to find sender for key"
             , show k
             , " in known keys "
-            , show $ BaseMap.keys cs
+            , show $ Map.keys cs
             ]
           return $ Recipient $ const $ return ()
         Just s -> return $ fst s
 
     registerRecipient s = do
       cid <- atomicModifyIORef' clients $ \(cid, recipients) ->
-        ((ClientKey (unClientKey cid + 1), BaseMap.insert cid (s, mempty) recipients), cid)
+        ((ClientKey (unClientKey cid + 1), Map.insert cid (s, mempty) recipients), cid)
       let
         queryHandler = QueryHandler $ \q -> do
           qOld <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
-            ((nextCid, BaseMap.update (\(r, _) -> Just (r, q)) cid recipients), maybe mempty snd $ BaseMap.lookup cid recipients)
+            ((nextCid, Map.update (\(r, _) -> Just (r, q)) cid recipients), maybe mempty snd $ Map.lookup cid recipients)
           runQueryHandler (lookupQueryHandler cid) (q ~~ qOld)
+              
         unregisterRecipient = do
           antiQ <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
-            case BaseMap.updateLookupWithKey (\_ _ -> Nothing) cid recipients of
+            case Map.updateLookupWithKey (\_ _ -> Nothing) cid recipients of
               (Nothing, _) -> trace
                 ("Rhyolite.Backend.App.multiplexQuery: Tried to unregister a client key that is not registered " <> show cid)
                 ((nextCid, recipients), mempty)

@@ -1,7 +1,7 @@
 {
-  "owner": "obsidiansystems",
+  "owner": "bgamari",
   "repo": "monoidal-containers",
-  "branch": "pre-breakage",
-  "rev": "be91bc55eb7cc3c3036f12af75a45012b08913ec",
-  "sha256": "105wdpbdbadb0kncjzax6islrndfzv60qfxzsrwb3490z692mha7"
+  "branch": "master",
+  "rev": "1194da82b2cc5f2a7962608b7e6e4d8052facca6",
+  "sha256": "0nvdchw279k3n25jb1fzjajh28j9yvgglm4yh9q0xmgmsm8zm1zb"
 }

@@ -44,7 +44,7 @@ library
     , transformers
     , transformers-base
     , vector
-    , witherable
+    , witherable >= 0.2 && < 0.4
     , vessel
 
   exposed-modules:

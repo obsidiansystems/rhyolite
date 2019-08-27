@@ -28,6 +28,7 @@ import Control.Monad.State (mapStateT)
 import Data.Char (toLower)
 import Database.Groundhog
 import Database.Groundhog.Core
+import Database.Id.Groundhog.TH
 import Data.Semigroup ((<>))
 import Data.List (isPrefixOf)
 import Database.Groundhog.TH (migrationFunction, namingStyle, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, defaultCodegenConfig)

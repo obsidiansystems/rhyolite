@@ -5,12 +5,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Rhyolite.Account where
 
@@ -20,11 +18,11 @@ import Data.ByteString (ByteString)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.Typeable (Typeable)
-import Rhyolite.Schema (Email)
 import Database.Id.Class (HasId, Id)
 import GHC.Generics (Generic)
-import Obelisk.Route(Encoder, isoEncoder)
 
+import Rhyolite.Schema (Email)
+import Obelisk.Route(Encoder, isoEncoder)
 import Rhyolite.Sign (Signed(..))
 
 

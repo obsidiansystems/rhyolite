@@ -26,13 +26,18 @@ import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.Ref
 import Control.Monad.State.Strict
+import Data.Aeson
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
+import Data.Constraint
 import Data.Constraint.Extras
 import Data.Default (Default)
+import Data.Functor.Sum
+import qualified Data.IntMap as IntMap
+import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Some
@@ -44,8 +49,8 @@ import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI, parseURI)
 import qualified Reflex as R
-import Reflex.Dom.Core hiding (MonadWidget, Request, fmapMaybe)
 import Data.Witherable (Filterable)
+import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
 
@@ -334,30 +339,29 @@ runPrerenderedRhyoliteWidget toWire url child = do
           return ( _appWebSocket_notification appWebSocket
                  , _appWebSocket_response appWebSocket
                  )
-      (request', response') <- matchResponsesWithRequests apiRequestJson request $ ffor response $ \(TaggedResponse t v) -> (t, v)
+      (request', response') <- matchResponsesWithRequests reqEncoder request $ ffor response $ \(TaggedResponse t v) -> (t, v)
       let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
             Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
             _ -> Nothing)) request'
-          response'' = mapMaybe (traverseRequesterData (fmap Identity)) response'
-      ((a, vs), request) <- flip runRequesterT response'' $ runQueryT (unRhyoliteWidget child) view
+      ((a, vs), request) <- flip runRequesterT (fmapMaybe (traverseRequesterData (fmap Identity)) response') $ runQueryT (unRhyoliteWidget child) view
       let (vsDyn :: Dynamic t qFrontend) = incrementalToDynamic (vs :: Incremental t (AdditivePatch qFrontend))
       nubbedVs <- holdUniqDyn (_queryMorphism_mapQuery toWire <$> vsDyn)
       view <- fmap join $ prerender (pure mempty) $ fromNotifications vsDyn $ _queryMorphism_mapQueryResult toWire <$> notification
   return a
+  where
+    reqEncoder :: forall a. req a -> (Aeson.Value, Aeson.Value -> Maybe a)
+    reqEncoder r =
+      ( whichever @ToJSON @req @a $ Aeson.toJSON r
+      , \x -> case has @FromJSON r $ Aeson.fromJSON x of
+        Success s-> Just s
+        _ -> Nothing
+      )
 
-apiRequestJson
-  :: forall req a. Request req
-  => req a
-  -> (Aeson.Value, Aeson.Value -> Maybe a)
-apiRequestJson r =
-  ( whichever @ToJSON @req @a $ toJSON r
-  , \v -> has @FromJSON r $ parseMaybe parseJSON v
-  )
-
-fromNotifications :: forall m (t :: *) vs. (Query vs, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult vs))
-                  => Dynamic t vs
-                  -> Event t (QueryResult vs)
-                  -> m (Dynamic t (QueryResult vs))
+fromNotifications
+  :: forall m (t :: *) q. (Query q, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult q))
+  => Dynamic t q
+  -> Event t (QueryResult q)
+  -> m (Dynamic t (QueryResult q))
 fromNotifications vs ePatch = do
   ePatchThrottled <- throttleBatchWithLag lag ePatch
   foldDyn (\(vs', p) v -> cropView vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
@@ -410,7 +414,7 @@ openWebSocket' url request vs = do
           -- so that it knows not to send further notifications.
           , tag (fmap ((:[]) . WebSocketRequest_ViewSelector) $ current vs) $ _webSocket_open ws
           ])
-  let (eMessages :: Event t (WebSocketResponse q)) = mapMaybe platformDecode $ _webSocket_recv ws
+  let (eMessages :: Event t (WebSocketResponse q)) = fmapMaybe platformDecode $ _webSocket_recv ws
       notification = fforMaybe eMessages $ \case
         WebSocketResponse_View v -> Just v
         _ -> Nothing
@@ -510,19 +514,3 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
-
-{-
--- TODO: Upstream to reflex
-mapRequesterT
-  :: (Reflex t, MonadFix m)
-  => (forall x. req x -> req' x)
-  -> (forall x. rsp' x -> rsp x)
-  -> RequesterT t req rsp m a
-  -> RequesterT t req' rsp' m a
-mapRequesterT freq frsp child = do
-  rec let rsp = fmap (runIdentity . traverseRequesterData (Identity . frsp)) rsp'
-      (a, req) <- lift $ runRequesterT child rsp
-      rsp' <- fmap (flip selectInt 0 . fanInt . fmapCheap unMultiEntry) $ requesting' $
-        fmapCheap (multiEntry . IntMap.singleton 0) $ fmap (runIdentity . traverseRequesterData (Identity . freq)) req
-  return a
--}
