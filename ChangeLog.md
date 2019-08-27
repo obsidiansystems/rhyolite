@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-08-27 - Unreleased
+
+* Improve error message on parse failure in certain database instances
+
 ## 2019-06-14 - Unreleased
 
 * Bump obelisk to a version that no longer uses `*Tag` classes
