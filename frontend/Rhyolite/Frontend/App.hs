@@ -514,5 +514,3 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
-
-
