@@ -9,13 +9,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans -fno-warn-deprecations #-}
 module Rhyolite.Schema where
 
-import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Data.Aeson (FromJSON, ToJSON)
+import Database.Id.Class
 import Control.Category ((>>>))
 import Control.Monad.Error (MonadError)
-import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
@@ -34,24 +34,6 @@ withoutSchema (WithSchema _ a) = a
 
 instance (FromJSON a) => FromJSON (WithSchema a)
 instance (ToJSON a) => ToJSON (WithSchema a)
-
--- | Class for types that have a database ID column
-class HasId a where
-  type IdData a :: *
-  type IdData a = Int64
-
-newtype Id a = Id { unId :: IdData a } deriving Typeable
-
-deriving instance Read (IdData a) => Read (Id a)
-deriving instance Show (IdData a) => Show (Id a)
-deriving instance Eq (IdData a) => Eq (Id a)
-deriving instance Ord (IdData a) => Ord (Id a)
-deriving instance FromJSON (IdData a) => FromJSON (Id a)
-deriving instance ToJSON (IdData a) => ToJSON (Id a)
-deriving instance FromJSONKey (IdData a) => FromJSONKey (Id a)
-deriving instance ToJSONKey (IdData a) => ToJSONKey (Id a)
-
-data IdValue a = IdValue (Id a) a deriving Typeable
 
 instance ShowPretty a => ShowPretty (IdValue a) where
   showPretty (IdValue _ x) = showPretty x

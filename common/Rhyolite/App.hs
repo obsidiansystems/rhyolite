@@ -2,11 +2,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -18,8 +16,6 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.AppendMap as MonoidalMap
 import Data.Map.Monoidal (MonoidalMap)
 import Data.Semigroup (Semigroup)
-import Data.Witherable
-import Data.AppendMap() -- contains the orphan for Filterable MonoidalMap
 import qualified Data.Semigroup as Semigroup
 import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))

@@ -25,6 +25,9 @@ import qualified Data.Text as T
 import Data.Time (UTCTime)
 import Database.Groundhog.Postgresql hiding (Cond)
 import Database.Groundhog.TH
+import Database.Id.Class
+import Database.Id.Groundhog
+import Database.Id.Groundhog.TH
 import qualified Network.Mail.Mime as Mail
 import qualified Network.HaskellNet.SMTP as SMTP
 
@@ -34,7 +37,6 @@ import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.LargeObjects
 import Rhyolite.Backend.Email
-import Rhyolite.Backend.Schema (fromId, toId)
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Schema
 

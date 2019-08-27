@@ -23,12 +23,13 @@ import Data.Typeable (Proxy(..), Typeable)
 import qualified Data.Map as Map
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
+import Database.Id.Class
 import Database.PostgreSQL.Simple.FromField (FromField, fromField, Conversion, conversionError)
 import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.Types (Binary (..), Identifier (..))
 
-import Rhyolite.Schema (Json (..), SchemaName(..), LargeObjectId(..), HasId (..), Id (..))
-import Rhyolite.Backend.Schema.Class (DerivedEntity, DerivedEntityHead, DefaultKeyId, toIdData, fromIdData)
+import Rhyolite.Schema (Json (..), SchemaName(..), LargeObjectId(..))
+import Rhyolite.Backend.Schema.Class (DerivedEntity, DerivedEntityHead)
 
 instance ToField SchemaName where
   toField (SchemaName t) = toField (Identifier t)
@@ -87,26 +88,6 @@ fromDerivedId = Id . unId
 
 toDerivedId :: DerivedEntity v => Id (DerivedEntityHead v) -> Id v
 toDerivedId = Id . unId
-
-toId :: forall a. DefaultKeyId a => DefaultKey a -> Id a
-toId = Id . toIdData (Proxy :: Proxy a)
-
-fromId :: forall a. DefaultKeyId a => Id a -> DefaultKey a
-fromId = fromIdData (Proxy :: Proxy a) . unId
-
-deriving instance NeverNull (IdData a) => NeverNull (Id a) -- A redundant constraint warning is expected here
-
-instance (PersistField (DefaultKey a), DefaultKeyId a) => PersistField (Id a) where
-  persistName = persistName
-  toPersistValues = toPersistValues . fromId
-  fromPersistValues vs = do
-    (a, vs') <- fromPersistValues vs
-    return (toId a, vs')
-  dbType p _ = dbType p (undefined :: DefaultKey a)
-
-instance (PrimitivePersistField (DefaultKey a), DefaultKeyId a) => PrimitivePersistField (Id a) where
-  toPrimitivePersistValue p = toPrimitivePersistValue p . fromId
-  fromPrimitivePersistValue p = toId . fromPrimitivePersistValue p
 
 data VisibleUniverseFailure = VisibleUniverseFailure TypeRep
   deriving (Show)
