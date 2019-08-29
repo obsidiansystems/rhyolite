@@ -55,6 +55,7 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
+    , shelly
     , smtp-mail
     , snap-core
     , split
@@ -83,6 +84,7 @@ library
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
+    Rhyolite.Backend.Which
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
