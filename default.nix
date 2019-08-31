@@ -32,7 +32,6 @@ let
     groundhog = repos.groundhog + /groundhog;
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
-    monoidal-containers = repos.monoidal-containers;
     postgresql-lo-stream = repos.postgresql-lo-stream;
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + /gargoyle;
@@ -44,7 +43,6 @@ let
     database-id-groundhog = repos.database-id + /groundhog;
     database-id-obelisk = repos.database-id + /obelisk;
     push-notifications = repos.push-notifications;
-    reflex = repos.reflex;
     vessel = repos.vessel;
   };
 
