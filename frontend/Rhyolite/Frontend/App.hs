@@ -18,6 +18,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Rhyolite.Frontend.App where
 
 import Control.Monad.Exception
@@ -70,6 +72,23 @@ import Rhyolite.Request.Common (decodeValue')
 #endif
 
 import Data.Vessel
+
+import Reflex hiding (Request)
+import Reflex.Dom.Core hiding (Request)
+import Control.Monad.Fix
+import Data.Foldable
+import Data.ByteString.Builder (toLazyByteString)
+import qualified Data.ByteString as BS
+import qualified Data.Text.Encoding as T
+import qualified Data.ByteString.Lazy as LBS
+-- import Data.Witherable (catMaybes, Filterable)
+
+import Reflex.Host.Class (newEventWithTriggerRef, MonadReflexCreateTrigger)
+import Control.Monad.Ref (MonadRef, Ref, readRef)
+import Data.Dependent.Sum
+import Data.Functor.Identity
+import Control.Monad.Primitive
+
 
 -- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
 functorToWire
@@ -515,4 +534,94 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
 
+type ObeliskStaticWidget js t m =
+    ( DomBuilder t m
+    , MonadFix m
+    , MonadHold t m
+    , MonadSample t (Performable m)
+    , MonadReflexCreateTrigger t m
+    , PostBuild t m
+    , PerformEvent t m
+    , TriggerEvent t m
+    , HasDocument m
+    , MonadRef m
+    , Ref m ~ Ref IO
+    , MonadRef (Performable m)
+    , Ref (Performable m) ~ Ref IO
+    , MonadFix (Performable m)
+    , PrimMonad m
+    , Prerender js t m
+    -- TODO , HasConfigs m
+    -- TODO , HasCookies m
+    , MonadIO (Performable m)
+
+    -- PrebuildAgnostic t route m
+    -- TODO , SetRoute t route m
+    -- TODO , RouteToUrl route m
+    , MonadFix m
+    -- TODO , HasConfigs m
+    -- TODO , HasConfigs (Performable m)
+
+    -- PrebuildAgnostic t route (Client m)
+    -- TODO , SetRoute t route (Client m)
+    -- TODO , RouteToUrl route (Client m)
+    , MonadFix (Client m)
+    -- TODO , HasConfigs (Client m)
+    -- TODO , HasConfigs (Performable (Client m))
+    )
+
+staticApp :: forall js t m v vs a b.
+  ( ObeliskStaticWidget js t m
+
+  , Query (vs a)
+  , QueryResult (vs a) ~ v a
+  , Additive (vs a)
+  , Group (vs a)
+  , Eq (vs a)
+  , Aeson.ToJSON (v a)
+  )
+  => (vs a -> vs a -> IO (v a))
+  -> (forall m' . ObeliskStaticWidget js t m' => m' b)
+  -> m b
+staticApp getView w = do
+  postBuild :: Event t () <- getPostBuild
+  rec (b :: b, viewSelector' :: Incremental t (AdditivePatch (vs a))) <- runQueryT w view
+      let viewSelector = incrementalToDynamic viewSelector'
+      vs' <- holdDyn mempty $ leftmost
+        [ attach (current viewSelector) $ updated viewSelector
+        , attachWith (\vs _ -> (mempty, vs)) (current viewSelector) postBuild
+        ]
+      setViewSelector :: Event t (vs a, vs a) <- fmap updated $ holdUniqDyn vs'
+      view :: Dynamic t (v a)
+        <- foldDyn mappend mempty =<< performEvent (liftIO . uncurry getView <$> setViewSelector)
+  -- The frontend can retrieve this to seed its own view variable
+  elAttr "script" ("type" =: "application/json" <> "id" =: "initial-view") $ dynText $ T.decodeUtf8 . LBS.toStrict . Aeson.encode <$> view
+  return b
+
+
+
+{-# INLINE renderStatic' #-}
+renderStatic' :: (forall js t m. ObeliskStaticWidget js t m => m a) -> IO (a, BS.ByteString)
+renderStatic' w = do
+  runDomHost $ do
+    (postBuild, postBuildTriggerRef) <- newEventWithTriggerRef
+    let env0 = StaticDomBuilderEnv True Nothing
+    ((res, bs), FireCommand fire) <- hostPerformEventT $ runStaticDomBuilderT (runPostBuildT w postBuild) env0
+    mPostBuildTrigger <- readRef postBuildTriggerRef
+    for_ mPostBuildTrigger $ \postBuildTrigger -> fire [postBuildTrigger :=> Identity ()] $ return ()
+    bs' <- sample bs
+    return (res, LBS.toStrict $ toLazyByteString bs')
+
+renderEncoded' ::
+  ( Query (vs a)
+  , Additive (vs a)
+  , Group (vs a)
+  , Eq (vs a)
+  , Aeson.ToJSON (v a)
+  , QueryResult (vs a) ~ v a
+  )
+  => (vs a -> vs a -> IO (v a))
+  -> (forall m' . m' b)
+  -> IO (b, BS.ByteString)
+renderEncoded' getView w = renderStatic' (staticApp getView w)
 
