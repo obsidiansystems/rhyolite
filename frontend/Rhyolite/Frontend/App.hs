@@ -28,16 +28,11 @@ import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
-import Data.Constraint
 import Data.Constraint.Extras
 import Data.Default (Default)
-import Data.Functor.Sum
-import qualified Data.IntMap as IntMap
-import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Some
