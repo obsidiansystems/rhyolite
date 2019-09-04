@@ -48,8 +48,6 @@ knownSubMap = \case
   SemiMap_Complete m -> m
   SemiMap_Partial m -> Map.mapMaybe getFirst m
 
-deriving instance Foldable f => Foldable (Alt f)
-
 instance (Ord k) => Monoid (SemiMap k v) where
   mempty = SemiMap_Partial mempty
 
