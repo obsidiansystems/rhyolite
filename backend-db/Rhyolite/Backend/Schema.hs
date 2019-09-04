@@ -87,7 +87,7 @@ fromDerivedId = Id . unId
 toDerivedId :: DerivedEntity v => Id (DerivedEntityHead v) -> Id v
 toDerivedId = Id . unId
 
-data VisibleUniverseFailure = VisibleUniverseFailure TypeRep
+newtype VisibleUniverseFailure = VisibleUniverseFailure TypeRep
   deriving (Show)
 
 fromShowUniverse :: forall a. (Typeable a, Universe a, Show a) => Text -> Conversion a
