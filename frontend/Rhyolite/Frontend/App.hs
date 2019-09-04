@@ -305,7 +305,9 @@ runObeliskRhyoliteWidget ::
   -> RoutedT t (R frontendRoute) m a
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
-  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  route <- (fmap . fmap) (parseURI . T.unpack . T.strip . T.decodeUtf8) (getConfig configRoute) >>= \case
+    Just (Just route) -> pure route
+    _ -> error "runObeliskRhyoliteWidget: Unable to parse route config"
   let wsUrl = T.pack (show $ websocketUri route) <> renderBackendRoute enc listenRoute
   lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
 
