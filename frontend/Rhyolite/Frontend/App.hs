@@ -92,11 +92,9 @@ vesselToWire
      )
   => QueryMorphism (v (Const SelectedCount)) (v (Const ()))
 vesselToWire = QueryMorphism
-  { _queryMorphism_mapQuery = \q -> 
+  { _queryMorphism_mapQuery = \q ->
       let deplete (Const n) = if n == mempty then Nothing else Just (Const ())
-      in case mapMaybeV deplete q of
-            Nothing -> mempty
-            Just q' -> q'
+      in maybe mempty id $ mapMaybeV deplete q
   , _queryMorphism_mapQueryResult = id
   }
 
@@ -308,8 +306,8 @@ runObeliskRhyoliteWidget ::
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
   Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
-  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  let wsUrl = T.pack (show $ websocketUri route) <> renderBackendRoute enc listenRoute
+  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
 
 runPrerenderedRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
@@ -378,7 +376,7 @@ data AppWebSocket t q = AppWebSocket
   }
 
 -- | Open a websocket connection and split resulting incoming traffic into listen notification and api response channels
-openWebSocket' 
+openWebSocket'
   :: forall r q t x m.
      ( MonadJSM m
      , MonadJSM (Performable m)
@@ -432,7 +430,7 @@ openWebSocket' url request vs = do
     , _appWebSocket_connected = connected
     }
 
-openWebSocket 
+openWebSocket
   :: forall t x m r q.
      ( MonadJSM m
      , MonadJSM (Performable m)
