@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "groundhog",
-  "branch": "develop",
-  "rev": "722efb06284a35ba32f55ed30a6450c36269c3bb",
-  "sha256": "1h95ma38l05lplw1gxsnii4gwyyw32131il3vypbr1mnl0cajnym"
+  "branch": "eac@fix-new-dependencies",
+  "rev": "f398b711cf7c566db54c8cf2136b5b85a60e926b",
+  "sha256": "0j1lz0y2fak2mbs5fkba40id9158lvsdfvmv9mi73250g0yn87l0"
 }
