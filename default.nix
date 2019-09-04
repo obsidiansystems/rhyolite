@@ -38,6 +38,7 @@ let
     gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
     gargoyle-postgresql-connect = repos.gargoyle + /gargoyle-postgresql-connect;
     gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
+    libsystemd-journal = repos.libsystemd-journal; # TODO: Remove override once nixpkgs is bumped to include 1.4.4.
     # Newly added to hackage
     database-id-class = repos.database-id + /class;
     database-id-groundhog = repos.database-id + /groundhog;
@@ -55,6 +56,9 @@ let
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
       validation = haskellLib.dontCheck super.validation;
+
+      # TODO: Remove override once nixpkgs is bumped to include 1.4.4.
+      libsystemd-journal = haskellLib.overrideCabal super.libsystemd-journal { libraryPkgconfigDepends = [ pkgs.systemd ]; };
     })
   ];
 
