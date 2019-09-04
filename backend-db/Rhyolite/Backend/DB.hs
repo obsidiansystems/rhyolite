@@ -84,9 +84,10 @@ instance RunDb WithSchema where
   runDb (WithSchema schema db) = withResource db . runDbConn . withSchema schema
 
 getSearchPath :: PersistBackend m => m String
-getSearchPath = do
-  [searchPath] :: [String] <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
-  return searchPath
+getSearchPath =
+  queryRaw False "SHOW search_path" [] (mapAllRows (fmap fst . fromPersistValues)) >>= \case
+    [searchPath] -> return searchPath
+    _ -> error "getSearchPath: Unexpected result from queryRaw"
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
@@ -182,10 +183,11 @@ fieldIsJust, fieldIsNothing
 fieldIsJust f = Not $ isFieldNothing f
 fieldIsNothing = isFieldNothing
 
-getTime :: PersistBackend m => m UTCTime
-getTime = do
-  Just [PersistUTCTime t] <- queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id
-  return t
+getTime :: (PersistBackend m) => m UTCTime
+getTime =
+  queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id >>= \case
+    Just [PersistUTCTime t] -> return t
+    _ -> error "getTime: Unexpected result of queryRaw"
 
 withTime :: PersistBackend m => (UTCTime -> m a) -> m a
 withTime a = do
