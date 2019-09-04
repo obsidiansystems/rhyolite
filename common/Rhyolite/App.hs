@@ -21,7 +21,6 @@ import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
 import Reflex.Query.Class
-import Data.These
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where
