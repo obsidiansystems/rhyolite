@@ -146,7 +146,7 @@ selectSingle
   => opts
   -> m (Maybe v)
 selectSingle cond = select (cond `limitTo` 1) >>= \case
-  [] -> pure $ Nothing
+  [] -> pure Nothing
   [x] -> pure $ Just x
   _   -> fail "PostgreSQL ignored LIMIT TO 1"
 
