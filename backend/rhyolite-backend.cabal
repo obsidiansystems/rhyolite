@@ -84,7 +84,6 @@ library
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
-    Rhyolite.Backend.HaveIBeenPwned
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
