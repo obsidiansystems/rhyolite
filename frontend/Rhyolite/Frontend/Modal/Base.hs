@@ -116,6 +116,10 @@ runModalT backdropCfg f = do
     ((a, open), _) <- withModals backdropCfg (getFirst <$> open) $ runEventWriterT (unModalT f)
   pure a
 
+-- | Change the underlying monad of `ModalT`.
+mapModalT :: (Reflex t, MonadHold t m) => (forall x. m x -> n x) -> ModalT t m m a -> ModalT t n n a
+mapModalT f = ModalT . mapEventWriterT f . withEventWriterT ((fmap . fmap) f) . unModalT
+
 newtype ModalBackdropConfig = ModalBackdropConfig
   { _modalBackdropConfig_attrs :: Map Text Text
   } deriving (Monoid, Semigroup)
