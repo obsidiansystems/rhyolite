@@ -116,10 +116,28 @@ runModalT backdropCfg f = do
     ((a, open), _) <- withModals backdropCfg (getFirst <$> open) $ runEventWriterT (unModalT f)
   pure a
 
--- | Change the underlying monad of `ModalT`.
-mapModalT :: (Reflex t, MonadHold t m) => (forall x. m x -> n x) -> ModalT t m m a -> ModalT t n n a
-mapModalT f = ModalT . mapEventWriterT f . withEventWriterT ((fmap . fmap) f) . unModalT
+-- | Change the underlying monad of `ModalT` and the monad the modals will be run in.
+--
+--   For cases where those two monads differ, checkout `mapModalT` and `mapModalM`.
+mapModalTM :: (Reflex t, MonadHold t m) => (forall x. m x -> n x) -> ModalT t m m a -> ModalT t n n a
+mapModalTM f = mapModalT f . mapModalM f
 
+-- | Change the underlying monad of `ModalT`.
+mapModalT :: (Reflex t, MonadHold t m) => (forall x. m x -> n x) -> ModalT t modalM m a -> ModalT t modalM n a
+mapModalT f = ModalT . mapEventWriterT f . unModalT
+
+-- | Change the monad the modals will be run in.
+mapModalM :: (Reflex t, MonadHold t m) => (forall x. modalM x -> modalN x) -> ModalT t modalM m a -> ModalT t modalN m a
+mapModalM f = ModalT . withEventWriterT ((fmap . fmap) f) . unModalT
+
+-- | You can adjust the attributes passed to the backdrop with this config.
+--
+--   You can adjust the background and the size, for example. You cannot change
+--   the CSS `display` property, as it is controled by this library. Also note
+--   that the dialog is not a child widget of the backdrop, but rendered within
+--   a separate `untouchable` top level div. For positioning of your dialog,
+--   you should not rely on backdrop, nor on this hidden div, instead we
+--   recommend fixed positioning for the dialog, as described in `tellModal`.
 newtype ModalBackdropConfig = ModalBackdropConfig
   { _modalBackdropConfig_attrs :: Map Text Text
   } deriving (Monoid, Semigroup)

@@ -23,6 +23,17 @@ class HasModal t m where
   --     * returns a "close" event which will be used to actually close the modal.
   --
   --   For example, a modal may choose not to be closable by simply ignoring it's input and returning 'never'.
+  --
+  --   Note on positioning: We control the containing div of your dialog for
+  --   handling of the CSS display property. We recommened that you position
+  --   your dialog `fixed` with some Clay like the following:
+  --
+  -- @
+  --  position fixed
+  --  top (pct 50)
+  --  left (pct 50)
+  --  transform (translate (pct $ negate 50) (pct $ negate 50))
+  -- @
   tellModal :: Event t (Event t () -> ModalM m (Event t ())) -> m ()
 
   default tellModal :: (MonadTrans f, m ~ f m', HasModal t m', Monad m', ModalM (f m') ~ ModalM m') => Event t (Event t () -> ModalM m (Event t ())) -> m ()
