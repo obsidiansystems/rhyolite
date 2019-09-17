@@ -82,7 +82,10 @@ queueEmail m t = do
   qm <- mailToQueuedEmail m t
   fmap toId . insert $ qm
 
--- Retrieves and sends emails one at a time, deleting them from the queue
+-- | Retrieves and sends emails one at a time, deleting them from the queue.
+--   Guarantees "at most once" semantics, e.g. a power fault in the middle of
+--   this process may leave some emails unsent, but no emails will be sent
+--   twice.
 clearMailQueue :: forall m f.
   ( RunDb f
   , MonadIO m
@@ -92,6 +95,7 @@ clearMailQueue :: forall m f.
   -> EmailEnv
   -> m ()
 clearMailQueue db emailEnv = do
+  -- First we obtain a "lock" for an email we plan to send.
   queuedEmail <- runDb db $ do
     qe <- listToMaybe . Map.toList <$>
       selectMap' QueuedEmailConstructor ((QueuedEmail_checkedOutField ==. False) `limitTo` 1)
@@ -101,7 +105,8 @@ clearMailQueue db emailEnv = do
   case queuedEmail of
     Nothing -> return ()
     Just (qid, QueuedEmail oid (Json to) (Json from) expiry _) -> do
-      runDb db $ do
+      -- With the lock held we can safely run a read-only transaction at lower isolation without retries.
+      runDbReadOnlyRepeatableRead db $ do
         now <- getTime
         let
           notExpired = case expiry of
@@ -117,6 +122,10 @@ clearMailQueue db emailEnv = do
             , "Sending email to: "
             , show to
             ]
+
+      -- "Release" the lock by removing this email from the queue.
+      -- If an exception beats us to this point then we're still consistent with
+      -- "at most once" semantics.
       runDb db $ do
         _ <- execute [sql| DELETE FROM "QueuedEmail" q WHERE q.id = ? |] (Only qid)
         deleteLargeObject oid
