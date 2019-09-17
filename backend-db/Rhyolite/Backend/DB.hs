@@ -20,8 +20,8 @@
 module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT, runLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
 import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
@@ -31,7 +31,7 @@ import Control.Monad.Trans.Maybe (MaybeT)
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
@@ -45,15 +45,16 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Map.Monoidal (MonoidalMap, pattern MonoidalMap)
 import Data.Maybe (listToMaybe)
-import Data.Pool (Pool)
+import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, in_)
+import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import qualified Database.PostgreSQL.Simple as Pg
+import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Database.Id.Class
 import Database.Id.Groundhog
 
@@ -65,27 +66,55 @@ import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
 
+runDbPersistTransactionMode
+  :: (MonadIO m, MonadLoggerIO m)
+  => Pg.IsolationLevel
+  -> Pg.ReadWriteMode
+  -> Pool Pg.Connection
+  -> DbPersist Postgresql (LoggingT IO) a
+  -> m a
+runDbPersistTransactionMode isoLevel rwMode dbPool (DbPersist act) = do
+  logger <- askLoggerIO
+  liftIO $ withResource dbPool $ \conn ->
+    Pg.withTransactionMode (Pg.TransactionMode isoLevel rwMode) conn $
+      runLoggingT (runReaderT act (coerce conn)) logger
+
 -- | Runs a database action using a given pool of database connections
 -- The 'f' parameter can be used to represent additional information about
 -- how/where to run the database action (e.g., in a particular schema).
 -- See instances below.
 class RunDb f where
+  -- | Runs a transaction at serializable isolation level and automatically retries
+  --   in case of a serialization error.
   runDb :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
         => f (Pool conn)
         -> Serializable a
         -> m a
+
+  -- | Runs a read-only transaction at repeatable read isolation level.
+  --   No retrying is done.
+  --   NB: "Read-only" is not statically checked!
+  runDbReadOnlyRepeatableRead
+    :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
+    => f (Pool conn)
+    -> DbPersist Postgresql (LoggingT IO) a
+    -> m a
 
 -- | Runs a database action in the public schema
 instance RunDb Identity where
   runDb (Identity db) act = do
     logger <- askLoggerIO
     runSerializable (coerce db) (LoggingEnv logger) $ withSchema (SchemaName "public") act
+  runDbReadOnlyRepeatableRead (Identity db) =
+    runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db)
 
 -- | Runs a database action in a specific schema
 instance RunDb WithSchema where
   runDb (WithSchema schema db) act = do
     logger <- askLoggerIO
     runSerializable (coerce db) (LoggingEnv logger) $ withSchema schema act
+  runDbReadOnlyRepeatableRead (WithSchema schema db) =
+    runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db) . withSchema schema
 
 getSearchPath :: PersistBackend m => m String
 getSearchPath = do

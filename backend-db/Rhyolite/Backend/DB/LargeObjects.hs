@@ -149,7 +149,8 @@ instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (ReaderT r m) w
     lift $ withLargeObject oid mode (\lofd -> runReaderT (f lofd) s)
 
 withStreamedLargeObject
-  :: LargeObjectId
+  :: (MonadIO m)
+  => LargeObjectId
   -> (LBS.ByteString -> IO ())
-  -> Serializable ()
-withStreamedLargeObject oid f = unsafeLiftDbPersist $ liftWithConn $ \conn -> LO.withLargeObjectLBS conn (toOid oid) f
+  -> DbPersist Postgresql m ()
+withStreamedLargeObject oid f = liftWithConn $ \conn -> LO.withLargeObjectLBS conn (toOid oid) f
