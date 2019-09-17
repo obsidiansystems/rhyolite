@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -21,6 +22,7 @@ import Data.Foldable (for_)
 import Data.Function (fix)
 import qualified Data.Map as Map
 import Data.Pool
+import qualified Data.Text as T
 import Data.Time (UTCTime)
 import Data.Word (Word32)
 import Database.Groundhog
@@ -71,7 +73,8 @@ queueApplePushMessage x = fmap toId $ insert $ ApplePushMessage
   }
 
 data AndroidPushMessage = AndroidPushMessage
-  { _androidPushMessage_payload :: Json FcmPayload
+  { _androidPushMessage_payload :: !(Json FcmPayload)
+  , _androidPushMessage_claimedAt :: !(Maybe UTCTime)
   }
   deriving (Generic)
 
@@ -147,14 +150,33 @@ firebaseWorker
   -> m (IO ()) -- ^ IO Action to kill thread
 firebaseWorker key delay db = askLoggerIO >>= \logger -> do
   mgr <- liftIO $ newManager tlsManagerSettings
-  worker delay $ do
-    let clear = do
-          p <- runDb db $ Map.toList <$>
-            selectMap AndroidPushMessageConstructor (CondEmpty `limitTo` 1)
-          case p of
-            [(k, AndroidPushMessage (Json m))] -> do
-              _ <- liftIO $ sendAndroidPushMessage mgr key m
-              runDb db $ deleteBy $ fromId k
-              clear
-            _ -> return ()
-    runLoggingT clear logger
+  worker delay $ flip runLoggingT logger $
+    fix $ \loop -> do
+      processAndroidPushMessage db (void . sendAndroidPushMessage mgr key) >>= \case
+        Just ProcessingDone -> pure ()
+        Nothing -> loop
+
+processAndroidPushMessage
+  :: (MonadLoggerIO m, RunDb f)
+  => f (Pool Postgresql)
+  -> (FcmPayload -> IO ())
+  -> m (Maybe ProcessingDone)
+processAndroidPushMessage db sendMessage = do
+  msg' <- runDb db $ do
+    qm <- fmap Map.toList $ selectMap AndroidPushMessageConstructor (fieldIsNothing AndroidPushMessage_claimedAtField `limitTo` 1)
+    case qm of
+      [(k, m)] -> do
+        now <- getTime
+        update [AndroidPushMessage_claimedAtField =. Just now] (AutoKeyField `in_` [fromId k])
+        $logDebug $ "Claiming AndroidPushMessage " <> T.pack (show k)
+        pure $ Just (k, m)
+      [] -> pure Nothing
+      _ -> error "firebaseWorker: Received multiple rows despite LIMIT 1"
+
+  for_ msg' $ \(k, AndroidPushMessage (Json m) _) -> do
+    liftIO $ sendMessage m
+    $logDebug $ "Sent AndroidPushMessage " <> T.pack (show k)
+    runDb db $ deleteBy $ fromId k
+
+  -- If @msg'@ is empty then we're done.
+  pure $ maybe (Just ProcessingDone) (const Nothing) msg'
