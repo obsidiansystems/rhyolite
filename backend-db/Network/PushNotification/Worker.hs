@@ -11,7 +11,6 @@
 module Network.PushNotification.Worker where
 
 import Control.Concurrent
-import Control.Lens ((<&>))
 import Control.Monad
 import Control.Monad.Logger
 import Control.Monad.IO.Class
@@ -31,7 +30,6 @@ import Database.Id.Class
 import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.PsqlSimple (queryQ)
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
 import Rhyolite.Schema
@@ -116,31 +114,25 @@ processApplePushMessage db sendMessage = do
   msg' <- runDb db $ do
     -- NB: There may be claimed notifications that are simply never sent.
     -- This is consistent with "at most once".
-    qm <-
-      [queryQ|
-        SELECT "id", "deviceToken", "payload", "expiry"
-        FROM "ApplePushMessage"
-        WHERE "claimedAt" IS NULL
-        LIMIT 1
-      |] <&> fmap (\(mid, deviceToken, payload, expiry :: Int) -> (mid :: Id ApplePushMessage, IOS.ApplePushMessage
-        { IOS._applePushMessage_deviceToken = deviceToken
-        , IOS._applePushMessage_payload = payload
-        , IOS._applePushMessage_expiry = fromIntegral expiry
-        }))
+    qm <- Map.toList <$> selectMap ApplePushMessageConstructor (fieldIsNothing ApplePushMessage_claimedAtField `limitTo` 1)
     case qm of
       [] -> pure Nothing
       [(k, m)] -> do
-        if LBS.length (IOS._applePushMessage_payload m) > IOS.maxPayloadLength
+        if LBS.length (_applePushMessage_payload m) > IOS.maxPayloadLength
           then Nothing <$ deleteBy (fromId k)
           else do
             now <- getTime
             _ <- update [ApplePushMessage_claimedAtField =. Just now] (AutoKeyField `in_` [fromId k])
             pure $ Just (k, m)
 
-      _ -> error "processApplePushMessage: Received multiple row despite LIMIT 1"
+      _ -> error "processApplePushMessage: Received multiple rows despite LIMIT 1"
 
   for_ msg' $ \(k, m) -> do
-    liftIO $ sendMessage m
+    liftIO $ sendMessage $ IOS.ApplePushMessage
+      { IOS._applePushMessage_deviceToken = _applePushMessage_deviceToken m
+      , IOS._applePushMessage_payload = _applePushMessage_payload m
+      , IOS._applePushMessage_expiry = _applePushMessage_expiry m
+      }
     runDb db $ deleteBy (fromId k)
 
   -- If @msg'@ is empty then we're done.
