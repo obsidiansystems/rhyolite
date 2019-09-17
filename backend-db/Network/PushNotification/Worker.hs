@@ -103,6 +103,10 @@ apnsWorker cfg delay db = askLoggerIO >>= \logger -> return . killThread <=<
 
 data ProcessingDone = ProcessingDone deriving (Eq, Show)
 
+-- | Process a single 'ApplePushMessage' from the queue.
+-- Guarantees "at most once" semantics, e.g. if there is a power fault
+-- then some notifications may not be sent, but nothing will ever be
+-- sent twice.
 processApplePushMessage
   :: (MonadLoggerIO m, RunDb f)
   => f (Pool Postgresql)
@@ -110,15 +114,14 @@ processApplePushMessage
   -> m (Maybe ProcessingDone)
 processApplePushMessage db sendMessage = do
   msg' <- runDb db $ do
-    let sendFailedMessageThreshold = "5 minutes"
-    -- Get an old failed message or an unsent message, preferring old failed messages before unsent.
+    -- NB: There may be claimed notifications that are simply never sent.
+    -- This is consistent with "at most once".
     qm <-
       [queryQ|
         SELECT "id", "deviceToken", "payload", "expiry"
         FROM "ApplePushMessage"
-        WHERE "claimedAt" IS NULL OR "claimedAt" <= NOW() - INTERVAL ?sendFailedMessageThreshold
+        WHERE "claimedAt" IS NULL
         LIMIT 1
-        ORDER BY "claimedAt" ASC NULLS LAST
       |] <&> fmap (\(mid, deviceToken, payload, expiry :: Int) -> (mid :: Id ApplePushMessage, IOS.ApplePushMessage
         { IOS._applePushMessage_deviceToken = deviceToken
         , IOS._applePushMessage_payload = payload
