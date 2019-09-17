@@ -21,6 +21,7 @@ let
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
+    rhyolite-logging = ./logging;
   };
 
   # srcs used for overrides

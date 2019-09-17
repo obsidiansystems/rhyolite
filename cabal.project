@@ -6,4 +6,5 @@ packages:
   common/
   datastructures/
   frontend/
+  logging/
   test/
