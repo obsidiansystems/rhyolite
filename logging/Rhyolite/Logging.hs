@@ -10,7 +10,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | typically useful config file, which logs everything to stderr and warnings to journald.
+-- | Typically useful config file, which logs everything to stderr and warnings to journald.
 --
 -- [
 --     { "logger":{"Stderr":{}}
@@ -29,7 +29,6 @@
 -- ,   { "logger":{"File":{"file":"sql.log"}}
 --     , "filters":{"SQL":"Debug"}
 --     }
-
 module Rhyolite.Logging
   ( withLogging
   , withLoggingMinLevel
@@ -46,17 +45,19 @@ module Rhyolite.Logging
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
   , RhyoliteLogAppenderJournald (..)
 #endif
-  , example
   ) where
 
-import Control.Monad
-import Control.Monad.Catch
-import Control.Monad.IO.Class
+import Control.Monad (when)
+import Control.Monad.Catch (MonadMask, finally)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Logger
-import Data.Aeson hiding (Error)
-import Data.Aeson.TH
+  ( Loc (..), LoggingT (..), LogLevel (..), LogSource
+  , logDebug, logError, logInfo, logWarn
+  )
+import qualified Data.Aeson as Aeson
+import Data.Aeson.TH (deriveJSON)
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HashMap
+import Data.Default (Default (def))
 import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -64,14 +65,14 @@ import Data.Monoid (Monoid, mappend, mempty)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Trie.BigEndianPatricia.Base as Trie
-import GHC.Generics
-import System.Log.FastLogger
+import GHC.Generics (Generic)
+import System.Log.FastLogger (BufSize, FileLogSpec (..), LogStr, LogType (..), TimedFastLogger, toLogStr)
+import qualified System.Log.FastLogger as FastLogger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-import Systemd.Journal
+import qualified Data.HashMap.Strict as HashMap
+import qualified Systemd.Journal as Journal
 #endif
-
-import Data.Default
 
 newtype LoggingEnv =  LoggingEnv { unLoggingEnv :: Loc -> LogSource -> LogLevel -> LogStr -> IO () }
 
@@ -147,11 +148,11 @@ data RhyoliteLogAppenderJournald = RhyoliteLogAppenderJournald
 
 -- derive a little differently from `Rhyolite.Request.makeJson` so that more
 -- things end up as records, so that new fields don't break old configs
-fmap concat $ traverse (deriveJSON defaultOptions
-    { sumEncoding = ObjectWithSingleField
-    , constructorTagModifier = dropWhile ('_' ==) . dropWhile ('_' /=)
-    , fieldLabelModifier = dropWhile ('_' ==) . dropWhile ('_' /=) . dropWhile ('_' ==)
-    , omitNothingFields = True
+fmap concat $ traverse (deriveJSON Aeson.defaultOptions
+    { Aeson.sumEncoding = Aeson.ObjectWithSingleField
+    , Aeson.constructorTagModifier = dropWhile ('_' ==) . dropWhile ('_' /=)
+    , Aeson.fieldLabelModifier = dropWhile ('_' ==) . dropWhile ('_' /=) . dropWhile ('_' ==)
+    , Aeson.omitNothingFields = True
     })
   [ ''RhyoliteLogLevel
   , ''RhyoliteLogAppender
@@ -171,13 +172,13 @@ logToFastLogger :: TimedFastLogger -> LoggingEnv
 logToFastLogger ls = LoggingEnv $ \_loc logSource logLevel logStr -> ls (\ft -> toLogStr ft <> toLogStr (show logLevel) <> toLogStr (show logSource) <> logStr <> "\n")
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-logger2journald :: LogLevel -> JournalFields
+logger2journald :: LogLevel -> Journal.JournalFields
 logger2journald = \case
-  LevelWarn -> priority Warning
-  LevelDebug -> priority Debug
-  LevelInfo -> priority Info
-  LevelError -> priority Error
-  LevelOther level -> priority Error  -- Error because that makes this logger2journald monotone
+  LevelWarn -> Journal.priority Journal.Warning
+  LevelDebug -> Journal.priority Journal.Debug
+  LevelInfo -> Journal.priority Journal.Info
+  LevelError -> Journal.priority Journal.Error
+  LevelOther level -> Journal.priority Journal.Error  -- Error because that makes this logger2journald monotone
     <> mkJournalField' "PRIORITY_OTHER" level
 #endif
 
@@ -185,24 +186,23 @@ class LogAppender a where
   getLogContext :: MonadIO m => a -> m (LoggingContext m)
 
 
-
 fastLoggerHelperThing :: MonadIO m => (BufSize -> LogType) -> m (LoggingContext m)
 fastLoggerHelperThing typ = do
-  -- logSet :: <- liftIO $ newStderrLoggerSet defaultBufSize
-  timer <- liftIO $ newTimeCache simpleTimeFormat'
-  (tfl, cleanup) <- liftIO $ newTimedFastLogger timer $ typ defaultBufSize
+  -- logSet :: <- liftIO $ newStderrLoggerSet FastLogger.defaultBufSize
+  timer <- liftIO $ FastLogger.newTimeCache FastLogger.simpleTimeFormat'
+  (tfl, cleanup) <- liftIO $ FastLogger.newTimedFastLogger timer $ typ FastLogger.defaultBufSize
   return $ LoggingContext (liftIO cleanup) (logToFastLogger tfl)
 
 instance LogAppender RhyoliteLogAppender where
   getLogContext = \case
-      RhyoliteLogAppender_Stderr _ ->
-        fastLoggerHelperThing LogStderr
-      RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) ->
-        fastLoggerHelperThing $ LogFileNoRotate filename
-      RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
-        fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
+    RhyoliteLogAppender_Stderr _ ->
+      fastLoggerHelperThing LogStderr
+    RhyoliteLogAppender_File (RhyoliteLogAppenderFile filename) ->
+      fastLoggerHelperThing $ LogFileNoRotate filename
+    RhyoliteLogAppender_FileRotate (RhyoliteLogAppenderFileRotate filename fileSize backupNumber) ->
+      fastLoggerHelperThing $ LogFile (FileLogSpec filename fileSize backupNumber)
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-      RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
+    RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (Journal.syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
 #endif
 
 configLogger :: (LogAppender a, MonadIO m) => Maybe LogLevel -> LoggingConfig a -> m (LoggingContext m)
@@ -211,23 +211,24 @@ configLogger minLoggedLvl (LoggingConfig ls fs) = do
   return $ LoggingContext cleaner $ filterLog minLoggedLvl (fmap toLogLevel $ maybe M.empty id fs) logger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
-mkJournalField' :: T.Text -> T.Text -> JournalFields
-mkJournalField' k v = HashMap.singleton (mkJournalField k) (TE.encodeUtf8 v)
+mkJournalField' :: T.Text -> T.Text -> Journal.JournalFields
+mkJournalField' k v = HashMap.singleton (Journal.mkJournalField k) (TE.encodeUtf8 v)
 
-loc2jf :: Loc -> JournalFields
+loc2jf :: Loc -> Journal.JournalFields
 loc2jf (Loc fn pkg _ _ (line, _)) = mconcat
-  [ codeFile fn
-  , codeLine line
+  [ Journal.codeFile fn
+  , Journal.codeLine line
   , mkJournalField' "code_package" (T.pack pkg)
   ]
 
-logToJournalCtl :: JournalFields -> LoggingEnv
-logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr -> sendMessageWith (TE.decodeUtf8 $ fromLogStr logStr) $ mconcat
-  [ syslogId
-  , logger2journald logLevel
-  , loc2jf loc
-  , mkJournalField' "logsource" logSource
-  ]
+logToJournalCtl :: Journal.JournalFields -> LoggingEnv
+logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr ->
+  Journal.sendMessageWith (TE.decodeUtf8 $ FastLogger.fromLogStr logStr) $ mconcat
+    [ syslogId
+    , logger2journald logLevel
+    , loc2jf loc
+    , mkJournalField' "logsource" logSource
+    ]
 #endif
 
 -- | Match the LogSource on prefixes in m. If found, log only the messages at equal or higher than the
@@ -265,9 +266,11 @@ withLoggingMinLevel minLoggedLvl configs (LoggingT x) = do
   let (LoggingEnv logger) = foldMap _loggingContext_logger cleanersAndLoggers
   finally (x logger) cleaner
 
-example :: FilePath -> IO ()
-example f = do
-  putStrLn $ T.unpack $ TE.decodeUtf8 $ LBS.toStrict $ encode
+
+-- Compiled documentation...
+_rhyoliteLoggingExample_ :: FilePath -> IO ()
+_rhyoliteLoggingExample_ f = do
+  putStrLn $ T.unpack $ TE.decodeUtf8 $ LBS.toStrict $ Aeson.encode
     [ LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) Nothing
     , LoggingConfig (RhyoliteLogAppender_File $ RhyoliteLogAppenderFile "/dev/null") Nothing
     , LoggingConfig (RhyoliteLogAppender_Stderr $ RhyoliteLogAppenderStderr Nothing) (Just $ M.fromList [("context",RhyoliteLogLevel_Debug)])
@@ -281,7 +284,7 @@ example f = do
     $(logInfo) "Info"
     $(logDebug) "Debug"
 
-  confs :: [LoggingConfig RhyoliteLogAppender] <- either (error . (("JSON decode error while reading file " <> f <> ":") <>)) id . eitherDecode' <$> LBS.readFile f
+  confs :: [LoggingConfig RhyoliteLogAppender] <- either (error . (("JSON decode error while reading file " <> f <> ":") <>)) id . Aeson.eitherDecode' <$> LBS.readFile f
 
   withLogging confs $ do
     $(logDebug) "Hello World"
