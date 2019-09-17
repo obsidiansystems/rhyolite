@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -9,14 +11,19 @@
 module Network.PushNotification.Worker where
 
 import Control.Concurrent
+import Control.Lens ((<&>))
 import Control.Monad
 import Control.Monad.Logger
 import Control.Monad.IO.Class
 import Data.Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
+import Data.Foldable (for_)
+import Data.Function (fix)
 import qualified Data.Map as Map
 import Data.Pool
+import Data.Time (UTCTime)
+import Data.Word (Word32)
 import Database.Groundhog
 import Database.Groundhog.TH
 import Database.Groundhog.Postgresql
@@ -24,7 +31,7 @@ import Database.Id.Class
 import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.Serializable (unsafeMkSerializable)
+import Rhyolite.Backend.DB.PsqlSimple (queryQ)
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
 import Rhyolite.Schema
@@ -34,7 +41,7 @@ import Network.HTTP.Conduit
 
 import Network.PushNotification.Android
 import Network.PushNotification.Android.Payload
-import Network.PushNotification.IOS
+import qualified Network.PushNotification.IOS as IOS
 
 data APNSServer = APNSServer String
   deriving (Show, Generic)
@@ -42,6 +49,13 @@ data APNSServer = APNSServer String
 instance ToJSON APNSServer
 instance FromJSON APNSServer
 
+-- | A copy of 'IOS.ApplePushMessage' but with additional fields for managing the queue.
+data ApplePushMessage = ApplePushMessage
+  { _applePushMessage_deviceToken :: !ByteString
+  , _applePushMessage_payload :: !LBS.ByteString
+  , _applePushMessage_expiry :: !Word32
+  , _applePushMessage_claimedAt :: !(Maybe UTCTime)
+  } deriving (Eq, Generic, Ord, Show)
 instance HasId ApplePushMessage
 
 mkRhyolitePersist (Just "migrateApplePushMessage") [groundhog|
@@ -50,8 +64,17 @@ mkRhyolitePersist (Just "migrateApplePushMessage") [groundhog|
 
 makeDefaultKeyIdInt64 ''ApplePushMessage 'ApplePushMessageKey
 
+queueApplePushMessage :: PersistBackend m => IOS.ApplePushMessage -> m (Id ApplePushMessage)
+queueApplePushMessage x = fmap toId $ insert $ ApplePushMessage
+  { _applePushMessage_deviceToken = IOS._applePushMessage_deviceToken x
+  , _applePushMessage_payload = IOS._applePushMessage_payload x
+  , _applePushMessage_expiry = IOS._applePushMessage_expiry x
+  , _applePushMessage_claimedAt = Nothing
+  }
+
 data AndroidPushMessage = AndroidPushMessage
-  { _androidPushMessage_payload :: Json FcmPayload }
+  { _androidPushMessage_payload :: Json FcmPayload
+  }
   deriving (Generic)
 
 instance ToJSON AndroidPushMessage
@@ -65,26 +88,61 @@ makeDefaultKeyIdInt64 ''AndroidPushMessage 'AndroidPushMessageKey
 
 apnsWorker
   :: (MonadLoggerIO m, RunDb f)
-  => APNSConfig
+  => IOS.APNSConfig
   -> Int
   -> f (Pool Postgresql)
   -> m (IO ())
 apnsWorker cfg delay db = askLoggerIO >>= \logger -> return . killThread <=<
-  liftIO . forkIO . supervise . liftIO . withAPNSSocket cfg $ \conn -> do
-    void $ forever $ do
-      let clear = do
-            qm <- Map.toList <$>
-              selectMap ApplePushMessageConstructor (CondEmpty `limitTo` 1)
-            case qm of
-              [(k, m)] -> do
-                if LBS.length (_applePushMessage_payload m) > maxPayloadLength
-                  then deleteBy (fromId k) >> clear
-                  else do
-                    unsafeMkSerializable $ liftIO $ sendApplePushMessage conn m
-                    deleteBy $ fromId k
-                    clear
-              _ -> return ()
-      runLoggingT (runDb db clear >> liftIO (threadDelay delay)) logger
+  liftIO . forkIO . supervise . liftIO . IOS.withAPNSSocket cfg $ \apnsConn -> do
+    void $ flip runLoggingT logger $ forever $ do
+      fix $ \loop -> do
+        processApplePushMessage db (IOS.sendApplePushMessage apnsConn) >>= \case
+          Just ProcessingDone -> pure ()
+          Nothing -> loop
+      liftIO $ threadDelay delay
+
+data ProcessingDone = ProcessingDone deriving (Eq, Show)
+
+processApplePushMessage
+  :: (MonadLoggerIO m, RunDb f)
+  => f (Pool Postgresql)
+  -> (IOS.ApplePushMessage -> IO ())
+  -> m (Maybe ProcessingDone)
+processApplePushMessage db sendMessage = do
+  msg' <- runDb db $ do
+    let sendFailedMessageThreshold = "5 minutes"
+    -- Get an old failed message or an unsent message, preferring old failed messages before unsent.
+    qm <-
+      [queryQ|
+        SELECT "id", "deviceToken", "payload", "expiry"
+        FROM "ApplePushMessage"
+        WHERE "claimedAt" IS NULL OR "claimedAt" <= NOW() - INTERVAL ?sendFailedMessageThreshold
+        LIMIT 1
+        ORDER BY "claimedAt" ASC NULLS LAST
+      |] <&> fmap (\(mid, deviceToken, payload, expiry :: Int) -> (mid :: Id ApplePushMessage, IOS.ApplePushMessage
+        { IOS._applePushMessage_deviceToken = deviceToken
+        , IOS._applePushMessage_payload = payload
+        , IOS._applePushMessage_expiry = fromIntegral expiry
+        }))
+    case qm of
+      [] -> pure Nothing
+      [(k, m)] -> do
+        if LBS.length (IOS._applePushMessage_payload m) > IOS.maxPayloadLength
+          then Nothing <$ deleteBy (fromId k)
+          else do
+            now <- getTime
+            _ <- update [ApplePushMessage_claimedAtField =. Just now] (AutoKeyField `in_` [fromId k])
+            pure $ Just (k, m)
+
+      _ -> error "processApplePushMessage: Received multiple row despite LIMIT 1"
+
+  for_ msg' $ \(k, m) -> do
+    liftIO $ sendMessage m
+    runDb db $ deleteBy (fromId k)
+
+  -- If @msg'@ is empty then we're done.
+  pure $ maybe (Just ProcessingDone) (const Nothing) msg'
+
 
 firebaseWorker
   :: (MonadLoggerIO m, RunDb f)
