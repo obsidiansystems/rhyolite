@@ -21,7 +21,7 @@ module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger (LoggingT, NoLoggingT)
+import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
 import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
@@ -37,6 +37,7 @@ import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
 import qualified Control.Monad.Trans.Writer.Lazy as Lazy (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import Data.Coerce (Coercible, coerce)
 import Data.Functor (void)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
@@ -44,19 +45,22 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Map.Monoidal (MonoidalMap, pattern MonoidalMap)
 import Data.Maybe (listToMaybe)
-import Data.Pool (Pool, withResource)
+import Data.Pool (Pool)
 import Data.String (fromString)
 import Data.Time (UTCTime)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, in_)
+import qualified Database.PostgreSQL.Simple as Pg
 import Database.Id.Class
 import Database.Id.Groundhog
 
 import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
+import Rhyolite.Logging (LoggingEnv (..))
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
@@ -66,22 +70,22 @@ type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
 -- how/where to run the database action (e.g., in a particular schema).
 -- See instances below.
 class RunDb f where
-  runDb :: ( MonadIO m
-           , MonadBaseNoPureAborts IO m
-           , ConnectionManager cm conn
-           , PostgresRaw (DbPersist conn m)
-           , PersistBackend (DbPersist conn m))
-        => f (Pool cm)
-        -> DbPersist conn m b
-        -> m b
+  runDb :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
+        => f (Pool conn)
+        -> Serializable a
+        -> m a
 
 -- | Runs a database action in the public schema
 instance RunDb Identity where
-  runDb (Identity db) = withResource db . runDbConn . withSchema (SchemaName "public")
+  runDb (Identity db) act = do
+    logger <- askLoggerIO
+    runSerializable (coerce db) (LoggingEnv logger) $ withSchema (SchemaName "public") act
 
 -- | Runs a database action in a specific schema
 instance RunDb WithSchema where
-  runDb (WithSchema schema db) = withResource db . runDbConn . withSchema schema
+  runDb (WithSchema schema db) act = do
+    logger <- askLoggerIO
+    runSerializable (coerce db) (LoggingEnv logger) $ withSchema schema act
 
 getSearchPath :: PersistBackend m => m String
 getSearchPath = do

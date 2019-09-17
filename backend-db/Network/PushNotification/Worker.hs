@@ -24,6 +24,7 @@ import Database.Id.Class
 import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Rhyolite.Backend.DB
+import Rhyolite.Backend.DB.Serializable (unsafeMkSerializable)
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
 import Rhyolite.Schema
@@ -79,7 +80,7 @@ apnsWorker cfg delay db = askLoggerIO >>= \logger -> return . killThread <=<
                 if LBS.length (_applePushMessage_payload m) > maxPayloadLength
                   then deleteBy (fromId k) >> clear
                   else do
-                    liftIO $ sendApplePushMessage conn m
+                    unsafeMkSerializable $ liftIO $ sendApplePushMessage conn m
                     deleteBy $ fromId k
                     clear
               _ -> return ()

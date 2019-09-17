@@ -86,14 +86,13 @@ queueEmail m t = do
 clearMailQueue :: forall m f.
   ( RunDb f
   , MonadIO m
-  , MonadBaseNoPureAborts IO m
-  , MonadLogger m
+  , MonadLoggerIO m
   )
   => f (Pool Postgresql)
   -> EmailEnv
   -> m ()
 clearMailQueue db emailEnv = do
-  queuedEmail <- (runDb db :: DbPersist Postgresql m a -> m a) $ do
+  queuedEmail <- runDb db $ do
     qe <- listToMaybe . Map.toList <$>
       selectMap' QueuedEmailConstructor ((QueuedEmail_checkedOutField ==. False) `limitTo` 1)
     forM_ (fst <$> qe) $ \eid ->
@@ -111,7 +110,7 @@ clearMailQueue db emailEnv = do
         when notExpired $ do
           withStreamedLargeObject oid $ \payload ->
             sendQueuedEmail emailEnv from to (LBS.toStrict payload)
-          liftIO $ putStrLn $ mconcat
+          $logInfo $ T.pack $ mconcat
             [ "["
             , show now
             , "] "
