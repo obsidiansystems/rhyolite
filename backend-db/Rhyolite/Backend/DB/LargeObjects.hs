@@ -1,7 +1,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -96,10 +95,9 @@ toOid (LargeObjectId n) = Oid (fromIntegral n)
 
 instance (MonadIO m, MonadBaseControl IO m) => PostgresLargeObject (DbPersist Postgresql m) where
   newEmptyLargeObject = fmap fromOid $ liftWithConn $ \conn -> Sql.loCreat conn
-  withLargeObject oid mode f =
+  withLargeObject oid mode =
     bracket (liftWithConn $ \conn -> Sql.loOpen conn (toOid oid) mode)
             (\lofd -> liftWithConn $ \conn -> Sql.loClose conn lofd)
-            f
   newLargeObjectFromFile filePath =
     liftWithConn $ \conn -> fmap fromOid $ Sql.loImport conn filePath
   newLargeObjectBS contents =

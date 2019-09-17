@@ -89,9 +89,9 @@ clearMailQueue :: forall m f.
   , MonadBaseNoPureAborts IO m
   , MonadLogger m
   )
-               => f (Pool Postgresql)
-               -> EmailEnv
-               -> m ()
+  => f (Pool Postgresql)
+  -> EmailEnv
+  -> m ()
 clearMailQueue db emailEnv = do
   queuedEmail <- (runDb db :: DbPersist Postgresql m a -> m a) $ do
     qe <- listToMaybe . Map.toList <$>

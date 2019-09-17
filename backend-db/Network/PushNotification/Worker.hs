@@ -84,7 +84,6 @@ apnsWorker cfg delay db = askLoggerIO >>= \logger -> return . killThread <=<
                     clear
               _ -> return ()
       runLoggingT (runDb db clear >> liftIO (threadDelay delay)) logger
-    return ()
 
 firebaseWorker
   :: (MonadLoggerIO m, RunDb f)
