@@ -9,12 +9,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -27,29 +27,40 @@ import Control.Monad.Reader
 import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
-import Data.Constraint (Dict (..))
+import Data.Constraint
+import Data.Constraint.Extras
 import Data.Default (Default)
+import Data.Functor.Sum
+import qualified Data.IntMap as IntMap
 import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
+import Data.Some
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI)
+import Network.URI (URI, parseURI)
 import qualified Reflex as R
+import Data.Witherable (Filterable)
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
 
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.Request.Class
 import Rhyolite.WebSocket
+
+import Obelisk.Configs
+import Obelisk.Route hiding (Decoder)
+import Obelisk.Route.Frontend hiding (Decoder)
 
 #if defined(ghcjs_HOST_OS)
 import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
@@ -58,54 +69,84 @@ import GHCJS.DOM.Types (MonadJSM(..))
 import Rhyolite.Request.Common (decodeValue')
 #endif
 
-type RhyoliteWidgetInternal app t m = QueryT t (ViewSelector app SelectedCount) (RequesterT t (AppRequest app) Identity m)
+import Data.Vessel
 
-newtype RhyoliteWidget app t m a = RhyoliteWidget { unRhyoliteWidget :: RhyoliteWidgetInternal app t m a }
+-- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
+functorToWire
+  :: ( Filterable q
+     , Functor v
+     , QueryResult (q ()) ~ v ()
+     , QueryResult (q SelectedCount) ~ v SelectedCount)
+  => QueryMorphism (q SelectedCount) (q ())
+functorToWire = QueryMorphism
+  { _queryMorphism_mapQuery = mapMaybe (\n -> if n < 0 then Nothing else Just ())
+  , _queryMorphism_mapQueryResult = fmap (const (SelectedCount 1))
+  }
+
+-- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the newer-style functor-parametric view types (such as Vessel).
+vesselToWire
+  :: ( View v
+     , Monoid (v (Const ()))
+     , QueryResult (v (Const ())) ~ v Identity
+     , QueryResult (v (Const SelectedCount)) ~ v Identity
+     )
+  => QueryMorphism (v (Const SelectedCount)) (v (Const ()))
+vesselToWire = QueryMorphism
+  { _queryMorphism_mapQuery = \q -> 
+      let deplete (Const n) = if n == mempty then Nothing else Just (Const ())
+      in case mapMaybeV deplete q of
+            Nothing -> mempty
+            Just q' -> q'
+  , _queryMorphism_mapQueryResult = id
+  }
+
+type RhyoliteWidgetInternal q r t m = QueryT t q (RequesterT t r Identity m)
+
+newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: RhyoliteWidgetInternal q r t m a }
   deriving (Functor, Applicative, Monad, MonadIO, MonadFix, MonadException)
 
-deriving instance (q ~ (ViewSelector app SelectedCount)
-                  , Group (ViewSelector app SelectedCount)
-                  , Additive (ViewSelector app SelectedCount)
-                  , Query (ViewSelector app SelectedCount)
+deriving instance ( Group q
+                  , Additive q
+                  , Query q
                   , Reflex t
                   , Monad m)
-                  => MonadQuery t q (RhyoliteWidget app t m)
+                  => MonadQuery t q (RhyoliteWidget q r t m)
 
 #if !defined(ghcjs_HOST_OS)
-instance MonadJSM m => MonadJSM (RhyoliteWidget app t m) where
+instance MonadJSM m => MonadJSM (RhyoliteWidget q r t m) where
   liftJSM' = lift . liftJSM'
 #endif
 
-instance MonadTrans (RhyoliteWidget app t) where
+instance MonadTrans (RhyoliteWidget q r t) where
   lift = RhyoliteWidget . lift . lift
 
-instance HasJS x m => HasJS x (RhyoliteWidget app t m) where
-  type JSX (RhyoliteWidget app t m) = JSX m
+instance HasJS x m => HasJS x (RhyoliteWidget q r t m) where
+  type JSX (RhyoliteWidget q r t m) = JSX m
   liftJS = lift . liftJS
 
-instance HasDocument m => HasDocument (RhyoliteWidget app t m) where
+instance HasDocument m => HasDocument (RhyoliteWidget q r t m) where
   askDocument = RhyoliteWidget . lift . lift $ askDocument
 
-instance (MonadWidget' t m, PrimMonad m) => Requester t (RhyoliteWidget app t m) where
-  type Request (RhyoliteWidget app t m) = AppRequest app
-  type Response (RhyoliteWidget app t m) = Identity
+instance (MonadWidget' t m, PrimMonad m) => Requester t (RhyoliteWidget q r t m) where
+  type Request (RhyoliteWidget q r t m) = r
+  type Response (RhyoliteWidget q r t m) = Identity
   requesting = RhyoliteWidget . requesting
   requesting_ = RhyoliteWidget . requesting_
 
-instance PerformEvent t m => PerformEvent t (RhyoliteWidget app t m) where
-  type Performable (RhyoliteWidget app t m) = Performable m
+instance PerformEvent t m => PerformEvent t (RhyoliteWidget q r t m) where
+  type Performable (RhyoliteWidget q r t m) = Performable m
   performEvent_ = lift . performEvent_
   performEvent = lift . performEvent
 
-instance TriggerEvent t m => TriggerEvent t (RhyoliteWidget app t m) where
+instance TriggerEvent t m => TriggerEvent t (RhyoliteWidget q r t m) where
   newTriggerEvent = lift newTriggerEvent
   newTriggerEventWithOnComplete = lift newTriggerEventWithOnComplete
   newEventWithLazyTriggerWithOnComplete = lift . newEventWithLazyTriggerWithOnComplete
 
-instance NotReady t m => NotReady t (RhyoliteWidget app t m)
+instance NotReady t m => NotReady t (RhyoliteWidget q r t m)
 
-instance (HasView app, DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount)) => DomBuilder t (RhyoliteWidget app t m) where
-  type DomBuilderSpace (RhyoliteWidget app t m) = DomBuilderSpace m
+instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group q, Additive q, Eq q, Query q) => DomBuilder t (RhyoliteWidget q r t m) where
+  type DomBuilderSpace (RhyoliteWidget q r t m) = DomBuilderSpace m
   textNode = liftTextNode
   element elementTag cfg (RhyoliteWidget child) = RhyoliteWidget $ element elementTag cfg child
   inputElement = RhyoliteWidget . inputElement
@@ -114,89 +155,88 @@ instance (HasView app, DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref 
   placeRawElement = RhyoliteWidget . placeRawElement
   wrapRawElement e = RhyoliteWidget . wrapRawElement e
 
-instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Group (ViewSelector app SelectedCount), Additive (ViewSelector app SelectedCount), Query (ViewSelector app SelectedCount)) => Adjustable t (RhyoliteWidget app t m) where
+instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq q, Group q, Additive q, Query q) => Adjustable t (RhyoliteWidget q r t m) where
   runWithReplace a0 a' = RhyoliteWidget $ runWithReplace (coerce a0) (coerceEvent a')
   traverseDMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseIntMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseIntMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
 
-instance PostBuild t m => PostBuild t (RhyoliteWidget app t m) where
+instance PostBuild t m => PostBuild t (RhyoliteWidget q r t m) where
   getPostBuild = lift getPostBuild
 
-instance MonadRef m => MonadRef (RhyoliteWidget app t m) where
-  type Ref (RhyoliteWidget app t m) = Ref m
+instance MonadRef m => MonadRef (RhyoliteWidget q r t m) where
+  type Ref (RhyoliteWidget q r t m) = Ref m
   newRef = RhyoliteWidget . newRef
   readRef = RhyoliteWidget . readRef
   writeRef r = RhyoliteWidget . writeRef r
 
-instance MonadHold t m => MonadHold t (RhyoliteWidget app t m) where
+instance MonadHold t m => MonadHold t (RhyoliteWidget q r t m) where
   hold a = RhyoliteWidget . hold a
   holdDyn a = RhyoliteWidget . holdDyn a
   holdIncremental a = RhyoliteWidget . holdIncremental a
   buildDynamic a = RhyoliteWidget . buildDynamic a
   headE = RhyoliteWidget . headE
 
-instance MonadSample t m => MonadSample t (RhyoliteWidget app t m) where
+instance MonadSample t m => MonadSample t (RhyoliteWidget q r t m) where
   sample = RhyoliteWidget . sample
 
-instance HasJSContext m => HasJSContext (RhyoliteWidget app t m) where
-  type JSContextPhantom (RhyoliteWidget app t m) = JSContextPhantom m
+instance HasJSContext m => HasJSContext (RhyoliteWidget q r t m) where
+  type JSContextPhantom (RhyoliteWidget q r t m) = JSContextPhantom m
   askJSContext = RhyoliteWidget askJSContext
 
-instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWidget app t m) where
+instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWidget q r t m) where
   newEventWithTrigger = RhyoliteWidget . newEventWithTrigger
   newFanEventWithTrigger a = RhyoliteWidget . lift $ newFanEventWithTrigger a
 
-instance (Monad m, Routed t r m) => Routed t r (RhyoliteWidget app t m) where
+instance (Monad m, Routed t route m) => Routed t route (RhyoliteWidget q r t m) where
   askRoute = lift askRoute
 
-instance (Monad m, SetRoute t r m) => SetRoute t r (RhyoliteWidget app t m) where
+instance (Monad m, SetRoute t route m) => SetRoute t route (RhyoliteWidget q r t m) where
   modifyRoute = lift . modifyRoute
 
-instance (Monad m, RouteToUrl r m) => RouteToUrl r (RhyoliteWidget app t m) where
+instance (Monad m, RouteToUrl route m) => RouteToUrl route (RhyoliteWidget q r t m) where
   askRouteToUrl = lift askRouteToUrl
 
 deriving instance ( Reflex t
                   , Prerender js t m
                   , MonadFix m
-                  , Group (ViewSelector app SelectedCount)
-                  , Additive (ViewSelector app SelectedCount)
-                  , Query (ViewSelector app SelectedCount)
-                  ) => Prerender js t (RhyoliteWidget app t m)
+                  , Eq q
+                  , Group q
+                  , Additive q
+                  , Query q
+                  ) => Prerender js t (RhyoliteWidget q r t m)
 
-instance PrimMonad m => PrimMonad (RhyoliteWidget app t m) where
-  type PrimState (RhyoliteWidget app t m) = PrimState m
+instance PrimMonad m => PrimMonad (RhyoliteWidget q r t m) where
+  type PrimState (RhyoliteWidget q r t m) = PrimState m
   primitive = lift . primitive
 
-deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget app t m)
+deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget q r t m)
 
 -- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
-type MonadRhyoliteFrontendWidget app t m =
-    ( MonadRhyoliteWidget app t m
+type MonadRhyoliteFrontendWidget q r t m =
+    ( MonadRhyoliteWidget q r t m
     , DomBuilderSpace m ~ GhcjsDomSpace
+    , MonadIO m
+    , MonadIO (Performable m)
     )
 
 class ( MonadWidget' t m
       , Requester t m
-      , R.Request m ~ AppRequest app
+      , R.Request m ~ r
       , Response m ~ Identity
-      , HasRequest app
-      , HasView app
-      , Group (ViewSelector app SelectedCount)
-      , Additive (ViewSelector app SelectedCount)
-      , MonadQuery t (ViewSelector app SelectedCount) m
-      ) => MonadRhyoliteWidget app t m | m -> app t where
+      , Group q
+      , Additive q
+      , MonadQuery t q m
+      ) => MonadRhyoliteWidget q r t m | m -> q r where
 
 instance ( MonadWidget' t m
          , Requester t m
-         , R.Request m ~ AppRequest app
+         , R.Request m ~ r
          , Response m ~ Identity
-         , HasRequest app
-         , HasView app
-         , Group (ViewSelector app SelectedCount)
-         , Additive (ViewSelector app SelectedCount)
-         , MonadQuery t (ViewSelector app SelectedCount) m
-         ) => MonadRhyoliteWidget app t m
+         , Group q
+         , Additive q
+         , MonadQuery t q m
+         ) => MonadRhyoliteWidget q r t m
 
 queryDynUniq :: ( Monad m
                 , Reflex t
@@ -230,8 +270,6 @@ type MonadWidget' t m =
   , PostBuild t m
   , PerformEvent t m
   , TriggerEvent t m
-  , MonadIO m
-  , MonadIO (Performable m)
   -- , MonadJSM m
   -- , MonadJSM (Performable m)
   -- , HasJSContext m
@@ -244,70 +282,86 @@ type MonadWidget' t m =
   , Ref (Performable m) ~ Ref IO
   )
 
+runObeliskRhyoliteWidget ::
+  ( PerformEvent t m
+  , TriggerEvent t m
+  , PostBuild t m
+  , MonadHold t m
+  , MonadFix m
+  , Prerender x t m
+  , HasConfigs m
+  , Request req
+  , Query qFrontend
+  , Group qFrontend
+  , Additive qFrontend
+  , Eq qWire
+  , Monoid (QueryResult qFrontend)
+  , FromJSON (QueryResult qWire)
+  , ToJSON qWire
+  )
+  => QueryMorphism qFrontend qWire
+  -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
+  -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
+  -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
+  -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
+  -> RoutedT t (R frontendRoute) m a
+runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
+  obR <- askRoute
+  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
+  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+
 runPrerenderedRhyoliteWidget
-   :: forall app m t b x.
-      ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
-      , HasView app
-      , HasRequest app
-      , Eq (ViewSelector app SelectedCount)
-      , PerformEvent t m
+   :: forall qFrontend qWire req m t b x.
+      ( PerformEvent t m
       , TriggerEvent t m
-      , PostBuild t m, MonadHold t m
+      , PostBuild t m
+      , MonadHold t m
       , MonadFix m
       , Prerender x t m
-      , MonadIO (Performable m)
+      , Request req
+      , Query qFrontend
+      , Group qFrontend
+      , Additive qFrontend
+      , Eq qWire
+      , Monoid (QueryResult qFrontend)
+      , FromJSON (QueryResult qWire)
+      , ToJSON qWire
       )
-   => Text
-   -> RhyoliteWidget app t m b
+   => QueryMorphism qFrontend qWire
+   -> Text
+   -> RhyoliteWidget qFrontend req t m b
    -> m b
-runPrerenderedRhyoliteWidget url child = do
-  rec (notification :: Event t (View app ()), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $
+runPrerenderedRhyoliteWidget toWire url child = do
+  rec (notification :: Event t (QueryResult qWire), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $
         prerender (return (never, never)) $ do
-          appWebSocket :: AppWebSocket t app <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
+          (appWebSocket :: AppWebSocket t q) <- openWebSocket' url request'' nubbedVs
           return ( _appWebSocket_notification appWebSocket
                  , _appWebSocket_response appWebSocket
                  )
-      (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
-      let request'' = fmap (fmapMaybe (\(t, v) -> case fromJSON v of
-            Success (v' :: (SomeRequest (AppRequest app))) -> Just $ TaggedRequest t v'
+      (request', response') <- matchResponsesWithRequests reqEncoder request $ ffor response $ \(TaggedResponse t v) -> (t, v)
+      let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
+            Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
             _ -> Nothing)) request'
-      ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
-      nubbedVs :: Dynamic t (ViewSelector app SelectedCount) <- holdUniqDyn $ incrementalToDynamic (vs :: Incremental t (AdditivePatch (ViewSelector app SelectedCount)))
-      view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
+      ((a, vs), request) <- flip runRequesterT (fmapMaybe (traverseRequesterData (fmap Identity)) response') $ runQueryT (unRhyoliteWidget child) view
+      let (vsDyn :: Dynamic t qFrontend) = incrementalToDynamic (vs :: Incremental t (AdditivePatch qFrontend))
+      nubbedVs <- holdUniqDyn (_queryMorphism_mapQuery toWire <$> vsDyn)
+      view <- fmap join $ prerender (pure mempty) $ fromNotifications vsDyn $ _queryMorphism_mapQueryResult toWire <$> notification
   return a
-
-runRhyoliteWidget
-   :: forall app m t b x.
-      ( QueryResult (ViewSelector app SelectedCount) ~ View app SelectedCount
-      , HasView app
-      , HasRequest app
-      , Eq (ViewSelector app SelectedCount)
-      , HasJS x m, HasJSContext m, PerformEvent t m
-      , TriggerEvent t m
-      , PostBuild t m, MonadHold t m, MonadJSM (Performable m), MonadJSM m
-      , MonadFix m
-      , MonadIO (Performable m)
+  where
+    reqEncoder :: forall a. req a -> (Aeson.Value, Aeson.Value -> Maybe a)
+    reqEncoder r =
+      ( whichever @ToJSON @req @a $ Aeson.toJSON r
+      , \x -> case has @FromJSON r $ Aeson.fromJSON x of
+        Success s-> Just s
+        _ -> Nothing
       )
-   => Text
-   -> RhyoliteWidget app t m b
-   -> m (AppWebSocket t app, b)
-runRhyoliteWidget url child = do
-  rec appWebSocket <- openWebSocket' url request'' $ fmap (\_ -> ()) <$> nubbedVs
-      let notification = _appWebSocket_notification appWebSocket
-          response = _appWebSocket_response appWebSocket
-      (request', response') <- identifyTags request $ ffor response $ \(TaggedResponse t v) -> (t, v)
-      let request'' = fmap (fmapMaybe (\(t, v) -> case fromJSON v of
-            Success (v' :: (SomeRequest (AppRequest app))) -> Just $ TaggedRequest t v'
-            _ -> Nothing)) request'
-      ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
-      nubbedVs :: Dynamic t (ViewSelector app SelectedCount) <- holdUniqDyn $ incrementalToDynamic (vs :: Incremental t (AdditivePatch (ViewSelector app SelectedCount)))
-      view <- fromNotifications nubbedVs $ fmap (\_ -> SelectedCount 1) <$> notification
-  return (appWebSocket, a)
 
-fromNotifications :: forall m (t :: *) vs. (Query vs, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult vs))
-                  => Dynamic t vs
-                  -> Event t (QueryResult vs)
-                  -> m (Dynamic t (QueryResult vs))
+fromNotifications
+  :: forall m (t :: *) q. (Query q, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult q))
+  => Dynamic t q
+  -> Event t (QueryResult q)
+  -> m (Dynamic t (QueryResult q))
 fromNotifications vs ePatch = do
   ePatchThrottled <- throttleBatchWithLag lag ePatch
   foldDyn (\(vs', p) v -> cropView vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
@@ -316,71 +370,33 @@ fromNotifications vs ePatch = do
 
 data Decoder f = forall a. FromJSON a => Decoder (f a)
 
-identifyTags
-  :: forall t v m.
-     ( MonadFix m
-     , MonadHold t m
-     , Reflex t
-     , Request v
-     )
-  => Event t (RequesterData v)
-  -> Event t (Data.Aeson.Value, Data.Aeson.Value)
-  -> m ( Event t [(Data.Aeson.Value, Data.Aeson.Value)]
-       , Event t (RequesterData Identity)
-       )
-identifyTags send recv = do
-  rec nextId :: Behavior t Int <- hold 1 $ fmap (\(a, _, _) -> a) send'
-      waitingFor :: Incremental t (PatchMap Int (Decoder RequesterDataKey)) <- holdIncremental mempty $ leftmost
-        [ fmap (\(_, b, _) -> b) send'
-        , fmap snd recv'
-        ]
-      let send' = flip pushAlways send $ \dm -> do
-            oldNextId <- sample nextId
-            let (result, newNextId) = flip runState oldNextId $ forM (requesterDataToList dm) $ \(k :=> v) -> do
-                  n <- get
-                  put $ succ n
-                  return (n, k :=> v)
-                patchWaitingFor = PatchMap $ Map.fromList $ ffor result $ \(n, k :=> v) -> case requestResponseFromJSON v of
-                  Dict -> (n, Just (Decoder k))
-                toSend = ffor result $ \(n, _ :=> v) -> (toJSON n, requestToJSON v)
-            return (newNextId, patchWaitingFor, toSend)
-      let recv' = flip push recv $ \(jsonN, jsonV) -> do
-            wf <- sample $ currentIncremental waitingFor
-            case parseMaybe parseJSON jsonN of
-              Nothing -> return Nothing
-              Just n ->
-                return $ case Map.lookup n wf of
-                  Just (Decoder k) -> Just $
-                    let Just v = parseMaybe parseJSON jsonV
-                    in (singletonRequesterData k $ Identity v, PatchMap $ Map.singleton n Nothing)
-                  Nothing -> Nothing
-  return (fmap (\(_, _, c) -> c) send', fst <$> recv')
-
-data AppWebSocket t app = AppWebSocket
-  { _appWebSocket_notification :: Event t (View app ())
+data AppWebSocket t q = AppWebSocket
+  { _appWebSocket_notification :: Event t (QueryResult q)
   , _appWebSocket_response :: Event t TaggedResponse
   , _appWebSocket_version :: Event t Text
   , _appWebSocket_connected :: Dynamic t Bool
   }
 
 -- | Open a websocket connection and split resulting incoming traffic into listen notification and api response channels
-openWebSocket' :: forall app t x m.
-                 ( MonadJSM m
-                 , MonadJSM (Performable m)
-                 , PostBuild t m
-                 , TriggerEvent t m
-                 , PerformEvent t m
-                 , HasJSContext m
-                 , HasJS x m
-                 , MonadFix m
-                 , MonadHold t m
-                 , HasView app
-                 , HasRequest app
-                 )
-              => Text -- ^ A complete URL
-              -> Event t [TaggedRequest (AppRequest app)] -- ^ Outbound requests
-              -> Dynamic t (ViewSelector app ()) -- ^ Authenticated listen requests (e.g., ViewSelector updates)
-              -> m (AppWebSocket t app)
+openWebSocket' 
+  :: forall r q t x m.
+     ( MonadJSM m
+     , MonadJSM (Performable m)
+     , PostBuild t m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , HasJSContext m
+     , HasJS x m
+     , MonadFix m
+     , MonadHold t m
+     , FromJSON (QueryResult q)
+     , ToJSON q
+     , Request r
+     )
+  => Text -- ^ A complete URL
+  -> Event t [TaggedRequest r] -- ^ Outbound requests
+  -> Dynamic t q -- ^ Authenticated listen requests (e.g., ViewSelector updates)
+  -> m (AppWebSocket t q)
 openWebSocket' url request vs = do
 #if defined(ghcjs_HOST_OS)
   rec let platformDecode = jsonDecode . pFromJSVal
@@ -390,12 +406,15 @@ openWebSocket' url request vs = do
   rec let platformDecode = decodeValue' . LBS.fromStrict
       ws <- webSocket url $ def
 #endif
-        & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . encode)) (mconcat
+        & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . Aeson.encode)) (mconcat
           [ fmap (map WebSocketRequest_Api) request
-          , fmap ((:[]) . WebSocketRequest_ViewSelector) $ updated vs :: Event t [WebSocketRequest app (AppRequest app)]
+          , fmap ((:[]) . WebSocketRequest_ViewSelector) $ updated vs :: Event t [WebSocketRequest q r]
+          -- NB: It's tempting to try to only send query diffs here, but this must be treated
+          -- with care, since the backend needs to know when we cease being interested in things
+          -- so that it knows not to send further notifications.
           , tag (fmap ((:[]) . WebSocketRequest_ViewSelector) $ current vs) $ _webSocket_open ws
           ])
-  let (eMessages :: Event t (WebSocketResponse app)) = fmapMaybe platformDecode $ _webSocket_recv ws
+  let (eMessages :: Event t (WebSocketResponse q)) = fmapMaybe platformDecode $ _webSocket_recv ws
       notification = fforMaybe eMessages $ \case
         WebSocketResponse_View v -> Just v
         _ -> Nothing
@@ -413,25 +432,27 @@ openWebSocket' url request vs = do
     , _appWebSocket_connected = connected
     }
 
-openWebSocket :: forall t x m app.
-                 ( MonadJSM m
-                 , MonadJSM (Performable m)
-                 , PostBuild t m
-                 , TriggerEvent t m
-                 , PerformEvent t m
-                 , HasJSContext m
-                 , HasJS x m
-                 , MonadFix m
-                 , MonadHold t m
-                 , HasRequest app
-                 , HasView app
-                 )
-              => Text -- ^ A complete URL
-              -> Event t [TaggedRequest (AppRequest app)] -- ^ Outbound requests
-              -> Dynamic t (ViewSelector app ()) -- ^ current ViewSelector
-              -> m ( Event t (View app ())
-                   , Event t TaggedResponse
-                   )
+openWebSocket 
+  :: forall t x m r q.
+     ( MonadJSM m
+     , MonadJSM (Performable m)
+     , PostBuild t m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , HasJSContext m
+     , HasJS x m
+     , MonadFix m
+     , MonadHold t m
+     , Request r
+     , FromJSON (QueryResult q)
+     , ToJSON q
+     )
+  => Text -- ^ A complete URL
+  -> Event t [TaggedRequest r] -- ^ Outbound requests
+  -> Dynamic t q -- ^ current ViewSelector
+  -> m ( Event t (QueryResult q)
+       , Event t TaggedResponse
+       )
 openWebSocket murl request vs = do
   aws <- openWebSocket' murl request vs
   return (_appWebSocket_notification aws, _appWebSocket_response aws)
@@ -455,3 +476,43 @@ instance Default FrontendConfig where
     , _frontendConfig_uriCallback = Nothing
     , _frontendConfig_warpPort = 3911
     }
+
+-- | Map application credentials into an "authenticated" subwidget
+-- This relieves us of having to carry around application credentials in parts of the application
+-- known to be accessible only to authenticated users.
+-- For example, you might define a view selector @VS (Map k) a@ and in the authenticated parts of the application
+-- the @k@ would be '()'. At top level, this the '()'s would be replaced by a 'QueryMorphism' with the actual credential to
+-- be sent to the backend.
+mapAuth
+  :: forall publicRequest privateRequest q q' a cred t m.
+     ( MonadFix m
+     , PostBuild t m
+     , Query q
+     , Group q
+     , Additive q
+     , Group q'
+     , Additive q'
+     )
+  => cred
+  -- ^ The application's authentication token, used to transform api calls made by the authenticated child widget
+  -> QueryMorphism q' q
+    -- ^ A morphism from a query type supplied by the user, "f", that represents queries made by authenticated widgets, to a the query
+    -- type of the application as a whole (which may have authenticated and public components)
+  -> QueryT t q' ((RequesterT t (ApiRequest () publicRequest privateRequest)) Identity m) a
+  -- ^ The authenticated child widget. It uses '()' as its credential for private requests
+  -> RhyoliteWidget q (ApiRequest cred publicRequest privateRequest) t m a
+mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
+  v <- askQueryResult
+  (a, vs) <- lift $ withRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
+  -- tellQueryIncremental vs would seem simpler, but tellQueryDyn is more baked, subtracting off the removals properly.
+  tellQueryDyn $ incrementalToDynamic vs
+  return a
+  where
+    authorizeReq
+      :: forall x. ApiRequest () publicRequest privateRequest x
+      -> ApiRequest cred publicRequest privateRequest x
+    authorizeReq = \case
+      ApiRequest_Public a -> ApiRequest_Public a
+      ApiRequest_Private () a -> ApiRequest_Private token a
+
+
