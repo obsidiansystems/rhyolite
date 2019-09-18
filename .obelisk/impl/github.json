@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "mh-hydration",
-  "rev": "ec61a5c1f1cf13915e5e611521c49874fe619e1b",
-  "sha256": "08jhsndcmx1kf57j4mjbgvn20dar2rlrh5hhbx8ms0ybf7wh3i93"
+  "branch": "mh-bump-jsaddle",
+  "rev": "c485918050252f850ae3a044215070a013f76c55",
+  "sha256": "1llgib5wsqr5gf34smvkpic8yjq24fq36cf01zhw7jk2xilxpy8n"
 }
