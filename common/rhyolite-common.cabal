@@ -37,6 +37,7 @@ library
     , obelisk-route
     , reflex
     , resource-pool
+    , semialign
     , template-haskell
     , text
     , these

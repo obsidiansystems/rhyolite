@@ -55,6 +55,7 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
+    , semialign
     , smtp-mail
     , snap-core
     , split

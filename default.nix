@@ -28,23 +28,20 @@ let
     aeson-gadt-th = repos.aeson-gadt-th;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
-    dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
     groundhog = repos.groundhog + /groundhog;
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
-    monoidal-containers = repos.monoidal-containers;
-    postgresql-lo-stream = repos.postgresql-lo-stream;
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + /gargoyle;
     gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
     gargoyle-postgresql-connect = repos.gargoyle + /gargoyle-postgresql-connect;
     gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
+    #libsystemd-journal = repos.libsystemd-journal; # TODO: Remove override once nixpkgs is bumped to include 1.4.4.
     # Newly added to hackage
     database-id-class = repos.database-id + /class;
     database-id-groundhog = repos.database-id + /groundhog;
     database-id-obelisk = repos.database-id + /obelisk;
     push-notifications = repos.push-notifications;
-    reflex = repos.reflex;
     vessel = repos.vessel;
   };
 
@@ -57,6 +54,27 @@ let
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
       validation = haskellLib.dontCheck super.validation;
+
+      dependent-sum-aeson-orphans = self.callHackageDirect {
+        pkg = "dependent-sum-aeson-orphans";
+        ver = "0.2.1.0";
+        sha256 = "18ahi78f42dlh1gq0lzab0ik8c3vvlphdic4abywcqv2q0ilqxq7";
+      } {};
+
+      postgresql-lo-stream = self.callHackageDirect {
+        pkg = "postgresql-lo-stream";
+        ver = "0.1.1.1";
+        sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
+      } {};
+
+      # TODO: Remove override once nixpkgs is bumped to include 1.4.4.
+      libsystemd-journal = haskellLib.overrideCabal (
+        self.callHackageDirect {
+          pkg = "libsystemd-journal";
+          ver = "1.4.4";
+          sha256 = "0cdvyqf2dg7d1ccgpk8fhiq7gjkh9rzcl8zy8fwq2d87lmxxn1dr";
+        } {}
+      ) { libraryPkgconfigDepends = [ pkgs.systemd ]; };
     })
   ];
 
