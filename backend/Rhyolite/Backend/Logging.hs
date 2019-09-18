@@ -32,6 +32,7 @@
 
 module Rhyolite.Backend.Logging
   ( withLogging
+  , withLoggingMinLevel
   , LoggingEnv(..)
   , LoggingConfig(..)
   , runLoggingEnv
@@ -204,10 +205,10 @@ instance LogAppender RhyoliteLogAppender where
       RhyoliteLogAppender_Journald cfg -> return $ LoggingContext (return ()) (logToJournalCtl (syslogIdentifier $ _rhyoliteLogAppenderJournald_syslogIdentifier cfg))
 #endif
 
-configLogger :: (LogAppender a, MonadIO m) => LoggingConfig a -> m (LoggingContext m)
-configLogger (LoggingConfig ls fs) = do
+configLogger :: (LogAppender a, MonadIO m) => Maybe LogLevel -> LoggingConfig a -> m (LoggingContext m)
+configLogger minLoggedLvl (LoggingConfig ls fs) = do
   LoggingContext cleaner logger <- getLogContext ls
-  return $ LoggingContext cleaner $ filterLog (fmap toLogLevel $ maybe M.empty id fs) logger
+  return $ LoggingContext cleaner $ filterLog minLoggedLvl (fmap toLogLevel $ maybe M.empty id fs) logger
 
 #if defined(SUPPORT_SYSTEMD_JOURNAL)
 mkJournalField' :: T.Text -> T.Text -> JournalFields
@@ -229,26 +230,37 @@ logToJournalCtl syslogId = LoggingEnv $ \loc logSource logLevel logStr -> sendMe
   ]
 #endif
 
--- | match the LogSource on prefixes in m.  if found, log only the messages at equal or higher than the
---   matched level.  if not found, log only LevelWarn or higher.   You can override the default with a zero length prefix, ie `"" := LevelDebug`
-filterLog :: Map T.Text LogLevel -> LoggingEnv -> LoggingEnv
-filterLog m (LoggingEnv f) =
+-- | Match the LogSource on prefixes in m. If found, log only the messages at equal or higher than the
+--   matched level. If not found and minLoggedLvl is Just value, then log minLoggedLvl or higher.
+--   You can override the default with a zero length prefix, ie `"" := LevelDebug`
+filterLog :: Maybe LogLevel -> Map T.Text LogLevel -> LoggingEnv -> LoggingEnv
+filterLog minLoggedLvl m (LoggingEnv f) =
   let
     -- this gets checked a LOT.  so this needs to be hoisted out of the logging function.
     m' :: Trie.Trie LogLevel
     m' = Trie.fromList $ M.toList $ M.mapKeys TE.encodeUtf8 m
   in LoggingEnv $ \loc src lvl msg -> do
     let filterLvl = case Trie.match m' (TE.encodeUtf8 src) of
-          Nothing -> LevelWarn
-          Just (_, lvl', _) -> lvl'
-    when (lvl >= filterLvl) $ do
+          Nothing -> minLoggedLvl
+          Just (_, lvl', _) -> Just lvl'
+    when (maybe False (lvl >=) filterLvl) $ do
       f loc src lvl msg
 
+withLogging
+  :: forall l m a. (LogAppender l, MonadMask m, MonadIO m)
+  => [LoggingConfig l]
+  -> LoggingT m a
+  -> m a
+withLogging = withLoggingMinLevel (Just LevelWarn)
 
--- | handle `LoggingT` nicely.
-withLogging :: forall l m a. (LogAppender l, MonadMask m, MonadIO m) => [LoggingConfig l] -> LoggingT m a -> m a
-withLogging configs (LoggingT x) = do
-  cleanersAndLoggers <- traverse configLogger configs
+withLoggingMinLevel
+  :: forall l m a. (LogAppender l, MonadMask m, MonadIO m)
+  => Maybe LogLevel -- ^ Min level to log in case of no filter match. Specify (Just LevelWarn) to log errors and warnings even if they dont match any filter.
+  -> [LoggingConfig l]
+  -> LoggingT m a
+  -> m a
+withLoggingMinLevel minLoggedLvl configs (LoggingT x) = do
+  cleanersAndLoggers <- traverse (configLogger minLoggedLvl) configs
   let cleaner = foldl' (>>) (pure ())  $ fmap _loggingContext_cleanup cleanersAndLoggers
   let (LoggingEnv logger) = foldMap _loggingContext_logger cleanersAndLoggers
   finally (x logger) cleaner

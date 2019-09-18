@@ -17,9 +17,9 @@ git clone https://github.com/obsidiansystems/rhyolite dep/rhyolite
 , iosSdkVersion ? "10.2"
 }:
 with import ./.obelisk/impl { inherit system iosSdkVersion; };
-project ./. ({ pkgs, hackGet, ... }: {
+project ./. ({ pkgs, hackGet, ... }@args: {
 
-  overrides = pkgs.lib.composeExtensions (pkgs.callPackage (hackGet ./dep/rhyolite) {}).haskellOverrides
+  overrides = pkgs.lib.composeExtensions (import (hackGet ./dep/rhyolite) args).haskellOverrides
     (self: super: with pkgs.haskell.lib; {
       # Your custom overrides go here.
     });
