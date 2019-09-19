@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -42,13 +43,25 @@ readSignedWithKey k s = do
   guard $ t == show (typeRep $ Proxy @b)
   return v
 
-newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
+-- We need the Typeable here because otherwise two Signeds whose contents encode the same way will be interchangeable
+sign :: (MonadSign m, SigningKey m ~ CS.Key, MonadIO m, Typeable a, ToJSON a) => a -> m (Signed a)
+sign a = do
+  k <- askSigningKey
+  signWithKey k a
+
+readSigned :: (MonadSign m, SigningKey m ~ CS.Key, Typeable a, FromJSON a) => Signed a -> m (Maybe a)
+readSigned s = do
+  k <- askSigningKey
+  pure $ readSignedWithKey k s
+
+newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
 
 runSignT :: SignT m a -> CS.Key -> m a
-runSignT (SignT a) r = runReaderT a r
+runSignT (SignT a) = runReaderT a
 
-instance (MonadIO m, MonadBase IO m) => MonadBase IO (SignT m) where
-  liftBase = liftIO
+instance MonadBase b m => MonadBase b (SignT m) where
+  liftBase = SignT . liftBase
 
 instance MonadTransControl SignT where
   type StT SignT a = StT (ReaderT CS.Key) a
@@ -60,20 +73,15 @@ instance (MonadIO m, MonadBaseControl IO m) => MonadBaseControl IO (SignT m) whe
   liftBaseWith f = SignT $ liftBaseWith $ \g -> f $ g . unSignT
   restoreM a = SignT $ restoreM a
 
-instance MonadIO m => MonadSign (SignT m) where
-  sign a = do
-    k <- SignT ask
-    signWithKey k a
-  readSigned s = do
-    k <- SignT ask
-    return $ readSignedWithKey k s
-
-instance MonadSign m => MonadSign (NoLoggingT m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
-
-instance MonadSign m => MonadSign (DbPersist conn m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+instance Monad m => MonadSign (SignT m) where
+  type SigningKey (SignT m) = CS.Key
+  askSigningKey = SignT ask
 
 deriveNewtypePersistBackend (\m -> [t| SignT $m |]) (\m -> [t| ReaderT CS.Key $m |]) 'SignT 'unSignT
+
+-- Orphans
+instance MonadSign m => MonadSign (NoLoggingT m) where
+  type SigningKey (NoLoggingT m) = SigningKey m
+
+instance MonadSign m => MonadSign (DbPersist conn m) where
+  type SigningKey (DbPersist conn m) = SigningKey m
