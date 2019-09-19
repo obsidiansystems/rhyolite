@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Rhyolite.Backend.DB.Serializable
@@ -16,6 +17,7 @@ module Rhyolite.Backend.DB.Serializable
   , unSerializable
   ) where
 
+import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (ReaderT, runReaderT, withReaderT)
@@ -46,6 +48,9 @@ newtype Serializable a = Serializable (ReaderT Pg.Connection (LoggingT IO) a)
   --   - 'MonadCatch' so you can't accidentally mask a serialization error from the outer retry logic.
   --   - 'MonadBaseControl' (et al) for the same reason.
   --   - 'MonadIO' so you can't execute arbitrary IO.
+
+instance MonadBase Serializable Serializable where
+  liftBase = id
 
 instance PsqlSimple.PostgresRaw Serializable where
   execute psql qs = unsafeLiftDbPersist $ PsqlSimple.execute psql qs

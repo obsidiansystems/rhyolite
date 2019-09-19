@@ -42,6 +42,7 @@ library
     , text
     , time
     , transformers
+    , transformers-base
     , unbounded-delays
     , universe
 
