@@ -23,6 +23,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (ReaderT, runReaderT, withReaderT)
 import Control.Monad.Logger (MonadLogger, LoggingT)
 import Data.Coerce (coerce)
+import qualified Database.Groundhog.Generic.Migration as Mig
 import Database.Groundhog.Postgresql (Postgresql (..))
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
@@ -89,6 +90,18 @@ instance Hog.PersistBackend Serializable where
     unsafeLiftDbPersist $ Hog.queryRaw c q ps $ \rp -> toDbPersist (f $ unsafeLiftDbPersist rp)
   insertList = unsafeLiftDbPersist . Hog.insertList
   getList = unsafeLiftDbPersist . Hog.getList
+
+instance Mig.SchemaAnalyzer Serializable where
+  schemaExists = unsafeLiftDbPersist . Mig.schemaExists
+  getCurrentSchema = unsafeLiftDbPersist Mig.getCurrentSchema
+  listTables = unsafeLiftDbPersist . Mig.listTables
+  listTableTriggers = unsafeLiftDbPersist . Mig.listTableTriggers
+  getTableAnalysis = unsafeLiftDbPersist Mig.getTableAnalysis
+  analyzeTable info = unsafeLiftDbPersist . Mig.analyzeTable info
+  analyzeTrigger = unsafeLiftDbPersist . Mig.analyzeTrigger
+  analyzeFunction = unsafeLiftDbPersist . Mig.analyzeFunction
+  getMigrationPack i = coerce <$> unsafeLiftDbPersist (Mig.getMigrationPack i)
+
 
 unsafeMkSerializable :: ReaderT Pg.Connection (LoggingT IO) a -> Serializable a
 unsafeMkSerializable = Serializable
