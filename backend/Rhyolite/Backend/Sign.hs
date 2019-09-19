@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -18,8 +19,9 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy as LBS
+import Data.Proxy (Proxy (..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.Typeable (Typeable, typeOf)
+import Data.Typeable (Typeable, typeRep)
 import Database.Groundhog (DbPersist)
 import qualified Web.ClientSession as CS
 
@@ -31,14 +33,14 @@ import Rhyolite.Sign (MonadSign (..), Signed (..))
 
 signWithKey :: (Typeable b, ToJSON b, MonadIO m) => CS.Key -> b -> m (Signed a)
 signWithKey k (v :: b) =
-  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeOf (undefined :: b), v)
+  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeRep (Proxy @b), v)
 
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
-    tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-    (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
-    guard $ t == show (typeOf (undefined :: b))
-    return v
+  tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
+  (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
+  guard $ t == show (typeRep $ Proxy @b)
+  return v
 
 newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
 
