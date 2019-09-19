@@ -93,7 +93,15 @@ class RunDb f where
 
   -- | Runs a read-only transaction at repeatable read isolation level.
   --   No retrying is done.
-  --   NB: "Read-only" is not statically checked!
+  --
+  --  Note that a read-only repeatable read transaction is the highest
+  --  isolation level we can get that cannot fail due to a
+  --  serialization error and cannot be starved by other transactions.
+  --  For contrast, @SERIALIZABLE READ ONLY DEFERRED@ is the highest
+  --  isolation that cannot fail due to serialization error but it
+  --  can be starved.
+  --
+  --  NB: "Read-only" is not statically checked!
   runDbReadOnlyRepeatableRead
     :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
     => f (Pool conn)

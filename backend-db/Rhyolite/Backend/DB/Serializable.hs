@@ -41,8 +41,6 @@ import qualified Control.Monad.State as S
 --
 -- It "disallows" (makes harder) arbitrary IO.
 -- It "disallows" (makes harder) catching IO exceptions *inside* the transaction.
--- It *allows* using ExceptT on top of the transaction which is not "possible" with 'DbPersist'
---   due to 'MonadBaseNoPureAborts'.
 newtype Serializable a = Serializable (ReaderT Pg.Connection (LoggingT IO) a)
   deriving (Functor, Applicative, Monad, MonadThrow, MonadLogger)
   -- NOTE: We *intentionally* leave out
