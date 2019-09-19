@@ -12,6 +12,7 @@
 module Rhyolite.Backend.EmailWorker where
 
 import Control.Exception.Lifted (bracket)
+import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Trans.Control
 import Control.Monad.Logger
 import Control.Monad.Reader
@@ -34,8 +35,10 @@ import qualified Network.HaskellNet.SMTP as SMTP
 import Rhyolite.Concurrent
 import qualified Data.Map.Monoidal as Map
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.LargeObjects
+import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.DB.Serializable (Serializable)
+import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Schema
@@ -51,9 +54,12 @@ data QueuedEmail = QueuedEmail
 
 instance HasId QueuedEmail
 
-mailToQueuedEmail :: (PostgresLargeObject m, MonadIO m) => Mail.Mail -> Maybe UTCTime -> m QueuedEmail
+mailToQueuedEmail :: (Monad m, PostgresLargeObject m, MonadBase Serializable m) => Mail.Mail -> Maybe UTCTime -> m QueuedEmail
 mailToQueuedEmail m t = do
-  r <- liftIO $ Mail.renderMail' m
+  -- We can safely lift 'renderMail' into serializable transactions because
+  -- it's 'IO' is to generate a random boundary. If we retry we'll generate
+  -- a different one but we don't care what it is anyway.
+  r <- liftBase $ Serializable.unsafeMkSerializable $ liftIO $ Mail.renderMail' m
   (oid, _) <- newLargeObjectLBS r
   return $ QueuedEmail { _queuedEmail_mail = oid
                        , _queuedEmail_to = Json $ Mail.mailTo m
@@ -74,7 +80,7 @@ mkRhyolitePersist (Just "migrateQueuedEmail") [groundhog|
 makeDefaultKeyIdInt64 ''QueuedEmail 'QueuedEmailKey
 
 -- | Queues a single email
-queueEmail :: (PostgresLargeObject m, PersistBackend m, MonadIO m)
+queueEmail :: (PostgresLargeObject m, PersistBackend m, MonadBase Serializable m)
           => Mail.Mail
           -> Maybe UTCTime
           -> m (Id QueuedEmail)
