@@ -162,6 +162,7 @@ rawTaskWorker input pk ready f go db workerName = do
               update
                 [ f ~> RawTask_checkedOutBySelector =. (Nothing :: Maybe Text)
                 , f ~> RawTask_checkedOutAtSelector =. (Nothing :: Maybe UTCTime)
+                , f ~> RawTask_failedSelector =. (Nothing :: Maybe Text)
                 ]
                 (pk ==. taskId)
               return Nothing
