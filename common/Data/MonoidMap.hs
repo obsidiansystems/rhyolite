@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Data.MonoidMap where
 
 import Data.Witherable
