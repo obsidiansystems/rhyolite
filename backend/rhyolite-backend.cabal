@@ -12,6 +12,12 @@ flag support-systemd-journal
   description: Include support for systemd journal logging
   default: True
 
+flag split-these
+  description: Use split these/semialign packages
+  manual:      False
+  default:     True
+
+
 library
   hs-source-dirs: .
 
@@ -61,7 +67,6 @@ library
     , stm
     , template-haskell
     , text
-    , these
     , time
     , transformers
     , transformers-base
@@ -74,6 +79,11 @@ library
   if flag(support-systemd-journal) && os(linux)
     build-depends:
       libsystemd-journal
+  if flag(split-these)
+    build-depends:     these >= 1 && <1.1,
+                       semialign >=1 && <1.1
+  else
+    build-depends:     these >= 0.7 && <0.9
 
   exposed-modules:
     Rhyolite.Backend.Account

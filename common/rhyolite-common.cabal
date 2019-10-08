@@ -8,6 +8,11 @@ stability: Experimental
 build-type: Simple
 cabal-version: >=1.2
 
+flag split-these
+  description: Use split these/semialign packages
+  manual:      False
+  default:     True
+
 library
   hs-source-dirs: .
 
@@ -39,13 +44,19 @@ library
     , resource-pool
     , template-haskell
     , text
-    , these
     , time
     , transformers
     , transformers-base
     , vector
     , witherable >= 0.2 && < 0.4
     , vessel
+
+  if flag(split-these)
+    build-depends:     these >= 1 && <1.1,
+                       semialign >=1 && <1.1
+  else
+    build-depends:     these >= 0.7 && <0.9
+
 
   exposed-modules:
     Data.MonoidMap
