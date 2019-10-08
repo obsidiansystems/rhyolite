@@ -60,14 +60,14 @@ instance (ToJSON a, FromJSON a) => PersistField (Json a) where
   toPersistValues (Json a) = toPersistValues (encode a)
   fromPersistValues vs = do
     (r, vs') <- fromPersistValues vs
-    Just r' <- return $ decode' r
+    r' <- either error return $ eitherDecode' r
     return (Json r', vs')
   dbType p (Json a) = dbType p (encode a)
 
 instance (ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
   toPrimitivePersistValue p (Json a) = toPrimitivePersistValue p (encode a)
   fromPrimitivePersistValue p v = runIdentity $ do
-    Just r <- return $ decode' $ fromPrimitivePersistValue p v
+    r <- either error return $ eitherDecode' $ fromPrimitivePersistValue p v
     return (Json r)
 
 instance ToJSON a => ToField (Json a) where

@@ -9,6 +9,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -307,7 +308,11 @@ runObeliskRhyoliteWidget ::
   -> RoutedT t (R frontendRoute) m a
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
-  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  r' <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  let route = case r' of
+        Nothing -> error $ T.unpack $ "route config missing: " <> configRoute
+        Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
+        Just (Just r) -> r
   let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
   lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
 
