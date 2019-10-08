@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Rhyolite.Backend.DB.PsqlSimple.Orphans where
 
@@ -7,6 +8,8 @@ import Database.PostgreSQL.Simple.FromRow
 import Database.PostgreSQL.Simple.ToField
 import Database.PostgreSQL.Simple.ToRow
 
+#if MIN_VERSION_postgresql_simple(0,6,0)
+#else
 instance (FromField a, FromField b, FromField c, FromField d, FromField e,
           FromField f, FromField g, FromField h, FromField i, FromField j,
           FromField k) =>
@@ -137,6 +140,7 @@ instance (ToField a, ToField b, ToField c, ToField d, ToField e, ToField f,
          toField g, toField h, toField i, toField j, toField k, toField l,
          toField m, toField n, toField o, toField p, toField q, toField r,
          toField s, toField t]
+#endif
 
 instance (ToField a, ToField b, ToField c, ToField d, ToField e, ToField f,
           ToField g, ToField h, ToField i, ToField j, ToField k, ToField l,

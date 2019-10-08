@@ -101,8 +101,11 @@ liftBaseThrough f t = do
 
 getSearchPath :: PersistBackend m => m String
 getSearchPath = do
-  [searchPath] :: [String] <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
-  return searchPath
+  searchPath' <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
+  case searchPath' of
+    (searchPath:[]) -> return searchPath
+    [] -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not return a value"
+    _ -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not returned multiple values"
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
@@ -200,8 +203,11 @@ fieldIsNothing = isFieldNothing
 
 getTime :: PersistBackend m => m UTCTime
 getTime = do
-  Just [PersistUTCTime t] <- queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id
-  return t
+  t' <- queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id
+  case t' of
+    Just (PersistUTCTime t:[]) -> return t
+    Just (_:_:_) -> error "Rhyolite.Backend.DB(getTime) queryRaw did not returned multiple values"
+    _ -> error "Rhyolite.Backend.DB(getTime) queryRaw did not return a value"
 
 withTime :: PersistBackend m => (UTCTime -> m a) -> m a
 withTime a = do

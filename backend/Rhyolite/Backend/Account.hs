@@ -181,13 +181,13 @@ resetPassword
   -> UTCTime
   -> Text
   -> m (Maybe (Id Account))
-resetPassword aid nonce password = do
+resetPassword aid nonce password = runMaybeT $ do
   Just a <- get $ fromId aid
   if account_passwordResetNonce a == Just nonce
     then do
       setAccountPassword aid password
-      return $ Just aid
-    else return Nothing
+      return aid
+    else fail "nonce mismatch"
 
 login
   :: (PersistBackend m, SqlDb (PhantomDb m))
