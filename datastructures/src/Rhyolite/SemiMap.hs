@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -5,7 +6,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO this is necessary because of the lack of a Foldable instance for Alt
 
 module Rhyolite.SemiMap where
 
@@ -21,6 +21,7 @@ import qualified Data.Set as Set
 import GHC.Generics (Generic)
 
 import Rhyolite.Aeson.Orphans ()
+import Data.Orphans () -- for Foldable (Alt f)
 
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
@@ -47,8 +48,6 @@ knownSubMap :: SemiMap k v -> MonoidalMap k v
 knownSubMap = \case
   SemiMap_Complete m -> m
   SemiMap_Partial m -> Map.mapMaybe getFirst m
-
-deriving instance Foldable f => Foldable (Alt f)
 
 instance (Ord k) => Monoid (SemiMap k v) where
   mempty = SemiMap_Partial mempty
