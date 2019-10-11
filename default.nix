@@ -35,6 +35,7 @@ let
     groundhog-th = repos.groundhog + /groundhog-th;
     monoidal-containers = repos.monoidal-containers;
     postgresql-lo-stream = repos.postgresql-lo-stream;
+    postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + /gargoyle;
     gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
@@ -57,6 +58,7 @@ let
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
+      postgresql-simple = haskellLib.dontCheck super.postgresql-simple;
       validation = haskellLib.dontCheck super.validation;
     })
   ];
