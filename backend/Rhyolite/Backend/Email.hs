@@ -108,7 +108,16 @@ sendEmailFrom name' email recipients sub body =
 deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailEnv $m |]) 'EmailT 'unEmailT
 
 emailTemplate :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> Html -> m Html
-emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml = do
+emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml =
+  emailTemplateSimple productName mStyleHtml titleHtml $ H.table $ do
+    H.tr $ H.td $ H.h1 titleHtml
+    H.hr
+    H.tr $ H.td $ H.p ! class_ "lead" $ leadHtml
+    H.hr
+    H.tr $ H.td $ contentHtml
+
+emailTemplateSimple :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> m Html
+emailTemplateSimple productName mStyleHtml titleHtml contentHtml = do
   indexLink <- routeToUrl def
   return $ H.docTypeHtml $ do
     H.head $ do
@@ -117,12 +126,7 @@ emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml = do
         Just styleHtml -> styleHtml
       H.title titleHtml
     H.body $ H.table $ do
-      H.tr $ H.td $ H.table $ do
-        H.tr $ H.td $ H.h1 titleHtml
-        H.hr
-        H.tr $ H.td $ H.p ! class_ "lead" $ leadHtml
-        H.hr
-        H.tr $ H.td $ contentHtml
+      H.tr $ H.td $ contentHtml
       H.tr $ H.td $ H.table $ H.tr $ H.td $ do
         H.hr
         H.p $ do
