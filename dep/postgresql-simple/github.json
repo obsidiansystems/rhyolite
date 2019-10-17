@@ -2,6 +2,6 @@
   "owner": "3noch",
   "repo": "postgresql-simple",
   "branch": "eac@v0.5.4.0-fix-suprious-abort",
-  "rev": "f9251cba499d3aab4ee180de4f457d4491936595",
-  "sha256": "1hfzdxpm4xcb8nswis1d126ha7ljp02yq96ighzd6kcwsha61gd8"
+  "rev": "ffd748d4c8cede17ba68f0e042c4c2dab1c862e0",
+  "sha256": "1n5nlxv1gv24kr34s8xf8ha071bh11h5yhh8v8d5a044a14hihlh"
 }
