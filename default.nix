@@ -86,6 +86,7 @@ in obelisk // {
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
+      rhyolite-logging = ./rhyolite-logging;
       rhyolite-test-suite = ./test;
     };
     shells = rec {
