@@ -26,6 +26,8 @@ library
     , constraints-extras
     , containers
     , data-default
+    , database-id-class
+    , database-id-groundhog
     , dependent-sum
     , dependent-sum-aeson-orphans
     , exceptions
@@ -65,6 +67,7 @@ library
     , transformers-base
     , unordered-containers
     , vector
+    , vessel
     , websockets
     , websockets-snap
     , witherable >= 0.2 && < 0.4
@@ -80,10 +83,9 @@ library
     Rhyolite.Backend.Listen
     Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
-    Rhyolite.Backend.TH
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
   if flag(support-systemd-journal) && os(linux)
-    ghc-options: -DSUPPORT_SYSTEMD_JOURNAL
+    cpp-options: -DSUPPORT_SYSTEMD_JOURNAL
