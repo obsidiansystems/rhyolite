@@ -88,4 +88,4 @@ library
   other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
   if flag(support-systemd-journal) && os(linux)
-    ghc-options: -DSUPPORT_SYSTEMD_JOURNAL
+    cpp-options: -DSUPPORT_SYSTEMD_JOURNAL
