@@ -22,6 +22,7 @@ library
     , binary
     , bytestring
     , constraints
+    , constraints-extras
     , containers
     , cookie
     , data-default
@@ -39,6 +40,7 @@ library
     , mtl
     , network-uri
     , obelisk-route
+    , obelisk-executable-config-lookup
     , prim-uniq
     , primitive
     , raw-strings-qq
@@ -57,6 +59,7 @@ library
     , transformers
     , transformers-base
     , vector
+    , vessel
     , validation
     , witherable >= 0.2 && < 0.4
 
@@ -64,7 +67,8 @@ library
     Rhyolite.Frontend.App
     Rhyolite.Frontend.Cookie
     Rhyolite.Frontend.Form
-    Rhyolite.Frontend.WebSocket
+    Rhyolite.Frontend.Modal.Base
+    Rhyolite.Frontend.Modal.Class
     Rhyolite.Frontend.Widget
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts -fexpose-all-unfoldings

@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans -Wno-deprecations #-}
 
 module Rhyolite.Backend.DB.PsqlSimple
   ( PostgresRaw (..)
@@ -32,6 +32,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import Data.Int (Int64)
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
+import Database.Id.Class (Id(..), IdData)
 import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
@@ -55,8 +56,6 @@ import qualified Control.Monad.Trans.Writer.Strict
 -- transformers >= 0.5.3
 -- import qualified Control.Monad.Trans.Select
 -- import qualified Control.Monad.Trans.Accum
-
-import Rhyolite.Schema (Id (..), IdData)
 
 data WrappedSqlError = WrappedSqlError
   { _wrappedSqlError_rawQuery :: BS.ByteString
@@ -191,57 +190,33 @@ instance (FromField (IdData a)) => FromField (Id a) where
 instance (ToField (IdData a)) => ToField (Id a) where
   toField (Id x) = toField x
 
+defaultQQ :: String -> QuasiQuoter
+defaultQQ name = QuasiQuoter
+  { quotePat = error $ name <> ": quasiquoter used in pattern context"
+  , quoteType = error $ name <> ": quasiquoter used in type context"
+  , quoteExp = error $ name <> ": quasiquoter used in expression context"
+  , quoteDec = error $ name <> ": quasiquoter used in declaration context"
+  }
 
 -- | This quasiquoter is the obvious combination of 'sqlQ' and 'query'.
 queryQ :: QuasiQuoter
-queryQ = QuasiQuoter
-  { quotePat  = error "queryQ: quasiquoter used in pattern context"
-  , quoteType = error "queryQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry query |] (sqlQExp s)
-  , quoteDec  = error "queryQ: quasiquoter used in declaration context"
-  }
+queryQ = (defaultQQ "queryQ") { quoteExp = appE [| uncurry query |] . sqlQExp }
 
 -- | This quasiquoter is the obvious combination of 'sqlQ' and 'execute'.
 executeQ :: QuasiQuoter
-executeQ = QuasiQuoter
-  { quotePat  = error "executeQ: quasiquoter used in pattern context"
-  , quoteType = error "executeQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry execute |] (sqlQExp s)
-  , quoteDec  = error "executeQ: quasiquoter used in declaration context"
-  }
+executeQ = (defaultQQ "executeQ") { quoteExp = appE [| uncurry execute |] . sqlQExp }
 
 executeQ_ :: QuasiQuoter
-executeQ_ = QuasiQuoter
-  { quotePat  = error "executeQ: quasiquoter used in pattern context"
-  , quoteType = error "executeQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry execute_ |] (sqlQExp s)
-  , quoteDec  = error "executeQ: quasiquoter used in declaration context"
-  }
-
+executeQ_ = (defaultQQ "executeQ_") { quoteExp = appE [| uncurry execute_ |] . sqlQExp }
 
 traceQueryQ :: QuasiQuoter
-traceQueryQ = QuasiQuoter
-  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
-  , quoteType = error "traceQueryQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry traceQuery |] (sqlQExp s)
-  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
-  }
+traceQueryQ = (defaultQQ "traceQueryQ") { quoteExp = appE [| uncurry traceQuery |] . sqlQExp }
 
 traceExecuteQ :: QuasiQuoter
-traceExecuteQ = QuasiQuoter
-  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
-  , quoteType = error "traceQueryQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry traceExecute |] (sqlQExp s)
-  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
-  }
+traceExecuteQ = (defaultQQ "traceExecuteQ") { quoteExp = appE [| uncurry traceExecute |] . sqlQExp }
 
 traceExecuteQ_ :: QuasiQuoter
-traceExecuteQ_ = QuasiQuoter
-  { quotePat  = error "traceQueryQ: quasiquoter used in pattern context"
-  , quoteType = error "traceQueryQ: quasiquoter used in type context"
-  , quoteExp  = \s -> appE [| uncurry traceExecute |] (sqlQExp s)
-  , quoteDec  = error "traceQueryQ: quasiquoter used in declaration context"
-  }
+traceExecuteQ_ = (defaultQQ "traceExecuteQ_") { quoteExp = appE [| uncurry traceExecute_ |] . sqlQExp }
 
 
 -- | This quasiquoter takes a SQL query with named arguments in the form "?var" and generates a pair
@@ -251,12 +226,7 @@ traceExecuteQ_ = QuasiQuoter
 --
 -- will be equivalent to query [sql| SELECT * FROM 'Book' b WHERE b.title = ? AND b.author = ? |] [toField title, toField author]
 sqlQ :: QuasiQuoter
-sqlQ = QuasiQuoter
-  { quotePat  = error "sqlQ: quasiquoter used in pattern context"
-  , quoteType = error "sqlQ: quasiquoter used in type context"
-  , quoteExp  = sqlQExp
-  , quoteDec  = error "sqlQ: quasiquoter used in declaration context"
-  }
+sqlQ = (defaultQQ "sqlQ") { quoteExp = sqlQExp }
 
 sqlQExp :: String -> Q Exp
 sqlQExp s =
