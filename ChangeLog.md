@@ -12,7 +12,8 @@ This project's release branch is `master`. This log is written from the perspect
     * postgresql-lo-stream
     * reflex-platform
     * vessel
-* Converted many places using `fail` to use `error` directly to avoid `MonadFail` constraint
+* Convert many places using `fail` to use `error` directly to avoid `MonadFail` constraint
+* Remove many instances from `Backend.DB.PsqlSimple.Orphans` that were upstreamed to `postgresql-simple`
 
 
 ## 2019-08-27 - Unreleased
