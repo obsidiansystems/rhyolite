@@ -57,6 +57,12 @@ let
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
       validation = haskellLib.dontCheck super.validation;
+      # These are copied from #99
+      # and these hacks are temporary, as soon we should be able to move to ghc 8.6.* (#95)
+      # Hack to get get around missing dep that auto cabal flag will skip.
+      semialign = null;
+      # So it supports monoidal containers 6
+      reflex = haskellLib.doJailbreak super.reflex;
     })
   ];
 
