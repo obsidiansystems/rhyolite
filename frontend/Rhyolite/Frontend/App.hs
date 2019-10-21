@@ -311,6 +311,7 @@ runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
   lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
 
+{-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
 runPrerenderedRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
       ( PerformEvent t m
