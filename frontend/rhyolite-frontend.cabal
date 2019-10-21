@@ -72,4 +72,4 @@ library
     Rhyolite.Frontend.Modal.Class
     Rhyolite.Frontend.Widget
 
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts -fexpose-all-unfoldings
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -fexpose-all-unfoldings

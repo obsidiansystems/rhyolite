@@ -29,6 +29,7 @@ library
     , data-default
     , database-id-class
     , dependent-map
+    , dependent-monoidal-map
     , dependent-sum
     , file-embed
     , filepath
@@ -53,7 +54,7 @@ library
 
   if flag(split-these)
     build-depends:     these >= 1 && <1.1,
-                       semialign >=1 && <1.1
+                       semialign >=1 && <1.2
   else
     build-depends:     these >= 0.7 && <0.9
 

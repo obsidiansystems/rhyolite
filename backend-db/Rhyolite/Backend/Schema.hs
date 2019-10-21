@@ -54,17 +54,19 @@ deriving instance PrimitivePersistField LargeObjectId
 
 instance NeverNull LargeObjectId
 
-instance (ToJSON a, FromJSON a) => PersistField (Json a) where
+instance (Typeable a, ToJSON a, FromJSON a) => PersistField (Json a) where
   --TODO: Should this include the name of the underlying type
   persistName _ = "Json"
   toPersistValues (Json a) = toPersistValues (encode a)
   fromPersistValues vs = do
     (r, vs') <- fromPersistValues vs
-    r' <- either error return $ eitherDecode' r
-    return (Json r', vs')
+    case eitherDecode' r of
+      Left err -> fail $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
+      Right r' -> return (Json r', vs')
+
   dbType p (Json a) = dbType p (encode a)
 
-instance (ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
+instance (Typeable a, ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
   toPrimitivePersistValue p (Json a) = toPrimitivePersistValue p (encode a)
   fromPrimitivePersistValue p v = runIdentity $ do
     r <- either error return $ eitherDecode' $ fromPrimitivePersistValue p v
@@ -78,7 +80,7 @@ instance (Typeable a, FromJSON a) => FromField (Json a) where
     (Binary v) <- fromField f mb
     let ev = eitherDecode' v
     case ev of
-      Left err -> fail err
+      Left err -> fail $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
       Right v' -> return $ Json v'
 
 instance NeverNull (Json a)
