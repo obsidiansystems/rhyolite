@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## 2019-10-17 - Unreleased
+## 2019-10-21 - Unreleased
 
 * Move `Rhyolite.Backend.Logging` to its own project `rhyolite-logging` and re-export.
 * Add `Rhyolite.Backend.DB.Serializable` for doing PostgreSQL transactions in `SERIALIZABLE` isolation with automatic retrying on serialization errors.
@@ -14,13 +14,16 @@ This project's release branch is `master`. This log is written from the perspect
 * Add `PostgresRaw` and `PostgresLargeObject` instances to `SignT`.
 * Bump `postgresql-simple` to avoid `WARNING: There is no transaction in progress` when there is a serialization error.
 
+## 2019-10-20 - Unreleased
+
+* Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.
+
 ## 2019-08-27 - Unreleased
 
 * Improve error message on parse failure in certain database instances
 
 ## 2019-08-19 - Unreleased
 
-* Added `standardPipeline` as a good example of a last argument you can use for serveDbOverWebsockets, in the case that you have a Functor-style query/view type. It now uses condense/disperse from the Vessel library.
 * Added `runObeliskRhyoliteWidget` for integration with obelisk applications.
 
 ## 2019-08-02 - Unreleased
@@ -52,7 +55,6 @@ This project's release branch is `master`. This log is written from the perspect
 * Added a DiffQuery type class which allows us to specify how queries are subtracted. We were doing this in an ad-hoc fashion based on Align instances before, but the generalisation of query types meant that we could no longer assume this was an option.
 * If you have a Functor-style query/view, the 'standardDiffQuery' function can be used to implement the 'DiffQuery' instance for it.
 * If you're using Vessel, to implement DiffQuery you can use subtractV which is a consequence of the View typeclass.
-* Bump obelisk to a version that no longer uses `*Tag` classes
 * Add alternative to groundhog's `==.`, which has severe performance issues before version 0.10 (to which we can't yet upgrade). See `Rhyolite.Backend.DB.===.`.
 
 ## 2019-05-08 - Unreleased
