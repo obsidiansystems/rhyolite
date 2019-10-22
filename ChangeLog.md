@@ -2,6 +2,14 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-10-20 - Unreleased
+
+* Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.
+
+## 2019-08-27 - Unreleased
+
+* Improve error message on parse failure in certain database instances
+
 ## 2019-08-19 - Unreleased
 
 * Added `runObeliskRhyoliteWidget` for integration with obelisk applications.
