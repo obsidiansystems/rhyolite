@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "kiln",
-  "rev": "4fd646c70a751ee3d894bdf54e965ffca982a162",
-  "sha256": "1dm265dbrbv3hvwqfjhdisbjfwj0hz3kfy6pi12kvykx3fi81wr6"
+  "branch": "dn-kiln-fix-ci-build",
+  "rev": "ad58ee0eee13c4b7f25e1d0882432cfd0516e4fb",
+  "sha256": "09bzixp0npiyj9f4hbjc2n2dw808l84c6h2jiw1qs4yrirq222cd"
 }
