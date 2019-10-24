@@ -126,7 +126,7 @@ data WidgetEmailCfg br fr = WidgetEmailCfg
   -- ^ Email address to use in the "from:" field.
   , _widgetEmailBaseURL :: Text
   -- ^ Base URL to build URLs for
-  , _widgetEmailRouteEncoder :: (Encoder Identity Identity (R (Sum br (ObeliskRoute fr))) PageName)
+  , _widgetEmailRouteEncoder :: (Encoder Identity Identity (R (FullRoute br fr)) PageName)
   -- ^ Encoder to use for routes; usually the project's checkedRouteEncoder
   }
 
