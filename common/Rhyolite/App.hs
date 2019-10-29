@@ -43,7 +43,7 @@ import qualified Data.Dependent.Map as DMap'
 import Data.Proxy
 import Data.These.Combinators
 import Data.Vessel
-import Data.Vessel.Internal (maybeToThese, VSum(..))
+import Data.Vessel.Internal (VSum(..))
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where
@@ -67,7 +67,7 @@ instance PositivePart (Proxy a) where
   positivePart _ = Nothing
 
 instance (PositivePart a, PositivePart b) => PositivePart (These a b) where
-  positivePart ab = maybeToThese (positivePart =<< justHere ab) (positivePart =<< justThere ab)
+  positivePart ab = align (positivePart =<< justHere ab) (positivePart =<< justThere ab)
 
 instance PositivePart (f (g x)) => PositivePart (Compose f g x) where
   positivePart (Compose xs) = Compose <$> positivePart xs
