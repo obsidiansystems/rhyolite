@@ -71,6 +71,7 @@ import Rhyolite.Request.Common (decodeValue')
 #endif
 
 import Data.Vessel
+import Data.Vessel.ViewMorphism
 
 -- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
 functorToWire
@@ -519,3 +520,15 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
+
+-- | watch a viewselector defined with a ViewMorphism
+watchView
+  :: forall q (a :: *) m t.
+  ( QueryResult q ~ ViewQueryResult q
+  , MonadQuery t q m
+  , Reflex t
+  , MonadHold t m
+  )
+  => Dynamic t (ViewMorphism (Const SelectedCount a) q)
+  -> m (Dynamic t (Maybe a))
+watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
