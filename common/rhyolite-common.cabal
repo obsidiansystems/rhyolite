@@ -24,6 +24,7 @@ library
     , data-default
     , database-id-class
     , dependent-map
+    , dependent-monoidal-map
     , dependent-sum
     , file-embed
     , filepath
