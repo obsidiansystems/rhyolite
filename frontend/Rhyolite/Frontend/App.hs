@@ -21,6 +21,7 @@
 
 module Rhyolite.Frontend.App where
 
+import Control.Applicative
 import Control.Monad.Exception
 import Control.Monad.Identity
 import Control.Monad.Primitive
@@ -523,12 +524,16 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
 
 -- | watch a viewselector defined with a ViewMorphism
 watchView
-  :: forall q (a :: *) m t.
+  :: forall q partial (a :: *) m t.
   ( QueryResult q ~ ViewQueryResult q
   , MonadQuery t q m
   , Reflex t
   , MonadHold t m
+  , Alternative partial
   )
-  => Dynamic t (ViewMorphism (Const SelectedCount a) q)
-  -> m (Dynamic t (Maybe a))
+  => Dynamic t (ViewMorphism Identity partial (Const SelectedCount a) q)
+  -> m (Dynamic t (partial a))
 watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
+-- Reminder to self, this ^^^^^^^^^^^ identity is the QueryResult for the Const g
+-- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
+-- parameter.
