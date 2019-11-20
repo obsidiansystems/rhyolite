@@ -2,11 +2,17 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -23,16 +29,87 @@ import GHC.Generics (Generic)
 import Reflex.Query.Class
 import Data.These
 import Data.Align
+import Data.Functor.Identity
+import Data.Functor.Const
+import Data.Semigroup (First(..))
+import Data.Functor.Compose
+import Data.Constraint.Extras
+import Data.Dependent.Sum
+import Data.GADT.Compare
+import qualified Data.Dependent.Map.Monoidal as DMap
+import Data.Map (Map)
+import qualified Data.Map.Monoidal as MMap
+import qualified Data.Dependent.Map as DMap'
+import Data.Proxy
+import Data.These.Combinators
+import Data.Vessel
+import Data.Vessel.Internal (VSum(..))
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where
   positivePart :: q -> Maybe q -- ^ Filter a query to only those parts which are selected a positive amount.
+
+instance PositivePart SelectedCount where
+  positivePart x
+    | x > 0 = Just x
+    | otherwise = Nothing
+
+instance PositivePart () where
+  positivePart _ = Nothing
+
+instance PositivePart a => PositivePart (Identity a) where
+  positivePart (Identity x) = Identity <$> positivePart x
+
+instance PositivePart x => PositivePart (Const x a) where
+  positivePart (Const x) = Const <$> positivePart x
+
+instance PositivePart (Proxy a) where
+  positivePart _ = Nothing
+
+instance (PositivePart a, PositivePart b) => PositivePart (These a b) where
+  positivePart ab = align (positivePart =<< justHere ab) (positivePart =<< justThere ab)
+
+instance PositivePart (f (g x)) => PositivePart (Compose f g x) where
+  positivePart (Compose xs) = Compose <$> positivePart xs
+
+instance Has' PositivePart f g => PositivePart (DSum f g) where
+  positivePart (f :=> g) = (f :=>) <$> has' @PositivePart @g f (positivePart g)
+
+instance (GCompare f, Has' PositivePart f g) => PositivePart (DMap'.DMap f g) where
+  positivePart xs
+      | DMap'.null xs' = Nothing
+      | otherwise = Just xs'
+    where xs' = DMap'.mapMaybeWithKey (\f g -> has' @PositivePart @g f (positivePart g)) xs
+
+deriving instance (GCompare f, Has' PositivePart f g) => PositivePart (DMap.MonoidalDMap f g)
+
+instance HasV PositivePart f g => PositivePart (VSum f g) where
+  positivePart (f :~> g) = (f :~>) <$> hasV @PositivePart @g f (positivePart g)
+
+deriving instance PositivePart (g (First (Maybe v))) => PositivePart (SingleV v g)
+
+deriving instance PositivePart (g v) => PositivePart (MapV k v g)
+deriving instance PositivePart (g v) => PositivePart (IdentityV v g)
+deriving instance PositivePart (g f) => PositivePart (FlipAp f g)
+deriving instance (GCompare f, Has' PositivePart f (FlipAp g)) => PositivePart (Vessel f g)
+deriving instance (Ord k, PositivePart (f g)) => PositivePart (SubVessel k f g)
+
+instance PositivePart a => PositivePart [a] where positivePart = composePositivePart
+instance PositivePart a => PositivePart (Maybe a) where positivePart = composePositivePart
+instance PositivePart a => PositivePart (Map k a) where positivePart = composePositivePart
+deriving instance PositivePart a => PositivePart (MMap.MonoidalMap k a)
 
 -- | This can be used to implement an instance of PositivePart for Functor-style queries/views, in terms of the other instances already required for those.
 standardPositivePart :: (Eq (q a), Monoid (q a), Num a, Ord a, Filterable q) => q a -> Maybe (q a)
 standardPositivePart x =
   let u = mapMaybe (\n -> if n > 0 then Just n else Nothing) x
   in if u == mempty then Nothing else Just u
+
+composePositivePart :: (Foldable q, PositivePart a, Filterable q) => q a -> Maybe (q a)
+composePositivePart x =
+  let u = mapMaybe positivePart x
+  in if null u then Nothing else Just u
+{-# INLINE composePositivePart #-}
 
 singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
 singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k

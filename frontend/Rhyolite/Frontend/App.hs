@@ -21,6 +21,7 @@
 
 module Rhyolite.Frontend.App where
 
+import Control.Applicative
 import Control.Monad.Exception
 import Control.Monad.Identity
 import Control.Monad.Primitive
@@ -71,6 +72,7 @@ import Rhyolite.Request.Common (decodeValue')
 #endif
 
 import Data.Vessel
+import Data.Vessel.ViewMorphism
 
 -- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
 functorToWire
@@ -519,3 +521,19 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
+
+-- | watch a viewselector defined with a ViewMorphism
+watchView
+  :: forall q partial (a :: *) m t.
+  ( QueryResult q ~ ViewQueryResult q
+  , MonadQuery t q m
+  , Reflex t
+  , MonadHold t m
+  , Alternative partial
+  )
+  => Dynamic t (ViewMorphism Identity partial (Const SelectedCount a) q)
+  -> m (Dynamic t (partial a))
+watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
+-- Reminder to self, this ^^^^^^^^^^^ identity is the QueryResult for the Const g
+-- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
+-- parameter.
