@@ -46,7 +46,7 @@ import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
-import Text.Blaze.Html5.Attributes as A
+import qualified Text.Blaze.Html5.Attributes as A
 
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.Email
@@ -182,7 +182,7 @@ resetPassword
   -> Text
   -> m (Maybe (Id Account))
 resetPassword aid nonce password = do
-  Just a <- get $ fromId aid
+  a <- maybe (error "resetPassword: Account not found") id <$> get (fromId aid)
   if account_passwordResetNonce a == Just nonce
     then do
       setAccountPassword aid password

@@ -5,18 +5,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Rhyolite.Schema where
 
-import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Data.Aeson (FromJSON, ToJSON)
 import Database.Id.Class
 import Control.Category ((>>>))
 import Control.Monad.Error (MonadError)
-import Data.Int (Int64)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
