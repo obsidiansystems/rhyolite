@@ -5,6 +5,16 @@ This project's release branch is `master`. This log is written from the perspect
 ## 2019-10-20 - Unreleased
 
 * Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.
+* Use GHC 8.6. This necessitated bumps to
+    * dependent-sum-aeson-orphans
+    * gargoyle
+    * groundhog
+    * obelisk
+    * postgresql-lo-stream
+    * reflex-platform
+    * vessel
+* Convert many places using `fail` to use `error` directly to avoid `MonadFail` constraint
+* Remove many instances from `Backend.DB.PsqlSimple.Orphans` that were upstreamed to `postgresql-simple`
 
 ## 2019-08-27 - Unreleased
 
@@ -16,7 +26,7 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## 2019-08-02 - Unreleased
 
-* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk. 
+* Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk.
 * Frontend.App: Use reflex's `matchResponsesWithRequests` instead of `identifyTags` (now deleted). Change the identifier used by `TaggedRequest` and `TaggedResponse` to an `Int`
 * Remove `mapRequesterT`. This has been upstreamed to reflex as `withRequesterT`
 * Remove Frontend.Request and Frontend.WebSocket
@@ -37,7 +47,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Bump obelisk to a version that no longer uses `*Tag` classes.
 * Remove the "HasView" and "HasRequest" classes, and the general concept of having a type level "app" identifier. Instead, everything is explicitly parametrised on query and request types directly, and the query type is no longer *required* to be a Functor/Align/etc. so that Vessel becomes an option for defining queries and views.
 * Remove the "Request" class, as it has been subsumed by more general machinery. You can use deriveArgDict from constraints-extras and deriveJSONGADT from aeson-gadt-th on your request datatypes to obtain the same powers (and more).
-* In its place, there is a Request type synonym which stands for (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r). 
+* In its place, there is a Request type synonym which stands for (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r).
 * Added standardPipeline as a good example of a last argument you can use for serveDbOverWebsockets, in the case that you have a Functor-style query/view type. It now uses condense/disperse from the Vessel library.
 * Added vesselPipeline similarly for the case where you're using a functor-parametric container type (such as Vessel) for your queries and views.
 * Added a DiffQuery type class which allows us to specify how queries are subtracted. We were doing this in an ad-hoc fashion based on Align instances before, but the generalisation of query types meant that we could no longer assume this was an option.

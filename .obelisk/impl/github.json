@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "cg-fullroute",
-  "rev": "8c802b1e1078fa475d672e23a2fb462911572683",
-  "sha256": "1v994bbkf2q9xz6kzdgpmicydkvh96zb1rz6j0njiwkhn5as60va"
+  "branch": "develop",
+  "rev": "0722c55fcc1d31e43fefd1f3d8b826f341c031a5",
+  "sha256": "0ms7n40yszc4x1zx1zxzsjnxkdk8w6z5mc2r93sg7jj15mvhddcj"
 }

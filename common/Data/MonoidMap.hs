@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE UndecidableInstances #-} -- For (Eq (QueryResult q), Ord k, Query q) => Query (MonoidMap k q)
 module Data.MonoidMap where
 
 import Data.Witherable
