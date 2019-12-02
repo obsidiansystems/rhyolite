@@ -28,16 +28,11 @@ import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
-import Data.Constraint
 import Data.Constraint.Extras
 import Data.Default (Default)
-import Data.Functor.Sum
-import qualified Data.IntMap as IntMap
-import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Some
@@ -92,11 +87,9 @@ vesselToWire
      )
   => QueryMorphism (v (Const SelectedCount)) (v (Const ()))
 vesselToWire = QueryMorphism
-  { _queryMorphism_mapQuery = \q -> 
+  { _queryMorphism_mapQuery = \q ->
       let deplete (Const n) = if n == mempty then Nothing else Just (Const ())
-      in case mapMaybeV deplete q of
-            Nothing -> mempty
-            Just q' -> q'
+      in maybe mempty id $ mapMaybeV deplete q
   , _queryMorphism_mapQueryResult = id
   }
 
@@ -307,9 +300,11 @@ runObeliskRhyoliteWidget ::
   -> RoutedT t (R frontendRoute) m a
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
-  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
-  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  route <- (fmap . fmap) (parseURI . T.unpack . T.strip . T.decodeUtf8) (getConfig configRoute) >>= \case
+    Just (Just route) -> pure route
+    _ -> error "runObeliskRhyoliteWidget: Unable to parse route config"
+  let wsUrl = T.pack (show $ websocketUri route) <> renderBackendRoute enc listenRoute
+  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
 
 {-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
 runPrerenderedRhyoliteWidget
@@ -409,7 +404,7 @@ data AppWebSocket t q = AppWebSocket
   }
 
 -- | Open a websocket connection and split resulting incoming traffic into listen notification and api response channels
-openWebSocket' 
+openWebSocket'
   :: forall r q t x m.
      ( MonadJSM m
      , MonadJSM (Performable m)
@@ -463,7 +458,7 @@ openWebSocket' url request vs = do
     , _appWebSocket_connected = connected
     }
 
-openWebSocket 
+openWebSocket
   :: forall t x m r q.
      ( MonadJSM m
      , MonadJSM (Performable m)

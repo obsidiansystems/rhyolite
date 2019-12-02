@@ -50,6 +50,7 @@ library
     , rhyolite-common
     , rhyolite-datastructures
     , rhyolite-logging
+    , semialign
     , smtp-mail
     , snap-core
     , split

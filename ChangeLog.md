@@ -17,6 +17,16 @@ This project's release branch is `master`. This log is written from the perspect
 ## 2019-10-20 - Unreleased
 
 * Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.
+* Use GHC 8.6. This necessitated bumps to
+    * dependent-sum-aeson-orphans
+    * gargoyle
+    * groundhog
+    * obelisk
+    * postgresql-lo-stream
+    * reflex-platform
+    * vessel
+* Convert many places using `fail` to use `error` directly to avoid `MonadFail` constraint
+* Remove many instances from `Backend.DB.PsqlSimple.Orphans` that were upstreamed to `postgresql-simple`
 
 ## 2019-08-27 - Unreleased
 

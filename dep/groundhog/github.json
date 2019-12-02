@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "groundhog",
-  "branch": "eac@no-io-in-migrations",
-  "rev": "ff88acf83f91d65b855b781b0e192ab8936f7aa1",
-  "sha256": "037z4vmcbkgmnl83n2dh39vvkf38g66br6a92w3j1b6hvlxayhd8"
+  "branch": "develop",
+  "rev": "646b3acb2ae71618fba18ae576935cbff21ca9b2",
+  "sha256": "0cjc9wrmwrkjq9drsb7dz8bbwg98w40v3616r26q393fcf8z991b"
 }
