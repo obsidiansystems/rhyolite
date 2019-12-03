@@ -8,10 +8,6 @@ stability: Experimental
 build-type: Simple
 cabal-version: >=1.2
 
-flag support-systemd-journal
-  description: Include support for systemd journal logging
-  default: True
-
 library
   hs-source-dirs: .
 
@@ -20,7 +16,6 @@ library
     , base
     , blaze-html
     , bytestring
-    , bytestring-trie
     , clientsession
     , constraints
     , constraints-extras
@@ -31,7 +26,6 @@ library
     , dependent-sum
     , dependent-sum-aeson-orphans
     , exceptions
-    , fast-logger
     , groundhog
     , groundhog-postgresql
     , groundhog-th
@@ -55,6 +49,7 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
+    , rhyolite-logging
     , semialign
     , smtp-mail
     , snap-core
@@ -66,15 +61,11 @@ library
     , time
     , transformers
     , transformers-base
-    , unordered-containers
     , vector
     , vessel
     , websockets
     , websockets-snap
     , witherable >= 0.2 && < 0.4
-  if flag(support-systemd-journal) && os(linux)
-    build-depends:
-      libsystemd-journal
 
   exposed-modules:
     Rhyolite.Backend.Account
@@ -88,5 +79,3 @@ library
 
   other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
-  if flag(support-systemd-journal) && os(linux)
-    cpp-options: -DSUPPORT_SYSTEMD_JOURNAL

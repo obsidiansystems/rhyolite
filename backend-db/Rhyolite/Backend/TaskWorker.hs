@@ -21,6 +21,7 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Postgresql
 import Rhyolite.Backend.DB
+import Rhyolite.Backend.DB.Serializable (Serializable)
 
 --TODO: Ensure Tasks are always properly indexed
 --TODO: Use Notifications to start the worker promptly
@@ -33,9 +34,8 @@ import Rhyolite.Backend.DB
 -- | WARNING: 'k' MUST project a unique field of the record; otherwise, results may be stored in the wrong record
 taskWorker
   :: forall m v c input b key a pk ready
-  .  ( MonadLogger m
+  .  ( MonadLoggerIO m
      , MonadIO m
-     , MonadBaseNoPureAborts IO m
      , Projection input a
      , ProjectionDb input Postgresql
      , ProjectionRestriction input (RestrictionHolder v c)
@@ -56,7 +56,7 @@ taskWorker
   -> key -- ^ MUST project a unique field of the record; otherwise, results may be stored in the wrong record
   -> ready
   -> Field v c (Task b)
-  -> (a -> DbPersist Postgresql m (m (DbPersist Postgresql m b))) -- ^ Given the projected value, run some READ ONLY sql, then do an action, then run some READ WRITE sql and return a value to fill in the Task
+  -> (a -> Serializable (m (Serializable b))) -- ^ Given the projected value, run some READ ONLY sql, then do an action, then run some READ WRITE sql and return a value to fill in the Task
   -> Pool Postgresql
   -> Text
   -> m Bool

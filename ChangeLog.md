@@ -2,6 +2,18 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-10-21 - Unreleased
+
+* Move `Rhyolite.Backend.Logging` to its own project `rhyolite-logging` and re-export.
+* Add `Rhyolite.Backend.DB.Serializable` for doing PostgreSQL transactions in `SERIALIZABLE` isolation with automatic retrying on serialization errors.
+* *Breaking change*: Switch `runDb` to use the `Serializable` monad for all transactions. This monad is not a transformer and has very few instances. Notably, lifting `IO` into it must be done *manually*, and only with great care.
+* Add `runDbReadOnlyRepeatableRead` to `RunDb` to make streaming reads easier. Notably, this transaction mode allows `MonadIO` because it will never retry.
+* Fix thread-safety bug in `firebaseWorker`.
+* *Breaking change*: Rework `MonadSign` to look a lot more like `MonadReader` so that its instances can more easily avoid `MonadIO`.
+* *Breaking change*: Functions in `Rhyolite.Backend.EmailWorker` now have a constraint requiring that `Serializable` be the base monad.
+* Add `PostgresRaw` and `PostgresLargeObject` instances to `SignT`.
+* Bump `postgresql-simple` to avoid `WARNING: There is no transaction in progress` when there is a serialization error.
+
 ## 2019-10-20 - Unreleased
 
 * Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.

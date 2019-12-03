@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -9,37 +10,36 @@
 module Rhyolite.Sign where
 
 import Data.Text (Text)
-import Data.Typeable (Typeable)
 import Data.Aeson (FromJSON, ToJSON, FromJSONKey, ToJSONKey)
-import Control.Monad.Trans.Except (ExceptT)
-import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.State (StateT)
-import Control.Monad.Trans (lift)
+import Control.Monad.Trans (MonadTrans (lift))
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Control.Monad.State.Strict as Strict
 
-newtype Signed a = Signed { unSigned :: Text } deriving (Show, Read, Eq, Ord, ToJSON, FromJSON, ToJSONKey, FromJSONKey)
+newtype Signed a = Signed { unSigned :: Text }
+  deriving (Show, Read, Eq, Ord, ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 
 class Monad m => MonadSign m where
-  sign :: (Typeable a, ToJSON a) => a -> m (Signed a) -- We need the Typeable here because otherwise two Signeds whose contents encode the same way will be interchangeable
-  readSigned :: (Typeable a, FromJSON a) => Signed a -> m (Maybe a)
+  type SigningKey m
+  askSigningKey :: m (SigningKey m)
+  default askSigningKey
+    :: (m ~ t m', SigningKey (t m') ~ SigningKey m', MonadTrans t, MonadSign m', Monad m')
+    => m (SigningKey m)
+  askSigningKey = lift askSigningKey
 
 instance MonadSign m => MonadSign (ReaderT r m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+  type SigningKey (ReaderT r m) = SigningKey m
 
 instance MonadSign m => MonadSign (StateT s m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+  type SigningKey (StateT s m) = SigningKey m
 
 instance MonadSign m => MonadSign (Strict.StateT s m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+  type SigningKey (Strict.StateT s m) = SigningKey m
 
 instance MonadSign m => MonadSign (MaybeT m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+  type SigningKey (MaybeT m) = SigningKey m
 
 instance MonadSign m => MonadSign (ExceptT e m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+  type SigningKey (ExceptT e m) = SigningKey m

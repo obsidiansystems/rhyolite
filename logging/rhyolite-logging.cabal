@@ -1,0 +1,41 @@
+name: rhyolite-logging
+version: 0.1
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2019
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+
+flag support-systemd-journal
+  description: Include support for systemd journal logging
+  default: True
+
+library
+  hs-source-dirs: .
+
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , bytestring-trie
+    , containers
+    , data-default
+    , exceptions
+    , fast-logger
+    , monad-logger
+    , text
+
+  if flag(support-systemd-journal) && os(linux)
+    build-depends:
+        libsystemd-journal
+      , unordered-containers
+
+  exposed-modules:
+    Rhyolite.Logging
+
+  other-extensions: TemplateHaskell
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
+  if flag(support-systemd-journal) && os(linux)
+    cpp-options: -DSUPPORT_SYSTEMD_JOURNAL
