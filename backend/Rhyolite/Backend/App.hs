@@ -303,12 +303,12 @@ feedPipeline getNextNotification qh r = do
         case positivePart new of
           Nothing -> return mempty
           Just q -> runQueryHandler qh q
-  tid <- worker 10000 $ do
+  stopWorker <- worker 10000 $ do
     nm <- getNextNotification
     q <- readIORef currentQuery
     qr <- nm q
     tellRecipient r qr
-  return (qhSaveQuery, tid)
+  return (qhSaveQuery, stopWorker)
 
 -- | Connects the pipeline to websockets consumers
 connectPipelineToWebsockets
