@@ -56,7 +56,12 @@ let
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
-      postgresql-simple = haskellLib.dontCheck super.postgresql-simple;
+      postgresql-simple = haskellLib.dontCheck (
+          haskellLib.overrideCabal super.postgresql-simple {
+            revision = null;
+            editedCabalFile = null;
+          }
+        );
       validation = haskellLib.dontCheck super.validation;
 
       dependent-sum-aeson-orphans = self.callHackageDirect {
