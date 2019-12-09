@@ -71,6 +71,18 @@ functorFromWire = QueryMorphism
   , _queryMorphism_mapQueryResult = void
   }
 
+-- | Reverses vesselToWire
+vesselFromWire
+  :: ( View v
+     , QueryResult (v (Const ())) ~ v Identity
+     , QueryResult (v (Const SelectedCount)) ~ v Identity
+     )
+  => QueryMorphism (v (Const ())) (v (Const SelectedCount))
+vesselFromWire = QueryMorphism
+  { _queryMorphism_mapQuery = mapV (const (Const 1))
+  , _queryMorphism_mapQueryResult = id
+  }
+
 -- | Handle API requests for a given app
 --
 -- The request format expected here is 'TaggedRequest'
@@ -465,21 +477,36 @@ standardPipeline = queryMorphismPipeline
   (QueryMorphism (fmap MonoidMap . condense)
                  (disperse . fmap unMonoidMap))
 
--- | This is also useful as a final argument to serveDbOverWebsockets, in the case that you're using Vessel-style queries/views.
-vesselPipeline
-  :: forall m t v.
-    ( QueryResult (t (v (Const ()))) ~ t (v Identity)
-    , QueryResult (v (Compose t (Const ()))) ~ v (Compose t Identity)
-    , Monoid (v (Compose t (Const ())))
-    , Monoid (v (Const ()))
-    , Functor m
-    , View v
-    , Foldable t
-    , Filterable t
-    , Align t
-    )
-  => Pipeline m (t (v (Const ()))) (v (Compose t (Const ())))
-vesselPipeline = queryMorphismPipeline transposeView
+-- | TODO: I don't think this is correct, it's just enough to get things to typecheck.
+-- we should really be using the vesselPipeline, but a few instances still need to be written first.
+vesselGroupPipeline
+  :: forall g t v m g'.
+  ( QueryResult (t (v g)) ~ t (v g')
+  , QueryResult (v (Compose t g)) ~ v (Compose t g')
+  , Functor m
+  , View v
+  , Filterable t
+  , Foldable t
+  , Align t
+  , Monoid (v g)
+  , Monoid (v (Compose t g))
+  )
+  => Pipeline m (t (v g)) (v (Compose t g))
+vesselGroupPipeline = queryMorphismPipeline transposeView
+
+vesselPipeline :: forall t v m.
+  ( QueryResult (t (v (Const SelectedCount))) ~ t (v Identity)
+  , QueryResult (v (Compose t (Const SelectedCount))) ~ v (Compose t Identity)
+  , Functor m
+  , View v
+  , Filterable t
+  , Foldable t
+  , Align t
+  , Monoid (v (Const SelectedCount))
+  , Monoid (v (Compose t (Const SelectedCount)))
+  )
+  => Pipeline m (t (v (Const SelectedCount))) (v (Compose t (Const SelectedCount)))
+vesselPipeline = vesselGroupPipeline @(Const SelectedCount)
 
 -------------------------------------------------------------------------------
 
