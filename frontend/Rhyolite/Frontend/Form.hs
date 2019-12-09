@@ -9,6 +9,8 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Rhyolite.Frontend.Form where
 
 import Control.Lens ((%~), makeLenses, preview)
@@ -101,7 +103,7 @@ manageValidity
      , Prerender js t m, RawInputElement (DomBuilderSpace m) ~ HTMLInputElement
      )
   => Event t () -- When to validate
-  -> (Dynamic t Text -> DynValidation t e a) -- Validation
+  -> (Dynamic t Text -> m (DynValidation t e a)) -- Validation
   -> (e -> Text) -- convert error to form for basic html validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
@@ -119,12 +121,13 @@ manageValidity validate' validator errorText renderInput = do
 
 manageValidation
   :: (DomBuilder t m, MonadHold t m)
-  => (Dynamic t Text -> DynValidation t e a) -- Validation
+  => (Dynamic t Text -> m (DynValidation t e a)) -- Validation
   -> m (InputElement EventResult (DomBuilderSpace m) t) -- Render input
   -> m (InputElement EventResult (DomBuilderSpace m) t, DynValidation t e a)
 manageValidation validator renderInput = do
   input <- renderInput
-  return (input, validator $ value input)
+  validated <- validator $ value input
+  return (input, validated)
 
 guardEither :: e -> Bool -> Either e ()
 guardEither e cond = if cond then Right () else Left e
@@ -159,6 +162,10 @@ data ValidationConfig t m e a = ValidationConfig
   -- ^ Input is always being reevaluated, including when external dynamics
   -- "mixed in" with this change. But rather than pushing changes downstream,
   -- downstream needed to ask for them (poll) with the 'validate' field.
+  , _validationConfig_validationM :: Maybe (Dynamic t Text -> m (DynValidation t e a))
+  -- ^ This validation allows for the use of monadic effects (e.g. ask a
+  -- server). The results of `_validationConfig_validatation` and
+  -- `_validationConfig_validationM` will be combined by `*>`.
   , _validationConfig_initialAttributes :: Map AttributeName Text
   , _validationConfig_validAttributes :: Map AttributeName Text
   , _validationConfig_invalidAttributes :: Map AttributeName Text
@@ -174,6 +181,7 @@ defValidationConfig = ValidationConfig
   { _validationConfig_feedback = const blank
   , _validationConfig_errorText = id
   , _validationConfig_validation = const $ toDynValidation $ pure $ Left "Validation not configured"
+  , _validationConfig_validationM = Nothing
   , _validationConfig_initialAttributes = mempty
   , _validationConfig_validAttributes = mempty
   , _validationConfig_invalidAttributes = mempty
@@ -196,7 +204,7 @@ instance Reflex t => HasDomEvent t (ValidationInput t m e a) en where
   domEvent en = domEvent en . _validationInput_input
 
 validationInput
-  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, Semigroup e)
   => ValidationConfig t m e a
   -> m (ValidationInput t m e a)
 validationInput config = do
@@ -205,23 +213,39 @@ validationInput config = do
   return vi
 
 validationInputWithFeedback
-  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  :: forall t m e a
+  .  ( DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m
+     , Semigroup e , Reflex t
+     )
   => ValidationConfig t m e a
   -> m (ValidationInput t m e a, m ())
 validationInputWithFeedback config = do
-  let validation' = _validationConfig_validate config
-  rec (input, dValidated) <- manageValidation (_validationConfig_validation config) $ do
-        inputElement $ def
-          & initialAttributes .~ _validationConfig_initialAttributes config
-          & modifyAttributes .~ inputAttrs
-          & inputElementConfig_initialValue .~ _validationConfig_initialValue config
-          & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
-      let eValidated = tagPromptlyDyn (fromDynValidation dValidated) validation'
-          inputAttrs = ffor eValidated $ \case
-            Left _ -> fmap Just $ _validationConfig_invalidAttributes config
-            Right _ -> fmap Just $ _validationConfig_validAttributes config
-  val <- eitherDyn $ fromDynValidation dValidated
-  let feedback = dyn_ $ _validationConfig_feedback config <$> val
-  return $ (ValidationInput input dValidated, feedback)
+    let validateL = _validationConfig_validate config
+        validationL = combineValidators
+          (_validationConfig_validation config) (_validationConfig_validationM config)
+    rec (input, dValidated) <- manageValidation validationL $ do
+          inputElement $ def
+            & initialAttributes .~ _validationConfig_initialAttributes config
+            & modifyAttributes .~ inputAttrs
+            & inputElementConfig_initialValue .~ _validationConfig_initialValue config
+            & inputElementConfig_setValue %~ maybe id const (_validationConfig_setValue config)
+        let eValidated = tagPromptlyDyn (fromDynValidation dValidated) validateL
+            inputAttrs = ffor eValidated $ \case
+              Left _ -> fmap Just $ _validationConfig_invalidAttributes config
+              Right _ -> fmap Just $ _validationConfig_validAttributes config
+    val <- eitherDyn $ fromDynValidation dValidated
+    let feedback = dyn_ $ _validationConfig_feedback config <$> val
+    return $ (ValidationInput input dValidated, feedback)
+  where
+    combineValidators
+      :: (Dynamic t Text -> DynValidation t e a)
+      -> Maybe (Dynamic t Text -> m (DynValidation t e a))
+      -> Dynamic t Text -> m (DynValidation t e a)
+    combineValidators pValidator mValidator t =
+      case mValidator of
+        Nothing -> pure $ pValidator t
+        Just mv -> do
+          r <- mv t
+          pure (pValidator t *> r)
 
 makeLenses ''ValidationConfig
