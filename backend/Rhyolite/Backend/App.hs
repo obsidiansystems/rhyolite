@@ -18,7 +18,6 @@ module Rhyolite.Backend.App
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
-import Control.Concurrent (forkIO, killThread)
 import Control.Exception (bracket)
 import Control.Lens (imapM_)
 import Control.Monad (forever, void, when)
@@ -50,6 +49,7 @@ import Data.Coerce (coerce)
 import Rhyolite.Api (AppRequest)
 import Rhyolite.App (HasRequest, HasView, ViewSelector, singletonQuery)
 import Rhyolite.Backend.Listen (startNotificationListener)
+import Rhyolite.Concurrent
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
 import Rhyolite.Request.Class (SomeRequest (..))
@@ -260,12 +260,12 @@ feedPipeline getNextNotification qh r = do
   let qhSaveQuery = QueryHandler $ \q -> do
         atomicModifyIORef' currentQuery $ \old -> (q <> old, ())
         runQueryHandler qh q
-  tid <- forkIO . forever $ do
+  tid <- worker 10000 $ do
     nm <- getNextNotification
     q <- readIORef currentQuery
     qr <- nm q
     tellRecipient r qr
-  return (qhSaveQuery, killThread tid)
+  return (qhSaveQuery, tid)
 
 -- | Connects the pipeline to websockets consumers
 connectPipelineToWebsockets
