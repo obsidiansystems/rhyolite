@@ -28,16 +28,11 @@ import Control.Monad.Ref
 import Control.Monad.State.Strict
 import Data.Aeson
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Types
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
-import Data.Constraint
 import Data.Constraint.Extras
 import Data.Default (Default)
-import Data.Functor.Sum
-import qualified Data.IntMap as IntMap
-import Data.Dependent.Map (DSum (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Some
@@ -92,11 +87,9 @@ vesselToWire
      )
   => QueryMorphism (v (Const SelectedCount)) (v (Const ()))
 vesselToWire = QueryMorphism
-  { _queryMorphism_mapQuery = \q -> 
+  { _queryMorphism_mapQuery = \q ->
       let deplete (Const n) = if n == mempty then Nothing else Just (Const ())
-      in case mapMaybeV deplete q of
-            Nothing -> mempty
-            Just q' -> q'
+      in maybe mempty id $ mapMaybeV deplete q
   , _queryMorphism_mapQueryResult = id
   }
 
@@ -307,10 +300,13 @@ runObeliskRhyoliteWidget ::
   -> RoutedT t (R frontendRoute) m a
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
-  Just (Just route) <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
-  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc $ listenRoute)
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  route <- (fmap . fmap) (parseURI . T.unpack . T.strip . T.decodeUtf8) (getConfig configRoute) >>= \case
+    Just (Just route) -> pure route
+    _ -> error "runObeliskRhyoliteWidget: Unable to parse route config"
+  let wsUrl = T.pack (show $ websocketUri route) <> renderBackendRoute enc listenRoute
+  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
 
+{-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
 runPrerenderedRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
       ( PerformEvent t m
@@ -332,13 +328,43 @@ runPrerenderedRhyoliteWidget
    -> Text
    -> RhyoliteWidget qFrontend req t m b
    -> m b
-runPrerenderedRhyoliteWidget toWire url child = do
-  rec (notification :: Event t (QueryResult qWire), response) <- fmap (bimap (switch . current) (switch . current) . splitDynPure) $
-        prerender (return (never, never)) $ do
-          (appWebSocket :: AppWebSocket t q) <- openWebSocket' url request'' nubbedVs
-          return ( _appWebSocket_notification appWebSocket
-                 , _appWebSocket_response appWebSocket
-                 )
+runPrerenderedRhyoliteWidget toWire url child = snd <$> runRhyoliteWidget toWire url child
+
+runRhyoliteWidget
+   :: forall qFrontend qWire req m t b x.
+      ( PerformEvent t m
+      , TriggerEvent t m
+      , PostBuild t m
+      , MonadHold t m
+      , MonadFix m
+      , Prerender x t m
+      , Request req
+      , Query qFrontend
+      , Group qFrontend
+      , Additive qFrontend
+      , Eq qWire
+      , Monoid (QueryResult qFrontend)
+      , FromJSON (QueryResult qWire)
+      , ToJSON qWire
+      )
+  => QueryMorphism qFrontend qWire
+  -> Text
+  -> RhyoliteWidget qFrontend req t m b
+  -> m (Dynamic t (AppWebSocket t qWire), b)
+runRhyoliteWidget toWire url child = do
+  let defAppWebSocket = AppWebSocket
+          { _appWebSocket_notification = never
+          , _appWebSocket_response = never
+          , _appWebSocket_version = never
+          , _appWebSocket_connected = constDyn False
+          }
+  rec (dAppWebSocket :: Dynamic t (AppWebSocket t qWire)) <- prerender (return defAppWebSocket) $ do
+          openWebSocket' url request'' nubbedVs
+      let (notification :: Event t (QueryResult qWire), response) = (bimap (switch . current) (switch . current) . splitDynPure) $
+            ffor dAppWebSocket $ \appWebSocket ->
+            ( _appWebSocket_notification appWebSocket
+            , _appWebSocket_response appWebSocket
+            )
       (request', response') <- matchResponsesWithRequests reqEncoder request $ ffor response $ \(TaggedResponse t v) -> (t, v)
       let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
             Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
@@ -347,7 +373,7 @@ runPrerenderedRhyoliteWidget toWire url child = do
       let (vsDyn :: Dynamic t qFrontend) = incrementalToDynamic (vs :: Incremental t (AdditivePatch qFrontend))
       nubbedVs <- holdUniqDyn (_queryMorphism_mapQuery toWire <$> vsDyn)
       view <- fmap join $ prerender (pure mempty) $ fromNotifications vsDyn $ _queryMorphism_mapQueryResult toWire <$> notification
-  return a
+  return (dAppWebSocket, a)
   where
     reqEncoder :: forall a. req a -> (Aeson.Value, Aeson.Value -> Maybe a)
     reqEncoder r =
@@ -378,7 +404,7 @@ data AppWebSocket t q = AppWebSocket
   }
 
 -- | Open a websocket connection and split resulting incoming traffic into listen notification and api response channels
-openWebSocket' 
+openWebSocket'
   :: forall r q t x m.
      ( MonadJSM m
      , MonadJSM (Performable m)
@@ -432,7 +458,7 @@ openWebSocket' url request vs = do
     , _appWebSocket_connected = connected
     }
 
-openWebSocket 
+openWebSocket
   :: forall t x m r q.
      ( MonadJSM m
      , MonadJSM (Performable m)

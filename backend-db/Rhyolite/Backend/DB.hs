@@ -20,8 +20,8 @@
 module Rhyolite.Backend.DB where
 
 import Control.Arrow (first)
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Logger (LoggingT, NoLoggingT)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT, runLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
 import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
@@ -31,12 +31,13 @@ import Control.Monad.Trans.Maybe (MaybeT)
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
-import Control.Monad.Trans.Reader (ReaderT)
+import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
 import qualified Control.Monad.Trans.Writer.Lazy as Lazy (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import Data.Coerce (Coercible, coerce)
 import Data.Functor (void)
 import Data.Functor.Compose (Compose (..))
 import Data.Functor.Identity (Identity (..))
@@ -51,42 +52,83 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic (mapAllRows)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (SqlDb, isFieldNothing, runDbConn, in_)
+import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
+import qualified Database.PostgreSQL.Simple as Pg
+import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Database.Id.Class
 import Database.Id.Groundhog
 
 import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
+import Rhyolite.Logging (LoggingEnv (..))
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
+
+runDbPersistTransactionMode
+  :: (MonadIO m, MonadLoggerIO m)
+  => Pg.IsolationLevel
+  -> Pg.ReadWriteMode
+  -> Pool Pg.Connection
+  -> DbPersist Postgresql (LoggingT IO) a
+  -> m a
+runDbPersistTransactionMode isoLevel rwMode dbPool (DbPersist act) = do
+  logger <- askLoggerIO
+  liftIO $ withResource dbPool $ \conn ->
+    Pg.withTransactionMode (Pg.TransactionMode isoLevel rwMode) conn $
+      runLoggingT (runReaderT act (coerce conn)) logger
 
 -- | Runs a database action using a given pool of database connections
 -- The 'f' parameter can be used to represent additional information about
 -- how/where to run the database action (e.g., in a particular schema).
 -- See instances below.
 class RunDb f where
-  runDb :: ( MonadIO m
-           , MonadBaseNoPureAborts IO m
-           , ConnectionManager cm conn
-           , PostgresRaw (DbPersist conn m)
-           , PersistBackend (DbPersist conn m))
-        => f (Pool cm)
-        -> DbPersist conn m b
-        -> m b
+  -- | Runs a transaction at serializable isolation level and automatically retries
+  --   in case of a serialization error.
+  runDb :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
+        => f (Pool conn)
+        -> Serializable a
+        -> m a
+
+  -- | Runs a read-only transaction at repeatable read isolation level.
+  --   No retrying is done.
+  --
+  --  Note that a read-only repeatable read transaction is the highest
+  --  isolation level we can get that cannot fail due to a
+  --  serialization error and cannot be starved by other transactions.
+  --  For contrast, @SERIALIZABLE READ ONLY DEFERRED@ is the highest
+  --  isolation that cannot fail due to serialization error but it
+  --  can be starved.
+  --
+  --  NB: "Read-only" is not statically checked!
+  runDbReadOnlyRepeatableRead
+    :: (MonadIO m, MonadLoggerIO m, Coercible conn Pg.Connection)
+    => f (Pool conn)
+    -> DbPersist Postgresql (LoggingT IO) a
+    -> m a
 
 -- | Runs a database action in the public schema
 instance RunDb Identity where
-  runDb (Identity db) = withResource db . runDbConn . withSchema (SchemaName "public")
+  runDb (Identity db) act = do
+    logger <- askLoggerIO
+    runSerializable (coerce db) (LoggingEnv logger) $ withSchema (SchemaName "public") act
+  runDbReadOnlyRepeatableRead (Identity db) =
+    runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db)
 
 -- | Runs a database action in a specific schema
 instance RunDb WithSchema where
-  runDb (WithSchema schema db) = withResource db . runDbConn . withSchema schema
+  runDb (WithSchema schema db) act = do
+    logger <- askLoggerIO
+    runSerializable (coerce db) (LoggingEnv logger) $ withSchema schema act
+  runDbReadOnlyRepeatableRead (WithSchema schema db) =
+    runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db) . withSchema schema
 
 getSearchPath :: PersistBackend m => m String
-getSearchPath = do
-  [searchPath] :: [String] <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
-  return searchPath
+getSearchPath =
+  queryRaw False "SHOW search_path" [] (mapAllRows (fmap fst . fromPersistValues)) >>= \case
+    [searchPath] -> return searchPath
+    _ -> error "getSearchPath: Unexpected result from queryRaw"
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
@@ -145,7 +187,7 @@ selectSingle
   => opts
   -> m (Maybe v)
 selectSingle cond = select (cond `limitTo` 1) >>= \case
-  [] -> pure $ Nothing
+  [] -> pure Nothing
   [x] -> pure $ Just x
   _   -> fail "PostgreSQL ignored LIMIT TO 1"
 
@@ -182,10 +224,11 @@ fieldIsJust, fieldIsNothing
 fieldIsJust f = Not $ isFieldNothing f
 fieldIsNothing = isFieldNothing
 
-getTime :: PersistBackend m => m UTCTime
-getTime = do
-  Just [PersistUTCTime t] <- queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id
-  return t
+getTime :: (PersistBackend m) => m UTCTime
+getTime =
+  queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id >>= \case
+    Just [PersistUTCTime t] -> return t
+    _ -> error "getTime: Unexpected result of queryRaw"
 
 withTime :: PersistBackend m => (UTCTime -> m a) -> m a
 withTime a = do

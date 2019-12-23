@@ -3,7 +3,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -15,11 +14,10 @@ import Control.Arrow ((&&&))
 import Control.Exception
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Typeable
 import Data.Universe
 import Data.Aeson (FromJSON, ToJSON, decode', eitherDecode', encode)
 import Data.Functor.Identity (Identity(..))
-import Data.Typeable (Proxy(..), Typeable)
+import Data.Typeable (Proxy(..), Typeable, TypeRep, typeRep)
 import qualified Data.Map as Map
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
@@ -61,15 +59,14 @@ instance (Typeable a, ToJSON a, FromJSON a) => PersistField (Json a) where
   fromPersistValues vs = do
     (r, vs') <- fromPersistValues vs
     case eitherDecode' r of
-      Left err -> fail $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
+      Left err -> error $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
       Right r' -> return (Json r', vs')
-
   dbType p (Json a) = dbType p (encode a)
 
 instance (Typeable a, ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
   toPrimitivePersistValue p (Json a) = toPrimitivePersistValue p (encode a)
   fromPrimitivePersistValue p v = runIdentity $ do
-    Just r <- return $ decode' $ fromPrimitivePersistValue p v
+    let r = maybe (error "fromPrimitivePersistValue: Failed to decode Json") id $ decode' $ fromPrimitivePersistValue p v
     return (Json r)
 
 instance ToJSON a => ToField (Json a) where
@@ -77,7 +74,7 @@ instance ToJSON a => ToField (Json a) where
 
 instance (Typeable a, FromJSON a) => FromField (Json a) where
   fromField f mb = do
-    (Binary v) <- fromField f mb
+    Binary v <- fromField f mb
     let ev = eitherDecode' v
     case ev of
       Left err -> fail $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
@@ -91,7 +88,7 @@ fromDerivedId = Id . unId
 toDerivedId :: DerivedEntity v => Id (DerivedEntityHead v) -> Id v
 toDerivedId = Id . unId
 
-data VisibleUniverseFailure = VisibleUniverseFailure TypeRep
+newtype VisibleUniverseFailure = VisibleUniverseFailure TypeRep
   deriving (Show)
 
 fromShowUniverse :: forall a. (Typeable a, Universe a, Show a) => Text -> Conversion a

@@ -1,0 +1,7 @@
+{
+  "owner": "3noch",
+  "repo": "postgresql-simple",
+  "branch": "eac@fix-spurious-aborts",
+  "rev": "e02684f9c38acf736ac590b36b919000a2b45bc4",
+  "sha256": "0qfqq6sldxaxjvickayg3dcmmippmmnfbhpfvbv4mc7kr58dlqxg"
+}

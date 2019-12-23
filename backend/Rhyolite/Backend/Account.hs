@@ -20,6 +20,7 @@
 
 module Rhyolite.Backend.Account where
 
+import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Crypto.PasswordStore
@@ -46,17 +47,21 @@ import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
-import Text.Blaze.Html5.Attributes as A
+import qualified Text.Blaze.Html5.Attributes as A
+import qualified Web.ClientSession as CS
 
 import Rhyolite.Backend.DB
+import Rhyolite.Backend.DB.Serializable (Serializable)
+import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
 import Rhyolite.Backend.Listen
+import Rhyolite.Backend.Sign (sign, signWithKey)
 
 import Rhyolite.Account
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Schema
-import Rhyolite.Sign
+import Rhyolite.Sign (MonadSign (SigningKey, askSigningKey), Signed)
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: Account
@@ -100,8 +105,8 @@ ensureAccountExists nm email = do
 
 -- Creates account if it doesn't already exist and sends pw email
 ensureAccountExistsEmail
-  :: ( PersistBackend m
-     , MonadSign m
+  :: ( PersistBackend m, MonadBase Serializable m
+     , MonadSign m, SigningKey m ~ CS.Key
      , SqlDb (PhantomDb m)
      , Typeable f
      , ToJSON (f (Id Account))
@@ -118,8 +123,8 @@ ensureAccountExistsEmail n = ensureAccountExistsEmail' (ensureAccountExists n)
 -- Creates account if it doesn't already exist and sends pw email
 -- Allows the option for a custom "ensure account" creation function
 ensureAccountExistsEmail'
-  :: ( PersistBackend m
-     , MonadSign m
+  :: ( PersistBackend m, MonadBase Serializable m
+     , MonadSign m, SigningKey m ~ CS.Key
      , Typeable f
      , ToJSON (f (Id Account)))
   => (Email -> m (Bool, Id Account))
@@ -135,19 +140,25 @@ ensureAccountExistsEmail' ensureAccount decorateAccountId pwEmail email = do
   return ret
 
 generatePasswordResetToken
-  :: ( PersistBackend m
-     , MonadSign m
+  :: ( MonadSign m, SigningKey m ~ CS.Key
+     , PersistBackend m
+     , MonadBase Serializable m
      , Typeable f
      , ToJSON (f (Id Account))
      )
   => f (Id Account)
   -> m (Signed (PasswordResetToken f))
 generatePasswordResetToken aid = do
+  -- We can safely lift this 'IO' into 'Serializable' transactions because we don't
+  -- actually care what the nonce is, so long as it's in the database by the time
+  -- we're done.
   nonce <- getTime
-  sign $ PasswordResetToken (aid, nonce)
+  k <- askSigningKey
+  liftBase $ Serializable.unsafeMkSerializable $ liftIO $ signWithKey k $ PasswordResetToken (aid, nonce)
 
 generatePasswordResetTokenFromNonce
-  :: ( MonadSign m
+  :: ( MonadIO m
+     , MonadSign m, SigningKey m ~ CS.Key
      , Typeable f
      , ToJSON (f (Id Account))
      )
@@ -157,12 +168,15 @@ generatePasswordResetTokenFromNonce
 generatePasswordResetTokenFromNonce aid nonce = sign $ PasswordResetToken (aid, nonce)
 
 setAccountPassword
-  :: (PersistBackend m, MonadIO m)
+  :: (PersistBackend m, MonadBase Serializable m)
   => Id Account
   -> Text
   -> m ()
 setAccountPassword aid password = do
-  pw <- makePasswordHash password
+  -- We can safely make a password hash in 'Serializable' because retries
+  -- will simply cause us to regenerate a random salt. Since it's random
+  -- anyway we don't care how many times it runs.
+  pw <- liftBase $ Serializable.unsafeMkSerializable $ liftIO $ makePasswordHash password
   update [ Account_passwordHashField =. Just pw
          , Account_passwordResetNonceField =. (Nothing :: Maybe UTCTime) ]
          (AutoKeyField ==. fromId aid)
@@ -176,13 +190,13 @@ makePasswordHash pw = do
   return $ makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) salt 14
 
 resetPassword
-  :: (MonadIO m, PersistBackend m)
+  :: (PersistBackend m, MonadBase Serializable m)
   => Id Account
   -> UTCTime
   -> Text
   -> m (Maybe (Id Account))
 resetPassword aid nonce password = do
-  Just a <- get $ fromId aid
+  a <- maybe (error "resetPassword: Account not found") id <$> get (fromId aid)
   if account_passwordResetNonce a == Just nonce
     then do
       setAccountPassword aid password
@@ -212,14 +226,22 @@ loginByAccountId aid password = runMaybeT $ do
   guard $ verifyPasswordWith pbkdf2 (2^) (encodeUtf8 password) ph
 
 generateAndSendPasswordResetEmail
-  :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
+  :: ( PersistBackend m
+     , MonadBase Serializable m
+     , MonadSign m, SigningKey m ~ CS.Key
+     , Typeable f, ToJSON (f (Id Account))
+     )
   => (Id Account -> f (Id Account))
   -> (Signed (PasswordResetToken f) -> Email -> m ())
   -> Id Account
   -> m (Maybe UTCTime)
 generateAndSendPasswordResetEmail decorateAccountId pwEmail aid = do
+  -- We can safely lift this 'IO' into a 'Serializable' transaction because
+  -- any valid signature of the token will work. E.g. retrying will simply
+  -- cause us to sign again which will still produce a valid signature.
   nonce <- getTime
-  prt <- sign $ PasswordResetToken (decorateAccountId aid, nonce)
+  k <- askSigningKey
+  prt <- liftBase $ Serializable.unsafeMkSerializable $ liftIO $ signWithKey k $ PasswordResetToken (decorateAccountId aid, nonce)
   ma <- get (fromId aid)
   forM ma $ \a -> do
     pwEmail prt (account_email a)
@@ -228,7 +250,9 @@ generateAndSendPasswordResetEmail decorateAccountId pwEmail aid = do
 -- | Like 'generateAndSendPasswordResetEmail', but sets the nonce in the
 -- database instead of just returning it.
 generateAndSendPasswordResetEmailUpdateNonce
-  :: (PersistBackend m, MonadSign m, Typeable f, ToJSON (f (Id Account)))
+  :: ( PersistBackend m, MonadBase Serializable m
+     , MonadSign m, SigningKey m ~ CS.Key, Typeable f, ToJSON (f (Id Account))
+     )
   => (Id Account -> f (Id Account))
   -> (Signed (PasswordResetToken f) -> Email -> m ())
   -> Id Account

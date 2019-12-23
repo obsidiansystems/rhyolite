@@ -1,8 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -18,12 +20,15 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy as LBS
+import Data.Proxy (Proxy (..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.Typeable (Typeable, typeOf)
+import Data.Typeable (Typeable, typeRep)
 import Database.Groundhog (DbPersist)
 import qualified Web.ClientSession as CS
 
 import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
+import Rhyolite.Backend.DB.LargeObjects (PostgresLargeObject (withLargeObject))
+import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw)
 import Rhyolite.Email (MonadEmail)
 import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
@@ -31,22 +36,34 @@ import Rhyolite.Sign (MonadSign (..), Signed (..))
 
 signWithKey :: (Typeable b, ToJSON b, MonadIO m) => CS.Key -> b -> m (Signed a)
 signWithKey k (v :: b) =
-  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeOf (undefined :: b), v)
+  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeRep (Proxy @b), v)
 
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
-    tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-    (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
-    guard $ t == show (typeOf (undefined :: b))
-    return v
+  tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
+  (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
+  guard $ t == show (typeRep $ Proxy @b)
+  return v
 
-newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
+-- We need the Typeable here because otherwise two Signeds whose contents encode the same way will be interchangeable
+sign :: (MonadSign m, SigningKey m ~ CS.Key, MonadIO m, Typeable a, ToJSON a) => a -> m (Signed a)
+sign a = do
+  k <- askSigningKey
+  signWithKey k a
+
+readSigned :: (MonadSign m, SigningKey m ~ CS.Key, Typeable a, FromJSON a) => Signed a -> m (Maybe a)
+readSigned s = do
+  k <- askSigningKey
+  pure $ readSignedWithKey k s
+
+newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
 
 runSignT :: SignT m a -> CS.Key -> m a
-runSignT (SignT a) r = runReaderT a r
+runSignT (SignT a) = runReaderT a
 
-instance (MonadIO m, MonadBase IO m) => MonadBase IO (SignT m) where
-  liftBase = liftIO
+instance MonadBase b m => MonadBase b (SignT m) where
+  liftBase = SignT . liftBase
 
 instance MonadTransControl SignT where
   type StT SignT a = StT (ReaderT CS.Key) a
@@ -58,20 +75,21 @@ instance (MonadIO m, MonadBaseControl IO m) => MonadBaseControl IO (SignT m) whe
   liftBaseWith f = SignT $ liftBaseWith $ \g -> f $ g . unSignT
   restoreM a = SignT $ restoreM a
 
-instance MonadIO m => MonadSign (SignT m) where
-  sign a = do
-    k <- SignT ask
-    signWithKey k a
-  readSigned s = do
-    k <- SignT ask
-    return $ readSignedWithKey k s
-
-instance MonadSign m => MonadSign (NoLoggingT m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
-
-instance MonadSign m => MonadSign (DbPersist conn m) where
-  sign = lift . sign
-  readSigned = lift . readSigned
+instance Monad m => MonadSign (SignT m) where
+  type SigningKey (SignT m) = CS.Key
+  askSigningKey = SignT ask
 
 deriveNewtypePersistBackend (\m -> [t| SignT $m |]) (\m -> [t| ReaderT CS.Key $m |]) 'SignT 'unSignT
+
+instance (Monad m, PostgresRaw m) => PostgresRaw (SignT m)
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (SignT m) where
+  withLargeObject oid mode f = do
+    k <- SignT ask
+    lift $ withLargeObject oid mode (\lofd -> runSignT (f lofd) k)
+
+-- Orphans
+instance MonadSign m => MonadSign (NoLoggingT m) where
+  type SigningKey (NoLoggingT m) = SigningKey m
+
+instance MonadSign m => MonadSign (DbPersist conn m) where
+  type SigningKey (DbPersist conn m) = SigningKey m

@@ -1,7 +1,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -33,6 +32,7 @@ import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 
 import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw (..), liftWithConn)
+import Rhyolite.Backend.DB.Serializable (Serializable, toDbPersist, unsafeLiftDbPersist)
 import Rhyolite.Schema (LargeObjectId (..))
 
 class PostgresRaw m => PostgresLargeObject m where
@@ -96,10 +96,9 @@ toOid (LargeObjectId n) = Oid (fromIntegral n)
 
 instance (MonadIO m, MonadBaseControl IO m) => PostgresLargeObject (DbPersist Postgresql m) where
   newEmptyLargeObject = fmap fromOid $ liftWithConn $ \conn -> Sql.loCreat conn
-  withLargeObject oid mode f =
+  withLargeObject oid mode =
     bracket (liftWithConn $ \conn -> Sql.loOpen conn (toOid oid) mode)
             (\lofd -> liftWithConn $ \conn -> Sql.loClose conn lofd)
-            f
   newLargeObjectFromFile filePath =
     liftWithConn $ \conn -> fmap fromOid $ Sql.loImport conn filePath
   newLargeObjectBS contents =
@@ -114,6 +113,17 @@ instance (MonadIO m, MonadBaseControl IO m) => PostgresLargeObject (DbPersist Po
     liftWithConn (\conn -> LO.streamLargeObjectRange conn (toOid oid) start end os)
 
   deleteLargeObject oid = liftWithConn $ \conn -> Sql.loUnlink conn $ toOid oid
+
+instance PostgresLargeObject Serializable where
+  newEmptyLargeObject = unsafeLiftDbPersist newEmptyLargeObject
+  withLargeObject oid mode f = unsafeLiftDbPersist $ withLargeObject oid mode (toDbPersist . f)
+  newLargeObjectFromFile = unsafeLiftDbPersist . newLargeObjectFromFile
+  newLargeObjectBS = unsafeLiftDbPersist . newLargeObjectBS
+  newLargeObjectLBS = unsafeLiftDbPersist . newLargeObjectLBS
+  newLargeObjectStream = unsafeLiftDbPersist . newLargeObjectStream
+  streamLargeObject oid os = unsafeLiftDbPersist $ streamLargeObject oid os
+  streamLargeObjectRange oid start end os = unsafeLiftDbPersist $ streamLargeObjectRange oid start end os
+  deleteLargeObject = unsafeLiftDbPersist . deleteLargeObject
 
 instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (StateT s m) where
   withLargeObject oid mode f = do

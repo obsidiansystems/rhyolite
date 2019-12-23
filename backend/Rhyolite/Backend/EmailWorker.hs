@@ -12,6 +12,7 @@
 module Rhyolite.Backend.EmailWorker where
 
 import Control.Exception.Lifted (bracket)
+import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Trans.Control
 import Control.Monad.Logger
 import Control.Monad.Reader
@@ -34,8 +35,10 @@ import qualified Network.HaskellNet.SMTP as SMTP
 import Rhyolite.Concurrent
 import qualified Data.Map.Monoidal as Map
 import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.LargeObjects
+import Rhyolite.Backend.DB.PsqlSimple
+import Rhyolite.Backend.DB.Serializable (Serializable)
+import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
 import Rhyolite.Backend.Schema.TH
 import Rhyolite.Schema
@@ -51,9 +54,12 @@ data QueuedEmail = QueuedEmail
 
 instance HasId QueuedEmail
 
-mailToQueuedEmail :: (PostgresLargeObject m, MonadIO m) => Mail.Mail -> Maybe UTCTime -> m QueuedEmail
+mailToQueuedEmail :: (Monad m, PostgresLargeObject m, MonadBase Serializable m) => Mail.Mail -> Maybe UTCTime -> m QueuedEmail
 mailToQueuedEmail m t = do
-  r <- liftIO $ Mail.renderMail' m
+  -- We can safely lift 'renderMail' into serializable transactions because
+  -- it's 'IO' is to generate a random boundary. If we retry we'll generate
+  -- a different one but we don't care what it is anyway.
+  r <- liftBase $ Serializable.unsafeMkSerializable $ liftIO $ Mail.renderMail' m
   (oid, _) <- newLargeObjectLBS r
   return $ QueuedEmail { _queuedEmail_mail = oid
                        , _queuedEmail_to = Json $ Mail.mailTo m
@@ -74,7 +80,7 @@ mkRhyolitePersist (Just "migrateQueuedEmail") [groundhog|
 makeDefaultKeyIdInt64 ''QueuedEmail 'QueuedEmailKey
 
 -- | Queues a single email
-queueEmail :: (PostgresLargeObject m, PersistBackend m, MonadIO m)
+queueEmail :: (PostgresLargeObject m, PersistBackend m, MonadBase Serializable m)
           => Mail.Mail
           -> Maybe UTCTime
           -> m (Id QueuedEmail)
@@ -82,18 +88,21 @@ queueEmail m t = do
   qm <- mailToQueuedEmail m t
   fmap toId . insert $ qm
 
--- Retrieves and sends emails one at a time, deleting them from the queue
+-- | Retrieves and sends emails one at a time, deleting them from the queue.
+--   Guarantees "at most once" semantics, e.g. a power fault in the middle of
+--   this process may leave some emails unsent, but no emails will be sent
+--   twice.
 clearMailQueue :: forall m f.
   ( RunDb f
   , MonadIO m
-  , MonadBaseNoPureAborts IO m
-  , MonadLogger m
+  , MonadLoggerIO m
   )
-               => f (Pool Postgresql)
-               -> EmailEnv
-               -> m ()
+  => f (Pool Postgresql)
+  -> EmailEnv
+  -> m ()
 clearMailQueue db emailEnv = do
-  queuedEmail <- (runDb db :: DbPersist Postgresql m a -> m a) $ do
+  -- First we obtain a "lock" for an email we plan to send.
+  queuedEmail <- runDb db $ do
     qe <- listToMaybe . Map.toList <$>
       selectMap' QueuedEmailConstructor ((QueuedEmail_checkedOutField ==. False) `limitTo` 1)
     forM_ (fst <$> qe) $ \eid ->
@@ -102,7 +111,8 @@ clearMailQueue db emailEnv = do
   case queuedEmail of
     Nothing -> return ()
     Just (qid, QueuedEmail oid (Json to) (Json from) expiry _) -> do
-      runDb db $ do
+      -- With the lock held we can safely run a read-only transaction at lower isolation without retries.
+      runDbReadOnlyRepeatableRead db $ do
         now <- getTime
         let
           notExpired = case expiry of
@@ -111,13 +121,17 @@ clearMailQueue db emailEnv = do
         when notExpired $ do
           withStreamedLargeObject oid $ \payload ->
             sendQueuedEmail emailEnv from to (LBS.toStrict payload)
-          liftIO $ putStrLn $ mconcat
+          $logInfo $ T.pack $ mconcat
             [ "["
             , show now
             , "] "
             , "Sending email to: "
             , show to
             ]
+
+      -- "Release" the lock by removing this email from the queue.
+      -- If an exception beats us to this point then we're still consistent with
+      -- "at most once" semantics.
       runDb db $ do
         _ <- execute [sql| DELETE FROM "QueuedEmail" q WHERE q.id = ? |] (Only qid)
         deleteLargeObject oid

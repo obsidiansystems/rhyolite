@@ -37,7 +37,6 @@ project ./. ({ pkgs, hackGet, ... }@args: {
    - rhyolite-aeson-orphans
    - rhyolite-backend
    - rhyolite-backend-db
-   - rhyolite-backend-db-gargoyle
    - rhyolite-backend-snap
    - rhyolite-common
    - rhyolite-datastructures
