@@ -48,7 +48,7 @@ deriveNewtypePersistBackend toT fromT to from =
       tableAnalysisInst <- tySynInstD ''TableAnalysis $ tySynEqn [toT m] $ appT (conT ''TableAnalysis) (fromT m)
       return [phantomDbInst, tableAnalysisInst]
     n =: e = valD (varP n) (normalB e) []
-    functions = sequence $
+    functions = sequence
       [ 'insert =: [| $(conE to) . insert |]
       , 'insert_ =: [| $(conE to) . insert_ |]
       , 'insertBy =: [| \u v -> $(conE to) $ insertBy u v |]
