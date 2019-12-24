@@ -45,7 +45,7 @@ readSignedWithKey k s = do
   guard $ t == show (typeRep $ Proxy @b)
   return v
 
--- We need the Typeable here because otherwise two Signeds whose contents encode the same way will be interchangeable
+-- We need the Typeable here because otherwise two 'Signed's whose contents encode the same way will be interchangeable
 sign :: (MonadSign m, SigningKey m ~ CS.Key, MonadIO m, Typeable a, ToJSON a) => a -> m (Signed a)
 sign a = do
   k <- askSigningKey

@@ -265,7 +265,7 @@ newtype Flip f a b = Flip (f b a)
 --   Instances should either be 'trivial' like the IO instance, or they should be default instances.
 class MonadBaseControl n m => MonadBaseNoPureAborts n m where
   noPureAborts :: proxy m -> StM m a -> a
-  default noPureAborts :: forall t m' a proxy. (m ~ (t m'), StM m a ~ StM m' (StT t a), MonadBaseNoPureAborts n m', MonadTransNoPureAborts t) => proxy m -> StM m a -> a
+  default noPureAborts :: forall t m' a proxy. (m ~ t m', StM m a ~ StM m' (StT t a), MonadBaseNoPureAborts n m', MonadTransNoPureAborts t) => proxy m -> StM m a -> a
   noPureAborts p = noPureAbortsT (Flip $ Compose p) . noPureAborts (Compose p)
 
 instance MonadBaseNoPureAborts Identity Identity where

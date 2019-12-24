@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2019-12-23 - Unreleased
+
+* Add `mapModalTM`, `mapModalT` and `mapModalTM` functions for changing the underlying monads of `ModalT`.
+
 ## 2019-12-20
 
 * Move `Rhyolite.Backend.Logging` to its own project `rhyolite-logging` and re-export.
