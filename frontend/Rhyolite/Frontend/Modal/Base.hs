@@ -133,7 +133,7 @@ mapModalM f = ModalT . withEventWriterT ((fmap . fmap) f) . unModalT
 -- | You can adjust the attributes passed to the backdrop with this config.
 --
 --   You can adjust the background and the size, for example. You cannot change
---   the CSS `display` property, as it is controled by this library. Also note
+--   the CSS `display` property, as it is controlled by this library. Also note
 --   that the dialog is not a child widget of the backdrop, but rendered within
 --   a separate `untouchable` top level div. For positioning of your dialog,
 --   you should not rely on backdrop, nor on this hidden div, instead we

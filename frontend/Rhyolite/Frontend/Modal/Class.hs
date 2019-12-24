@@ -25,7 +25,7 @@ class HasModal t m where
   --   For example, a modal may choose not to be closable by simply ignoring it's input and returning 'never'.
   --
   --   Note on positioning: We control the containing div of your dialog for
-  --   handling of the CSS display property. We recommened that you position
+  --   handling of the CSS display property. We recommend that you position
   --   your dialog `fixed` with some Clay like the following:
   --
   -- @
