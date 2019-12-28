@@ -13,7 +13,6 @@ import Data.Coerce
 import Data.Either
 import Data.Map.Monoidal as Map
 import Data.Maybe
-import Data.Monoid hiding (First (..), (<>))
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
