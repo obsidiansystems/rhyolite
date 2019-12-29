@@ -1,8 +1,12 @@
-# Revision history for rhyolite
+# Revision history for Rhyolite
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## 2019-10-21 - Unreleased
+## 2019-12-23 - Unreleased
+
+* Add `mapModalTM`, `mapModalT` and `mapModalTM` functions for changing the underlying monads of `ModalT`.
+
+## 2019-12-20
 
 * Move `Rhyolite.Backend.Logging` to its own project `rhyolite-logging` and re-export.
 * Add `Rhyolite.Backend.DB.Serializable` for doing PostgreSQL transactions in `SERIALIZABLE` isolation with automatic retrying on serialization errors.
@@ -14,7 +18,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Add `PostgresRaw` and `PostgresLargeObject` instances to `SignT`.
 * Bump `postgresql-simple` to avoid `WARNING: There is no transaction in progress` when there is a serialization error.
 
-## 2019-10-20 - Unreleased
+## 2019-10-20
 
 * Deprecated runPrerenderedRhyoliteWidget, use runRhyoliteWidget instead.
 * Use GHC 8.6. This necessitated bumps to
@@ -28,22 +32,22 @@ This project's release branch is `master`. This log is written from the perspect
 * Convert many places using `fail` to use `error` directly to avoid `MonadFail` constraint
 * Remove many instances from `Backend.DB.PsqlSimple.Orphans` that were upstreamed to `postgresql-simple`
 
-## 2019-08-27 - Unreleased
+## 2019-08-27
 
 * Improve error message on parse failure in certain database instances
 
-## 2019-08-19 - Unreleased
+## 2019-08-19
 
 * Added `runObeliskRhyoliteWidget` for integration with obelisk applications.
 
-## 2019-08-02 - Unreleased
+## 2019-08-02
 
 * Remove `Rhyolite.Backend.Snap`. That module has been made obsolete by Obelisk.
 * Frontend.App: Use reflex's `matchResponsesWithRequests` instead of `identifyTags` (now deleted). Change the identifier used by `TaggedRequest` and `TaggedResponse` to an `Int`
 * Remove `mapRequesterT`. This has been upstreamed to reflex as `withRequesterT`
 * Remove Frontend.Request and Frontend.WebSocket
 
-## 2019-08-01 - Unreleased
+## 2019-08-01
 
 * Use `HasId`, `Id`, and related types/functions from database-id-class and database-id-groundhog. Remove the implementations in Rhyolite.Schema and Rhyolite.Backend.Schema
 * Remove Rhyolite.Backend.DB.TH since the code there was redundant with Rhyolite.Backend.Schema.TH
@@ -52,7 +56,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Add a test that builds all the rhyolite submodules to `test/`
 * Remove `withDb`, which can now be found in [gargoyle-postgresql-connect](https://github.com/obsidiansystems/gargoyle/tree/develop/gargoyle-postgresql-connect)
 
-## 2019-06-14 - Unreleased
+## 2019-06-14
 
 * Add `Rhyolite.Frontend.Modal.*` modules for conveniently creating modals that do not require the use of `z-index` to position correctly.
 * Add `withLoggingMinLevel` function in `Rhyolite.Backend.Logging` which allows you to pick the fallback filter when no other filters match.
@@ -67,7 +71,7 @@ This project's release branch is `master`. This log is written from the perspect
 * If you're using Vessel, to implement DiffQuery you can use subtractV which is a consequence of the View typeclass.
 * Add alternative to groundhog's `==.`, which has severe performance issues before version 0.10 (to which we can't yet upgrade). See `Rhyolite.Backend.DB.===.`.
 
-## 2019-05-08 - Unreleased
+## 2019-05-08
 
 * Add NeverNull instance for our Json newtype that encodes things as JSON in the DB.
 * Add change-tracking DB notifications. See `HasChangeNotification` in Rhyolite.Backend.Listen.

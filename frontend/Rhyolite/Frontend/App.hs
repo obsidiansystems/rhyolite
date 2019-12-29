@@ -427,7 +427,7 @@ openWebSocket' url request vs = do
 #if defined(ghcjs_HOST_OS)
   rec let platformDecode = jsonDecode . pFromJSVal
           rawWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
-      ws <- rawWebSocket $ def
+      ws <- rawWebSocket def
 #else
   rec let platformDecode = decodeValue' . LBS.fromStrict
       ws <- webSocket url $ def

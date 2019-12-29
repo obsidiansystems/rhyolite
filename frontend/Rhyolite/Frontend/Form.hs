@@ -222,6 +222,6 @@ validationInputWithFeedback config = do
             Right _ -> fmap Just $ _validationConfig_validAttributes config
   val <- eitherDyn $ fromDynValidation dValidated
   let feedback = dyn_ $ _validationConfig_feedback config <$> val
-  return $ (ValidationInput input dValidated, feedback)
+  return (ValidationInput input dValidated, feedback)
 
 makeLenses ''ValidationConfig

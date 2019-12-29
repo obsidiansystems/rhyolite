@@ -74,7 +74,7 @@ extensibleListWidgetWithSize n x0 xs0 addAtEnd itemWidget = do
                 -- TODO, maybe: figure out why this Map lookup is too strict.
                 -- Deleting an item causes a failed lookup, however, I'm not sure it really matters.
         itemWidget ((,) <$> ix <*> fmap length listMapD) v
-      let changeMapE = switch . current $ fmap (leftmost . fmap (\(k, v) -> fmap ((,) k) v) . Map.toList . fmap fst) $ resultMapD
-          valuesMapD = joinDynThroughMap $ fmap (fmap snd) $ resultMapD
+      let changeMapE = switch . current $ fmap (leftmost . fmap (\(k, v) -> fmap ((,) k) v) . Map.toList . fmap fst) resultMapD
+          valuesMapD = joinDynThroughMap $ fmap (fmap snd) resultMapD
           valuesD = fmap Map.elems valuesMapD
   return valuesD
