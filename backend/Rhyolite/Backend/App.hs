@@ -120,7 +120,7 @@ newtype Pipeline m q q' = Pipeline { unPipeline :: QueryHandler q' m -> Recipien
 
 tracePipelineQuery :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipelineQuery tag = Pipeline $ \qh r -> do
-  return 
+  return
     ( QueryHandler $ \q -> do
         putStrLn $ tag ++ "(query): " ++ show q
         qr <- runQueryHandler qh q
@@ -132,7 +132,7 @@ tracePipelineQuery tag = Pipeline $ \qh r -> do
 tracePipeline :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipeline tag = Pipeline $ \qh r -> do
   putStrLn $ tag ++ "(start)"
-  return 
+  return
     ( QueryHandler $ \q -> do
         putStrLn $ tag ++ "(query): " ++ show q
         qr <- runQueryHandler qh q
@@ -216,7 +216,7 @@ multiplexQuery lookupQueryHandler = do
           qOld <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
             ((nextCid, Map.update (\(r, _) -> Just (r, q)) cid recipients), maybe mempty snd $ Map.lookup cid recipients)
           runQueryHandler (lookupQueryHandler cid) (q ~~ qOld)
-              
+
         unregisterRecipient = do
           antiQ <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
             case Map.updateLookupWithKey (\_ _ -> Nothing) cid recipients of
@@ -462,7 +462,7 @@ standardPipeline
     )
   => Pipeline m (MonoidalMap k (q SelectedCount)) (q (MonoidMap k SelectedCount))
 standardPipeline = queryMorphismPipeline
-  (QueryMorphism (fmap MonoidMap . condense)
+  (QueryMorphism (fmap monoidMap . condense)
                  (disperse . fmap unMonoidMap))
 
 -- | This is also useful as a final argument to serveDbOverWebsockets, in the case that you're using Vessel-style queries/views.
