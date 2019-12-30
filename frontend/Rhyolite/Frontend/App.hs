@@ -74,7 +74,10 @@ functorToWire
      , QueryResult (q SelectedCount) ~ v SelectedCount)
   => QueryMorphism (q SelectedCount) (q ())
 functorToWire = QueryMorphism
-  { _queryMorphism_mapQuery = mapMaybe (\n -> if n <= 0 then Nothing else Just ())
+  { -- TODO in principle the <= 0 case should never happen.
+    -- Perhaps we should error / impure log / always `Just ()` / etc.,
+    -- but we'd need to track down a bunch of instsances first.
+    _queryMorphism_mapQuery = mapMaybe (\n -> if n <= 0 then Nothing else Just ())
   , _queryMorphism_mapQueryResult = fmap (const (SelectedCount 1))
   }
 
