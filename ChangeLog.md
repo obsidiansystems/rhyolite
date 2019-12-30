@@ -5,6 +5,7 @@ This project's release branch is `master`. This log is written from the perspect
 ## 2019-12-23 - Unreleased
 
 * Add `mapModalTM`, `mapModalT` and `mapModalTM` functions for changing the underlying monads of `ModalT`.
+* Fix bug in `functorToWire` causing `SelectedCount` of `0` to be considered non-mempty.
 
 ## 2019-12-20
 
