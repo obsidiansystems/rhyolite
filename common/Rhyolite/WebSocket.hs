@@ -1,3 +1,7 @@
+-- | The low-level implementation of the websocket communication between
+-- frontend and backend. You can use this manually, for example, when building a
+-- program that pretends to be a user of your app (load-testing comes to mind).
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}

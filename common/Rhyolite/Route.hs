@@ -1,3 +1,6 @@
+-- | This module is still here for backward compatibility reasons. You should
+-- use "Obelisk.Route" instead.
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}

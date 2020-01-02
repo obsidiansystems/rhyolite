@@ -1,3 +1,6 @@
+-- | Modal widgets. The important definition here is `ModalT`, the relative
+-- class is in "Rhyolite.Frontend.Modal.Class".
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}

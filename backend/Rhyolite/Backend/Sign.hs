@@ -1,3 +1,6 @@
+-- | Functions to encrypt the cookie data using "Web.ClientSession", see the
+-- relevant datatypes in "Rhyolite.Sign".
+
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}

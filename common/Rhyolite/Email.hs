@@ -1,3 +1,5 @@
+-- | Monad and instances to send a mail.
+
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}

@@ -1,3 +1,10 @@
+-- | This module contains a newtype wrapper around `Data.Map.Map` that has a
+-- correct `Group` instance compared to the one for
+-- `Data.Map.Monoidal.MonoidalMap`, in that it has a unique neutral element.
+-- This comes with different constraints on the parameters (check the instances
+-- for `Semigroup` and `Monoid` of the corresponding data structures if you're
+-- interested).
+--
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}

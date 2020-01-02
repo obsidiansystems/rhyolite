@@ -1,3 +1,8 @@
+-- | Part of the Rhyolite integration with
+-- [groundhog](http://hackage.haskell.org/package/groundhog). In particular, we
+-- define `SchemaName` and `LargeObjectId` here in order to send them across the
+-- wire.
+
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}

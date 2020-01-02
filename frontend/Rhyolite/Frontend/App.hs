@@ -1,3 +1,9 @@
+-- | Frontend part of the view/viewselector implementation. Here we have the
+-- definition of `RhyoliteWidget` and the functions to run it,
+-- `runRhyoliteWidget` and `runObeliskRhyoliteWidget`. We also have the
+-- `watchViewSelector` function that's used in the frontend module of a typical
+-- app.
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}

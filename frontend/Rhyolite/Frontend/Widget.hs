@@ -1,3 +1,7 @@
+-- | A couple utilities to deal with list of items in which each item can return
+-- controls for insertion before and after, and deletion. See `ListEdit` and
+-- `extensibleListWidget`.
+
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Rhyolite.Frontend.Widget where

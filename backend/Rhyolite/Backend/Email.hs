@@ -1,3 +1,5 @@
+-- | Utilities and templates to send emails from the backend.
+
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
