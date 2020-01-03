@@ -1,3 +1,5 @@
+-- | TH utilities to embed files in source code.
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}

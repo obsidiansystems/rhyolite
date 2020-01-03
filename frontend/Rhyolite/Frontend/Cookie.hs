@@ -1,3 +1,5 @@
+-- | Getting and setting cookies on the frontend.
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Rhyolite.Frontend.Cookie where

@@ -1,3 +1,5 @@
+-- | Some decoding functions integrated with "Aeson".
+
 module Rhyolite.Request.Common where
 
 import qualified Data.Aeson as Aeson

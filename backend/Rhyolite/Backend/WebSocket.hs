@@ -1,3 +1,6 @@
+-- | Setting up the WebSocket connection using "Snap.Core" and primitives for
+-- getting and setting websocket messages.
+
 module Rhyolite.Backend.WebSocket where
 
 import Data.Semigroup ((<>))

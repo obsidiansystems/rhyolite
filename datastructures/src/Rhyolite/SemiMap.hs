@@ -1,3 +1,5 @@
+-- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
+
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -21,9 +23,13 @@ import GHC.Generics (Generic)
 
 import Rhyolite.Aeson.Orphans ()
 
+-- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
+-- distinguish two semantic meanings of the monoidal map:
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)
+   -- ^ The MonoidalMap contains all the information that I want to express.
    | SemiMap_Partial (MonoidalMap k (First (Maybe v)))
+   -- ^ I'm only expressing a patch for some information that I already possess.
    deriving (Show, Read, Eq, Ord, Foldable, Functor, Generic)
 
 isComplete :: SemiMap k v -> Bool
@@ -74,6 +80,8 @@ instance (Ord k) => Semigroup (SemiMap k v) where
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)
 
+-- | With a SemiSet, you can express that you have a complete set of elements,
+-- or a patch that modifies another collection.
 type SemiSet k = SemiMap k ()
 
 fromKnown :: Set k -> SemiSet k

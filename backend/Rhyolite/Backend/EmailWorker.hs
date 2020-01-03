@@ -1,3 +1,5 @@
+-- | The implementation for a mail queue and relative worker in the backend.
+
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}

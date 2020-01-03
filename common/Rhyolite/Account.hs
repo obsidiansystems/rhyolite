@@ -1,3 +1,5 @@
+-- | In this module we have a notion of 'Account' with its associated route ('AccountRoute'), and encoder ('accountRouteEncoder').
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}

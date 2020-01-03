@@ -1,3 +1,5 @@
+-- | Orphan instances for 'Ord' and 'Read' for arrays of 'ByteString' and 'Text'
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 

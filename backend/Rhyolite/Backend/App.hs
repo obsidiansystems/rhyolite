@@ -1,3 +1,5 @@
+-- | This module contains the implementation of the view/viewselector machinery.
+
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
