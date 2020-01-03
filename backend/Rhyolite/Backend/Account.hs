@@ -1,4 +1,4 @@
--- | Backend utilities for using the `Account` data type from "Rhyolite.Account".
+-- | Backend utilities for using the 'Account' data type from "Rhyolite.Account".
 
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}

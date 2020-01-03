@@ -1,4 +1,4 @@
--- | The concept of `Task` to use it, e.g. in a queue.
+-- | The concept of 'Task' to use it, e.g. in a queue.
 
 {-# LANGUAGE DeriveGeneric #-}
 module Rhyolite.Schema.Task where

@@ -1,4 +1,4 @@
--- | Definition, utilities and instances for `SemiMap` and `SemiSet`.
+-- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
 
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -23,7 +23,7 @@ import GHC.Generics (Generic)
 
 import Rhyolite.Aeson.Orphans ()
 
--- | A SemiMap is a structure built on top on the `MonoidalMap` that lets you
+-- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
 -- distinguish two semantic meanings of the monoidal map:
 data SemiMap k v
    = SemiMap_Complete (MonoidalMap k v)

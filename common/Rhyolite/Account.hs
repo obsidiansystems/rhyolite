@@ -1,4 +1,4 @@
--- | In this module we have a notion of `Account` with its associated route (`AccountRoute`), and encoder (`accountRouteEncoder`).
+-- | In this module we have a notion of 'Account' with its associated route ('AccountRoute'), and encoder ('accountRouteEncoder').
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}

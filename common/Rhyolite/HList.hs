@@ -1,4 +1,4 @@
--- | A local reimplementation of `HList` to give some `FromJSON` and `ToJSON` equivalent.
+-- | A local reimplementation of 'HList' to give some 'FromJSON' and 'ToJSON' equivalent.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}

@@ -1,5 +1,5 @@
--- | Miscellaneous utilities related to the `Query` datatype, and the definition
--- of `Single`, a view for a single piece of data.
+-- | Miscellaneous utilities related to the 'Query' datatype, and the definition
+-- of 'Single', a view for a single piece of data.
 --
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveGeneric #-}

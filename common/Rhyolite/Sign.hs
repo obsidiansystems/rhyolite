@@ -20,7 +20,7 @@ import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Control.Monad.State.Strict as Strict
 
--- | A wrapper around `Text` that contains the signed payload.
+-- | A wrapper around 'Text' that contains the signed payload.
 newtype Signed a = Signed { unSigned :: Text }
   deriving (Show, Read, Eq, Ord, ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 

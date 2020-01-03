@@ -1,5 +1,5 @@
 -- | Notification mechanism in the backend. The most important function in this
--- module is `notify`.
+-- module is 'notify'.
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}

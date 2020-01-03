@@ -1,6 +1,6 @@
 -- | This commonly used module details the mechanism that we use to bring
 -- information from the frontend to the backend of a typical Obelisk app. The
--- important datatype here is `ApiRequest` which is parametrized on three
+-- important datatype here is 'ApiRequest' which is parametrized on three
 -- application-dependent datatypes: one, of kind @*@, for credentials, and two,
 -- of kind @k -> *@, respectively for the public and private part of the
 -- request. As an example, your app could have datatypes like:
@@ -19,7 +19,7 @@
 --   ...
 -- @
 --
--- and you'll work with an `ApiRequest` of type:
+-- and you'll work with an 'ApiRequest' of type:
 --
 -- @
 -- ApiRequest Credentials PublicRequest PrivateRequest

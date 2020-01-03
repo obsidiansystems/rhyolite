@@ -1,4 +1,4 @@
--- | Utilities for dealing with `MonoidalMap`s.
+-- | Utilities for dealing with 'MonoidalMap's.
 
 module Rhyolite.Map.Monoidal (module X, (=:), restrictKeys) where
 
