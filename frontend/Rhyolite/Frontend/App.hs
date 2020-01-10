@@ -433,22 +433,24 @@ openWebSocket'
   -> Dynamic t q -- ^ Authenticated listen requests (e.g., ViewSelector updates)
   -> m (AppWebSocket t q)
 openWebSocket' url request vs = do
+  rec
+    let
 #if defined(ghcjs_HOST_OS)
-  rec let platformDecode = jsonDecode . pFromJSVal
-          rawWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
-      ws <- rawWebSocket def
+      platformDecode = jsonDecode . pFromJSVal
+      platformWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
 #else
-  rec let platformDecode = decodeValue' . LBS.fromStrict
-      ws <- webSocket url $ def
+      platformDecode = decodeValue' . LBS.fromStrict
+      platformWebSocket = webSocket url
 #endif
-        & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . Aeson.encode)) (mconcat
-          [ fmap (map WebSocketRequest_Api) request
-          , fmap ((:[]) . WebSocketRequest_ViewSelector) $ updated vs :: Event t [WebSocketRequest q r]
-          -- NB: It's tempting to try to only send query diffs here, but this must be treated
-          -- with care, since the backend needs to know when we cease being interested in things
-          -- so that it knows not to send further notifications.
-          , tag (fmap ((:[]) . WebSocketRequest_ViewSelector) $ current vs) $ _webSocket_open ws
-          ])
+    ws <- platformWebSocket $ def
+      & webSocketConfig_send .~ fmap (map (decodeUtf8 . LBS.toStrict . Aeson.encode)) (mconcat
+        [ fmap (map WebSocketRequest_Api) request
+        , fmap ((:[]) . WebSocketRequest_ViewSelector) $ updated vs :: Event t [WebSocketRequest q r]
+        -- NB: It's tempting to try to only send query diffs here, but this must be treated
+        -- with care, since the backend needs to know when we cease being interested in things
+        -- so that it knows not to send further notifications.
+        , tag (fmap ((:[]) . WebSocketRequest_ViewSelector) $ current vs) $ _webSocket_open ws
+        ])
   let (eMessages :: Event t (WebSocketResponse q)) = fmapMaybe platformDecode $ _webSocket_recv ws
       notification = fforMaybe eMessages $ \case
         WebSocketResponse_View v -> Just v
