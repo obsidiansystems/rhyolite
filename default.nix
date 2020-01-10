@@ -50,7 +50,7 @@ let
 
   # You can use these manually if you don’t want to use rhyolite.project.
   # It will be needed if you need to combine with multiple overrides.
-  haskellOverrides = lib.foldr lib.composeExtensions  (_: _: {}) [
+  haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
@@ -90,6 +90,8 @@ let
 in obelisk // {
 
   inherit haskellOverrides;
+
+  rhyolitePackages = haskellPackages: builtins.intersectAttrs rhyolitePackages (haskellPackages.extend haskellOverrides);
 
   # Function similar to obelisk.project that handles overrides for you.
   project = base: projectDefinition:
