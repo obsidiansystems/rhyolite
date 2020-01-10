@@ -32,6 +32,8 @@ let
     groundhog = repos.groundhog + /groundhog;
     groundhog-postgresql = repos.groundhog + /groundhog-postgresql;
     groundhog-th = repos.groundhog + /groundhog-th;
+    HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
+    HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
 
     # Newer versions than those in reflex-platform

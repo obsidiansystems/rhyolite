@@ -2,6 +2,7 @@
   "owner": "obsidiansystems",
   "repo": "obelisk",
   "branch": "master",
-  "rev": "070cde86d1a6a9755b0aa1e9d8b20776f06efa6b",
-  "sha256": "149cikk7dihdnxad8vz8m8ndnydvnqkqbccn1pnbpwmimb5fsq6z"
+  "private": false,
+  "rev": "5c29c500b898edf4bf190a4572a2998ad2fec80f",
+  "sha256": "0409lpk5hm8warl9svzvhrxvba8z6l3vakld99c6vq5xcf8hg8wz"
 }
