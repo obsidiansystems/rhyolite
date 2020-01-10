@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## 2020-01-10
 
 * Add `mapModalTM`, `mapModalT` and `mapModalTM` functions for changing the underlying monads of `ModalT`.
 * Fix bug in `functorToWire` causing `SelectedCount` of `0` to be considered non-mempty.
