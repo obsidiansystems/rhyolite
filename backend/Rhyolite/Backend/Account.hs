@@ -24,6 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
+import Data.Byteable (toBytes)
 import Data.ByteString (ByteString)
 import Data.Constraint.Extras
 import Data.Constraint.Forall
@@ -31,6 +32,7 @@ import Data.Default
 import Data.Functor.Identity
 import Data.List.NonEmpty
 import Data.Maybe
+import Data.SecureMem
 import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -280,3 +282,61 @@ sendPasswordResetEmail senderName senderEmail productName f prt email = do
   let lead = "You have received this message because you requested that your " <> productName <> " password be reset. Click the link below to create a new password."
       body = H.a H.! A.href (fromString $ show passwordResetLink) $ "Reset Password"
   sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body
+
+-- SecureMem functions that delay the conversion of the secret (wrapped in a SecureMem type) to Text until it is required for a third-party interface. This
+-- preventes the accidental leakage of secrets into logs
+
+setAccountPasswordSM
+  :: (PersistBackend m, MonadIO m)
+  => Id Account
+  -> SecureMem
+  -> m ()
+setAccountPasswordSM aid password = do
+  pw <- makePasswordHashSM password
+  update [ Account_passwordHashField =. Just pw
+         , Account_passwordResetNonceField =. (Nothing :: Maybe UTCTime) ]
+         (AutoKeyField ==. fromId aid)
+
+makePasswordHashSM
+  :: MonadIO m
+  => SecureMem
+  -> m ByteString
+makePasswordHashSM pw = do
+  salt <- liftIO genSaltIO
+  return $ makePasswordSaltWith pbkdf2 (2^) (toBytes pw) salt 14
+
+resetPasswordSM
+  :: (MonadIO m, PersistBackend m)
+  => Id Account
+  -> UTCTime
+  -> SecureMem
+  -> m (Maybe (Id Account))
+resetPasswordSM aid nonce password = do
+  Just a <- get $ fromId aid
+  if account_passwordResetNonce a == Just nonce
+    then do
+      setAccountPasswordSM aid password
+      return $ Just aid
+    else return Nothing
+
+loginSM
+  :: (PersistBackend m, SqlDb (PhantomDb m))
+  => (Id Account -> m loginInfo)
+  -> Email
+  -> SecureMem
+  -> m (Maybe loginInfo)
+loginSM toLoginInfo email password = runMaybeT $ do
+  (aid, a) <- MaybeT . fmap listToMaybe $ project (AutoKeyField, AccountConstructor) (lower Account_emailField ==. T.toLower email)
+  ph <- MaybeT . return $ account_passwordHash a
+  guard $ verifyPasswordWith pbkdf2 (2^) (toBytes password) ph
+  lift $ toLoginInfo (toId aid)
+
+loginByAccountIdSM
+  :: (PersistBackend m)
+  => Id Account
+  -> SecureMem
+  -> m (Maybe ())
+loginByAccountIdSM aid password = runMaybeT $ do
+  a <- MaybeT . fmap listToMaybe $ project AccountConstructor (AutoKeyField ==. fromId aid)
+  ph <- MaybeT . return $ account_passwordHash a
+  guard $ verifyPasswordWith pbkdf2 (2^) (toBytes password) ph
