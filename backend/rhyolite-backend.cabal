@@ -19,6 +19,7 @@ library
       aeson
     , base
     , blaze-html
+    , byteable
     , bytestring
     , bytestring-trie
     , clientsession
@@ -57,6 +58,7 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
+    , securemem
     , smtp-mail
     , snap-core
     , split

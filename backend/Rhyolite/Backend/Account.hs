@@ -24,6 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
 import Crypto.PasswordStore
 import Data.Aeson
+import Data.Byteable (toBytes)
 import Data.ByteString (ByteString)
 import Data.Constraint.Extras
 import Data.Constraint.Forall
@@ -31,6 +32,7 @@ import Data.Default
 import Data.Functor.Identity
 import Data.List.NonEmpty
 import Data.Maybe
+import Data.SecureMem
 import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
