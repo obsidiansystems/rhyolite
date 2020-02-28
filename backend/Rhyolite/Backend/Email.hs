@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -145,7 +146,25 @@ sendWidgetEmailFrom
   -> SetRouteT t (R r) (RouteToUrlT (R r) (StaticWidget x)) a
   -- ^ Body widget for the email
   -> m ()
-sendWidgetEmailFrom cfg recipients sub plainText bodyWidget = do
+sendWidgetEmailFrom cfg recipients sub plainText bodyWidget =
+  sendMail =<< widgetMail cfg recipients sub plainText bodyWidget
+
+-- | Build an email using a StaticWidget that can use frontend routes.
+widgetMail
+  :: forall k (x :: k) a t r br m.
+     (MonadIO m, MonadEmail m, Reflex t)
+  => WidgetEmailCfg br r
+  -- ^ Configuration for email sender
+  -> NonEmpty Text
+  -- ^ List of recipients
+  -> Text
+  -- ^ Subject line
+  -> Maybe ((RouteToUrlT (R r) Identity) Text)
+  -- ^ Body plaintext, with route decoder
+  -> SetRouteT t (R r) (RouteToUrlT (R r) (StaticWidget x)) a
+  -- ^ Body widget for the email
+  -> m Mail
+widgetMail cfg recipients sub plainText bodyWidget = do
   let
     WidgetEmailCfg
         { _widgetEmailName = name'
@@ -159,7 +178,8 @@ sendWidgetEmailFrom cfg recipients sub plainText bodyWidget = do
   let formattedTime = formatTimeRFC2822 $ utcToZonedTime utc t
   body <- liftIO $ LT.fromStrict . decodeUtf8 <$> runEmailWidget bodyWidget
   let bodyText = LT.fromStrict . runEmailPlaintext <$> plainText
-  sendMail $ Mail
+  -- XXX this can probably all be done applicatively
+  return $ Mail
     (Address (Just name') email)
     (map (Address Nothing) $ toList recipients)
     []
