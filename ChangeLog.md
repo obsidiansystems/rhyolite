@@ -4,7 +4,7 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 
-* Bump Obelisk to version 0.7 which includes a bump to reflex-platform and nixpkgs 19.09
+* Bump Obelisk to version 0.8 which includes a bump to reflex-platform and nixpkgs 19.09
 
 ## 2020-01-10
 
