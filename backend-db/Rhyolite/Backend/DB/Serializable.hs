@@ -10,18 +10,23 @@
 
 module Rhyolite.Backend.DB.Serializable
   ( Serializable
+  , SqlSerializationError (..)
   , runSerializable
   , toDbPersist
   , unsafeLiftDbPersist
   , unsafeMkSerializable
   , unSerializable
+  , withSqlSerializationErrorWrapping
   ) where
 
+import qualified Control.Exception as E
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Catch (MonadThrow)
+import qualified Control.Monad.Catch as MonadCatch
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (ReaderT, runReaderT, withReaderT)
 import Control.Monad.Logger (MonadLogger, LoggingT)
+import qualified Control.Monad.State as S
 import Data.Coerce (coerce)
 import qualified Database.Groundhog.Generic.Migration as Mig
 import Database.Groundhog.Postgresql (Postgresql (..))
@@ -29,10 +34,9 @@ import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Data.Pool (Pool, withResource)
 import qualified Database.Groundhog.Core as Hog
+
 import qualified Rhyolite.Backend.DB.PsqlSimple as PsqlSimple
 import Rhyolite.Logging (LoggingEnv, runLoggingEnv)
-
-import qualified Control.Monad.State as S
 
 -- | A monad for database transactions with serializable isolation level.
 --
@@ -101,6 +105,20 @@ instance Mig.SchemaAnalyzer Serializable where
   getMigrationPack i = coerce <$> unsafeLiftDbPersist (Mig.getMigrationPack i)
 
 
+data SqlSerializationError = SqlSerializationError deriving (Eq, Ord, Show)
+instance E.Exception SqlSerializationError
+
+withSqlSerializationErrorWrapping :: forall m a. (MonadCatch.MonadCatch m, MonadThrow m) => m a -> m a
+withSqlSerializationErrorWrapping = flip MonadCatch.catches
+  [ MonadCatch.Handler $ \(e :: Pg.SqlError) -> convert id e
+  , MonadCatch.Handler $ \(e :: PsqlSimple.WrappedSqlError) -> convert PsqlSimple._wrappedSqlError_error e
+  ]
+  where
+    convert :: E.Exception e => (e -> Pg.SqlError) -> e -> m a
+    convert toSqlError e = if Pg.isSerializationError (toSqlError e)
+      then MonadCatch.throwM SqlSerializationError
+      else MonadCatch.throwM e
+
 unsafeMkSerializable :: ReaderT Pg.Connection (LoggingT IO) a -> Serializable a
 unsafeMkSerializable = Serializable
 
@@ -111,9 +129,37 @@ toDbPersist :: forall a. Serializable a -> Hog.DbPersist Postgresql (LoggingT IO
 toDbPersist (Serializable act) = Hog.DbPersist $ withReaderT coerce act
 
 unsafeLiftDbPersist :: forall a. Hog.DbPersist Postgresql (LoggingT IO) a -> Serializable a
-unsafeLiftDbPersist (Hog.DbPersist act) = Serializable $ withReaderT coerce act
+unsafeLiftDbPersist (Hog.DbPersist act) = Serializable $ withSqlSerializationErrorWrapping $ withReaderT coerce act
 
 runSerializable :: forall a m. (MonadIO m) => Pool Pg.Connection -> LoggingEnv -> Serializable a -> m a
 runSerializable pool logger (Serializable act) = liftIO $ withResource pool $ \c ->
-  Pg.withTransactionSerializable c $
-    runLoggingEnv logger $ runReaderT act c
+  withTransactionModeRetry'
+    (Pg.TransactionMode{ Pg.isolationLevel = Pg.Serializable, Pg.readWriteMode = Pg.ReadWrite})
+    (\(_ :: SqlSerializationError) -> True)
+    c
+    (runLoggingEnv logger $ runReaderT act c)
+
+
+-- | Like 'Pg.withTransactionModeRetry' but polymorphic over exception type.
+-- Copied from https://github.com/phadej/postgresql-simple/blob/e02684f9c38acf736ac590b36b919000a2b45bc4/src/Database/PostgreSQL/Simple/Transaction.hs#L156-L174
+withTransactionModeRetry' :: forall e a. E.Exception e => Pg.TransactionMode -> (e -> Bool) -> Pg.Connection -> IO a -> IO a
+withTransactionModeRetry' mode shouldRetry conn act =
+  E.mask $ \restore ->
+    retryLoop $ E.try $ do
+      a <- restore act `E.onException` rollback_ conn
+      Pg.commit conn
+      return a
+  where
+    retryLoop :: IO (Either e a) -> IO a
+    retryLoop act' = do
+      Pg.beginMode mode conn
+      r <- act'
+      case r of
+        Left e -> case shouldRetry e of
+          True -> retryLoop act'
+          False -> E.throwIO e
+        Right a -> return a
+
+    -- | Rollback a transaction, ignoring any @IOErrors@
+    rollback_ :: Pg.Connection -> IO ()
+    rollback_ c = Pg.rollback c `E.catch` \(_ :: IOError) -> return ()
