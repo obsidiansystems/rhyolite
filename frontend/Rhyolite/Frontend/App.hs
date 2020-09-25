@@ -50,7 +50,7 @@ import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI, parseURI)
+import Network.URI (URI, parseURI, uriPath)
 import qualified Reflex as R
 import Data.Witherable (Filterable)
 import Reflex.Dom.Core hiding (MonadWidget, Request)
