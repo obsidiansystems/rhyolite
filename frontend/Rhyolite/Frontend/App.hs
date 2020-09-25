@@ -307,7 +307,7 @@ runObeliskRhyoliteWidget ::
   , ToJSON qWire
   )
   => QueryMorphism qFrontend qWire
-  -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
+  -> URI -- ^ http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
   -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
