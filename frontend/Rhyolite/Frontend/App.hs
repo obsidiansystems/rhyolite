@@ -304,8 +304,8 @@ runObeliskRhyoliteWidget ::
   -> URI -- ^ http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
-  -> RoutedT t (R route) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
-  -> RoutedT t (R route) m a
+  -> RoutedT t route (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
+  -> RoutedT t route m a
 runObeliskRhyoliteWidget toWire route enc listenRoute child = do
   let wsUrl = T.pack $ show $ (websocketUri route) { uriPath = T.unpack $ T.takeWhile (/= '?') $ renderBackendRoute enc listenRoute }
   mapRoutedT (runPrerenderedRhyoliteWidget toWire wsUrl) child
