@@ -44,11 +44,10 @@ import Data.Semigroup ((<>))
 import Data.Some
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
 import GHC.Generics (Generic)
 import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI, parseURI, uriPath)
+import Network.URI (URI, uriPath)
 import qualified Reflex as R
 import Data.Witherable (Filterable)
 import Reflex.Dom.Core hiding (MonadWidget, Request)
@@ -305,15 +304,11 @@ runObeliskRhyoliteWidget ::
   -> URI -- ^ http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
-  -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
-  -> RoutedT t (R frontendRoute) m a
+  -> RoutedT t (R route) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
+  -> RoutedT t (R route) m a
 runObeliskRhyoliteWidget toWire route enc listenRoute child = do
-  obR <- askRoute
-  --route <- (fmap . fmap) (parseURI . T.unpack . T.strip . T.decodeUtf8) (getConfig configRoute) >>= \case
-  --  Just (Just route) -> pure route
-  --  _ -> error "runObeliskRhyoliteWidget: Unable to parse route config"
   let wsUrl = T.pack $ show $ (websocketUri route) { uriPath = T.unpack $ T.takeWhile (/= '?') $ renderBackendRoute enc listenRoute }
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
+  mapRoutedT (runPrerenderedRhyoliteWidget toWire wsUrl) child
 
 {-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
 runPrerenderedRhyoliteWidget
