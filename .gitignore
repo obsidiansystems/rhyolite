@@ -5,3 +5,5 @@ result-*
 *.project.local
 .ghc.*
 .attr-cache
+tags
+TAGS
