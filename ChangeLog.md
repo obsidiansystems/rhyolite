@@ -6,6 +6,11 @@ This project's release branch is `master`. This log is written from the perspect
 
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)
 * Remove rhyolite-logging and use monad-logger-extras in rhyolite-db instead. `LoggingEnv` is replaced by `Logger`.
+* Emails
+  * separate build and send for widget email
+  * Update widget emails for newer routes.
+  * Use a record for email configuration.
+  * Add a function for email with a StaticWidget
 
 ## 2020-04-28
 
