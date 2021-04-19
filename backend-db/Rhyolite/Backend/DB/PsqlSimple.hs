@@ -17,7 +17,9 @@ module Rhyolite.Backend.DB.PsqlSimple
   , Binary (..), (:.)(..), PGArray (..)
   , ToRow (..), FromRow (..)
   , ToField (..), FromField (..)
-  , Query (..), sql, traceQuery, traceExecute, traceExecute_
+  , Query (..)
+  , WrappedSqlError (..)
+  , sql, traceQuery, traceExecute, traceExecute_
   , liftWithConn
   , queryQ, executeQ, executeQ_, sqlQ, traceQueryQ, traceExecuteQ, traceExecuteQ_
   , fromIdRow
@@ -63,7 +65,6 @@ data WrappedSqlError = WrappedSqlError
   , _wrappedSqlError_error :: SqlError
   }
   deriving Show
-
 instance Exception WrappedSqlError
 
 rethrowWithQuery :: ToRow q => Connection -> Query -> q -> SqlError -> IO a
@@ -127,7 +128,6 @@ class PostgresRaw m where
   returning :: (ToRow q, FromRow r) => Query -> [q] -> m [r]
   default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
   returning psql qs = lift $ returning psql qs
-
 
 traceQuery :: (PostgresRaw m, MonadIO m, ToRow q, FromRow r) => Query -> q -> m [r]
 traceQuery p q = do
