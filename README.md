@@ -3,33 +3,33 @@
 1. Within an already initialized Obelisk project, clone Rhyolite into
    the dep directory, if you haven’t already:
 
-```bash
-git clone https://github.com/obsidiansystems/rhyolite dep/rhyolite
-```
+   ```bash
+   git clone https://github.com/obsidiansystems/rhyolite dep/rhyolite
+   ```
 
 1. Add Rhyolite’s haskellOverrides to default.nix so that your package
    can access them. This involves adding overrides to the arguments
    passed to Obelisk’s project function so that it imports Rhyolite’s
    haskellOverrides. You can base it off of this example:
 
-```
-{ system ? builtins.currentSystem # TODO: Get rid of this system cruft
-, iosSdkVersion ? "10.2"
-}:
-with import ./.obelisk/impl { inherit system iosSdkVersion; };
-project ./. ({ pkgs, hackGet, ... }@args: {
+   ```
+   { system ? builtins.currentSystem # TODO: Get rid of this system cruft
+   , iosSdkVersion ? "10.2"
+   }:
+   with import ./.obelisk/impl { inherit system iosSdkVersion; };
+   project ./. ({ pkgs, hackGet, ... }@args: {
 
-  overrides = pkgs.lib.composeExtensions (import (hackGet ./dep/rhyolite) args).haskellOverrides
-    (self: super: with pkgs.haskell.lib; {
-      # Your custom overrides go here.
-    });
+     overrides = pkgs.lib.composeExtensions (import (hackGet ./dep/rhyolite) args).haskellOverrides
+       (self: super: with pkgs.haskell.lib; {
+         # Your custom overrides go here.
+       });
 
-  android.applicationId = "systems.obsidian.obelisk.examples.minimal";
-  android.displayName = "Obelisk Minimal Example";
-  ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
-  ios.bundleName = "Obelisk Minimal Example";
-})
-```
+     android.applicationId = "systems.obsidian.obelisk.examples.minimal";
+     android.displayName = "Obelisk Minimal Example";
+     ios.bundleIdentifier = "systems.obsidian.obelisk.examples.minimal";
+     ios.bundleName = "Obelisk Minimal Example";
+   })
+   ```
 
 1. You can now add any of Rhyolite’s packages as dependencies to your
    Obelisk project. Here is the full list of packages provided:
