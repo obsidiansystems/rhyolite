@@ -60,6 +60,7 @@ library
     , reflex-dom
     , resource-pool
     , rhyolite-backend-db
+    , rhyolite-backend-notification-postgres
     , rhyolite-common
     , rhyolite-datastructures
     , semialign
@@ -81,11 +82,11 @@ library
     , witherable >= 0.2 && < 0.4
 
   exposed-modules:
-    Rhyolite.Backend.Account
+    -- Rhyolite.Backend.Account
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
-    Rhyolite.Backend.Listen
+    -- Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 

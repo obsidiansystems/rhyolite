@@ -13,11 +13,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Rhyolite.Backend.App
-  ( module Rhyolite.Backend.App
-  -- re-export
-  , Postgresql
-  ) where
+module Rhyolite.Backend.App where
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
@@ -41,14 +37,12 @@ import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
 import Data.Witherable (Filterable(..))
 import Debug.Trace (trace)
-import Database.Groundhog.Postgresql (Postgresql (..))
 import qualified Database.PostgreSQL.Simple as Pg
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
 import qualified Web.ClientSession as CS
 import qualified Network.WebSockets as WS
-import Data.Coerce (coerce)
 import Data.Vessel
 import Reflex (Group(..), Additive)
 
@@ -411,7 +405,7 @@ serveDbOverWebsockets
      , Additive q'
      , PositivePart q'
      )
-  => Pool Postgresql
+  => Pool Pg.Connection
   -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
@@ -445,7 +439,7 @@ serveDbOverWebsocketsRaw
   => ((WS.Connection -> IO ()) -> m a)
   -> Text -- ^ version
   -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
-  -> Pool Postgresql
+  -> Pool Pg.Connection
   -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
@@ -457,9 +451,6 @@ serveDbOverWebsocketsRaw withWsConn version fromWire db handleApi handleNotify h
       (qh', r) <- unPipeline pipe qh r'
       (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn version fromWire handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
-
-convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
-convertPostgresPool = coerce
 
 -- | This is typically useful to provide as a last argument to serveDbOverWebsockets, as it handles
 -- the combinatorics of aggregating the queries of connected clients as provided to the handler for

@@ -3,6 +3,7 @@ packages:
   backend-db/
   backend-snap/
   backend/
+  backend-notification-postgres/
   common/
   datastructures/
   frontend/
