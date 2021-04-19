@@ -22,6 +22,7 @@ module Rhyolite.Backend.DB where
 import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT, runLoggingT)
+import Control.Monad.Logger.Extras (Logger(..))
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
 import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
@@ -61,7 +62,6 @@ import Database.Id.Groundhog
 import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
-import Rhyolite.Logging (LoggingEnv (..))
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
@@ -112,7 +112,7 @@ class RunDb f where
 instance RunDb Identity where
   runDb (Identity db) act = do
     logger <- askLoggerIO
-    runSerializable (coerce db) (LoggingEnv logger) $ withSchema (SchemaName "public") act
+    runSerializable (coerce db) (Logger logger) $ withSchema (SchemaName "public") act
   runDbReadOnlyRepeatableRead (Identity db) =
     runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db)
 
@@ -120,7 +120,7 @@ instance RunDb Identity where
 instance RunDb WithSchema where
   runDb (WithSchema schema db) act = do
     logger <- askLoggerIO
-    runSerializable (coerce db) (LoggingEnv logger) $ withSchema schema act
+    runSerializable (coerce db) (Logger logger) $ withSchema schema act
   runDbReadOnlyRepeatableRead (WithSchema schema db) =
     runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db) . withSchema schema
 

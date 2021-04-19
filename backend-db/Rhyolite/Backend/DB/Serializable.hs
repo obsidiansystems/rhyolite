@@ -22,6 +22,7 @@ import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Reader (ReaderT, runReaderT, withReaderT)
 import Control.Monad.Logger (MonadLogger, LoggingT)
+import Control.Monad.Logger.Extras (Logger, runLoggerLoggingT)
 import Data.Coerce (coerce)
 import qualified Database.Groundhog.Generic.Migration as Mig
 import Database.Groundhog.Postgresql (Postgresql (..))
@@ -30,7 +31,6 @@ import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Data.Pool (Pool, withResource)
 import qualified Database.Groundhog.Core as Hog
 import qualified Rhyolite.Backend.DB.PsqlSimple as PsqlSimple
-import Rhyolite.Logging (LoggingEnv, runLoggingEnv)
 
 import qualified Control.Monad.State as S
 
@@ -113,7 +113,7 @@ toDbPersist (Serializable act) = Hog.DbPersist $ withReaderT coerce act
 unsafeLiftDbPersist :: forall a. Hog.DbPersist Postgresql (LoggingT IO) a -> Serializable a
 unsafeLiftDbPersist (Hog.DbPersist act) = Serializable $ withReaderT coerce act
 
-runSerializable :: forall a m. (MonadIO m) => Pool Pg.Connection -> LoggingEnv -> Serializable a -> m a
+runSerializable :: forall a m. (MonadIO m) => Pool Pg.Connection -> Logger -> Serializable a -> m a
 runSerializable pool logger (Serializable act) = liftIO $ withResource pool $ \c ->
   Pg.withTransactionSerializable c $
-    runLoggingEnv logger $ runReaderT act c
+    runLoggerLoggingT (runReaderT act c) logger

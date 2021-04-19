@@ -28,6 +28,7 @@ library
     , lens
     , lifted-base
     , monad-control
+    , monad-logger-extras
     , monad-logger
     , monad-loops
     , monoidal-containers
@@ -37,7 +38,6 @@ library
     , push-notifications
     , resource-pool
     , rhyolite-common
-    , rhyolite-logging
     , template-haskell
     , text
     , time

@@ -21,7 +21,6 @@ let
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
-    rhyolite-logging = ./logging;
   };
 
   # srcs used for overrides
@@ -70,6 +69,11 @@ let
         sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
       } {};
 
+      monad-logger-extras = self.callHackageDirect {
+        pkg = "monad-logger-extras";
+        ver = "0.1.1.1";
+        sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
+      } {};
     })
   ];
 
@@ -98,7 +102,6 @@ in obelisk // {
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
-      rhyolite-logging = ./rhyolite-logging;
       rhyolite-test-suite = ./test;
     };
     shells = rec {
