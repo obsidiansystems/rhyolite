@@ -129,6 +129,8 @@ instance HasJS x m => HasJS x (RhyoliteWidget q r t m) where
 instance HasDocument m => HasDocument (RhyoliteWidget q r t m) where
   askDocument = RhyoliteWidget . lift . lift $ askDocument
 
+instance HasConfigs m => HasConfigs (RhyoliteWidget q r t m)
+
 instance (MonadWidget' t m, PrimMonad m) => Requester t (RhyoliteWidget q r t m) where
   type Request (RhyoliteWidget q r t m) = r
   type Response (RhyoliteWidget q r t m) = Identity

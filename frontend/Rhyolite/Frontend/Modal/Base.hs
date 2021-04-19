@@ -35,6 +35,7 @@ import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.EventM as EventM
 import qualified GHCJS.DOM.GlobalEventHandlers as Events
 import Language.Javascript.JSaddle (MonadJSM)
+import Obelisk.Configs (HasConfigs)
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Reflex.Host.Class (MonadReflexCreateTrigger)
@@ -103,6 +104,8 @@ instance (Prerender js t m, Monad m, Reflex t) => Prerender js t (ModalT t modal
       (runEventWriterT $ unModalT front)
     ModalT $ tellEvent $ switchDyn ev
     pure a
+    
+instance HasConfigs m => HasConfigs (ModalT t modalM m)
 
 -- | Like 'withModals' but with the full convenience of 'ModalT', allowing 'tellModal' to open a modal anywhere.
 --
