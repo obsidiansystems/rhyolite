@@ -56,7 +56,6 @@ library
     , rhyolite-backend-db
     , rhyolite-common
     , rhyolite-datastructures
-    , rhyolite-logging
     , semialign
     , smtp-mail
     , snap-core
@@ -80,7 +79,6 @@ library
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
     Rhyolite.Backend.Listen
-    Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 
