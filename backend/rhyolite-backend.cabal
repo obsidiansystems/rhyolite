@@ -48,10 +48,12 @@ library
     , monoidal-containers
     , mtl
     , network
+    , obelisk-route
     , parsec
     , postgresql-simple
     , pwstore-fast
     , reflex
+    , reflex-dom
     , resource-pool
     , rhyolite-backend-db
     , rhyolite-common
@@ -65,6 +67,7 @@ library
     , text
     , these
     , time
+    , timerep
     , transformers
     , transformers-base
     , vector
