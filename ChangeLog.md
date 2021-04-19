@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+
+* Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)
+
 ## 2020-04-28
 
 * Bump Obelisk to version 0.8 which includes a bump to reflex-platform and nixpkgs 19.09
