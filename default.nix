@@ -36,10 +36,10 @@ let
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
 
     # Newer versions than those in reflex-platform
-    gargoyle = repos.gargoyle + /gargoyle;
-    gargoyle-postgresql = repos.gargoyle + /gargoyle-postgresql;
-    gargoyle-postgresql-connect = repos.gargoyle + /gargoyle-postgresql-connect;
-    gargoyle-postgresql-nix = repos.gargoyle + /gargoyle-postgresql-nix;
+    gargoyle = repos.gargoyle + "/gargoyle";
+    gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
+    gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
+    gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
     database-id-class = repos.database-id + "/class";
     database-id-groundhog = repos.database-id + "/groundhog";
     database-id-obelisk = repos.database-id + "/obelisk";
