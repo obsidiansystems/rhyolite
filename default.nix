@@ -1,6 +1,6 @@
-{ obelisk ? import ./.obelisk/impl {}
+{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"])
 , pkgs ? obelisk.nixpkgs
-}:
+, ... } @ args:
 
 let
   reflex-platform = obelisk.reflex-platform;
