@@ -74,6 +74,12 @@ let
         ver = "0.1.1.1";
         sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
       } {};
+      monoid-subclasses = self.callHackageDirect {
+        pkg = "monoid-subclasses";
+        ver = "1.1";
+        sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
+      } {};
+
     })
   ];
 
