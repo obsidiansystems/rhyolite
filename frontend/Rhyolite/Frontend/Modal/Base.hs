@@ -122,7 +122,7 @@ runModalT backdropCfg f = do
     ((a, open), _) <- withModals backdropCfg (getFirst <$> open) $ runEventWriterT (unModalT f)
   pure a
 
--- | Change the underlying monad of 'ModalT' and the monad the modals will be run in.
+-- | Change the underlying monad of `ModalT` and the monad the modals will be run in.
 --
 --   For cases where those two monads differ, checkout `mapModalT` and `mapModalM`.
 mapModalTM :: (Reflex t, MonadHold t m) => (forall x. m x -> n x) -> ModalT t m m a -> ModalT t n n a

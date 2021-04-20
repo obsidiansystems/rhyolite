@@ -23,11 +23,12 @@ import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT, runLoggingT)
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
-import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl, StM, StT)
+import Control.Monad.Trans.Control -- (MonadBaseControl, MonadTransControl, StM, StT)
 import Control.Monad.Trans.Error (Error, ErrorT)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.List (ListT)
 import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Reader (ReaderT(..))
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
@@ -48,13 +49,15 @@ import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
+import Database.PostgreSQL.Simple.Transaction (withTransactionSerializable)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
-import Database.Groundhog.Generic (mapAllRows)
+import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
+import Database.Groundhog.Postgresql (Postgresql(..), SqlDb, isFieldNothing, in_)
 import Database.Id.Class
 import Database.Id.Groundhog
 
@@ -124,11 +127,24 @@ instance RunDb WithSchema where
   runDbReadOnlyRepeatableRead (WithSchema schema db) =
     runDbPersistTransactionMode Pg.RepeatableRead Pg.ReadOnly (coerce db) . withSchema schema
 
+-- TODO upstream this
+liftBaseThrough
+  :: (MonadBaseControl b m, Monad m, Monad b)
+  => (b (StM m a) -> b (StM m c))
+  -> m a
+  -> m c
+liftBaseThrough f t = do
+  st <- liftBaseWith $ \run -> do
+    f $ run t
+  restoreM st
+
 getSearchPath :: PersistBackend m => m String
-getSearchPath =
-  queryRaw False "SHOW search_path" [] (mapAllRows (fmap fst . fromPersistValues)) >>= \case
-    [searchPath] -> return searchPath
-    _ -> error "getSearchPath: Unexpected result from queryRaw"
+getSearchPath = do
+  searchPath' <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
+  case searchPath' of
+    (searchPath:[]) -> return searchPath
+    [] -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not return a value"
+    _ -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not returned multiple values"
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
@@ -224,11 +240,13 @@ fieldIsJust, fieldIsNothing
 fieldIsJust f = Not $ isFieldNothing f
 fieldIsNothing = isFieldNothing
 
-getTime :: (PersistBackend m) => m UTCTime
-getTime =
-  queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id >>= \case
-    Just [PersistUTCTime t] -> return t
-    _ -> error "getTime: Unexpected result of queryRaw"
+getTime :: PersistBackend m => m UTCTime
+getTime = do
+  t' <- queryRaw False "select current_timestamp(3) at time zone 'utc'" [] id
+  case t' of
+    Just (PersistUTCTime t:[]) -> return t
+    Just (_:_:_) -> error "Rhyolite.Backend.DB(getTime) queryRaw returned multiple values"
+    _ -> error "Rhyolite.Backend.DB(getTime) queryRaw did not return a value"
 
 withTime :: PersistBackend m => (UTCTime -> m a) -> m a
 withTime a = do

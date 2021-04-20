@@ -35,6 +35,8 @@ import Database.Groundhog.TH (migrationFunction, namingStyle, mkDbFieldName, mkE
 import Database.Groundhog.TH.Settings (PersistDefinitions(..))
 import Language.Haskell.TH
 
+import Database.Id.Groundhog.TH (makeDefaultKeyIdInt64, makeDefaultKeyIdSimple)
+
 import Rhyolite.TH (conName)
 import Rhyolite.Backend.Schema -- Not needed for this module, but without it, the generated code fails to compile in a way which is confusing, so we re-export it.
 

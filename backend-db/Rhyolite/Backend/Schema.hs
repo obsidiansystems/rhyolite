@@ -66,7 +66,7 @@ instance (Typeable a, ToJSON a, FromJSON a) => PersistField (Json a) where
 instance (Typeable a, ToJSON a, FromJSON a) => PrimitivePersistField (Json a) where
   toPrimitivePersistValue p (Json a) = toPrimitivePersistValue p (encode a)
   fromPrimitivePersistValue p v = runIdentity $ do
-    let r = maybe (error "fromPrimitivePersistValue: Failed to decode Json") id $ decode' $ fromPrimitivePersistValue p v
+    r <- either error return $ eitherDecode' $ fromPrimitivePersistValue p v
     return (Json r)
 
 instance ToJSON a => ToField (Json a) where

@@ -15,6 +15,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -26,6 +27,7 @@
 
 module Rhyolite.Frontend.App where
 
+import Control.Applicative
 import Control.Monad.Exception
 import Control.Monad.Identity
 import Control.Monad.Primitive
@@ -71,6 +73,7 @@ import Rhyolite.Request.Common (decodeValue')
 #endif
 
 import Data.Vessel
+import Data.Vessel.ViewMorphism
 
 -- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
 functorToWire
@@ -311,11 +314,13 @@ runObeliskRhyoliteWidget ::
   -> RoutedT t (R frontendRoute) m a
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
-  route <- (fmap . fmap) (parseURI . T.unpack . T.strip . T.decodeUtf8) (getConfig configRoute) >>= \case
-    Just (Just route) -> pure route
-    _ -> error "runObeliskRhyoliteWidget: Unable to parse route config"
-  let wsUrl = T.pack (show $ websocketUri route) <> renderBackendRoute enc listenRoute
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ runRoutedT child obR
+  r' <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
+  let route = case r' of
+        Nothing -> error $ T.unpack $ "route config missing: " <> configRoute
+        Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
+        Just (Just r) -> r
+  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
+  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
 
 {-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
 runPrerenderedRhyoliteWidget
@@ -554,3 +559,18 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
 
+-- | watch a viewselector defined with a ViewMorphism
+watchView
+  :: forall q partial (a :: *) m t.
+  ( QueryResult q ~ ViewQueryResult q
+  , MonadQuery t q m
+  , Reflex t
+  , MonadHold t m
+  , Alternative partial
+  )
+  => Dynamic t (ViewMorphism Identity partial (Const SelectedCount a) q)
+  -> m (Dynamic t (partial a))
+watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
+-- Reminder to self, this ^^^^^^^^^^^ identity is the QueryResult for the Const g
+-- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
+-- parameter.

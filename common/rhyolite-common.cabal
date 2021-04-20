@@ -15,6 +15,11 @@ description:
   This package defines some common abstractions and datatypes used by
   rhyolite-backend and rhyolite-frontend.
 
+flag split-these
+  description: Use split these/semialign packages
+  manual:      False
+  default:     True
+
 library
   hs-source-dirs: .
 
@@ -31,6 +36,7 @@ library
     , data-default
     , database-id-class
     , dependent-map
+    , dependent-monoidal-map
     , dependent-sum
     , file-embed
     , filepath
@@ -47,13 +53,19 @@ library
     , semialign
     , template-haskell
     , text
-    , these
     , time
     , transformers
     , transformers-base
     , vector
     , witherable >= 0.2 && < 0.4
     , vessel
+
+  if flag(split-these)
+    build-depends:     these >= 1 && <1.1,
+                       semialign >=1 && <1.2
+  else
+    build-depends:     these >= 0.7 && <0.9
+
 
   exposed-modules:
     Data.MonoidMap

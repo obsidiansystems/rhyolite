@@ -1,6 +1,6 @@
-{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"])
+{ obelisk ? import ./.obelisk/impl {}
 , pkgs ? obelisk.nixpkgs
-, ... } @ args:
+}:
 
 let
   reflex-platform = obelisk.reflex-platform;
@@ -65,7 +65,6 @@ let
           }
         );
       validation = haskellLib.dontCheck super.validation;
-
       dependent-sum-aeson-orphans = self.callHackageDirect {
         pkg = "dependent-sum-aeson-orphans";
         ver = "0.2.1.0";

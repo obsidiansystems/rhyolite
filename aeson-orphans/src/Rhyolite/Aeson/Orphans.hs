@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -15,8 +16,12 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Monoid hiding (First (..))
+import Data.Ord
 import Data.Semigroup
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+
+deriving newtype instance ToJSON a => ToJSON (Down a)
+deriving newtype instance FromJSON a => FromJSON (Down a)
 
 instance ToJSON ByteString where
     toJSON = toJSON . decodeUtf8 . B64.encode

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Rhyolite.Backend.DB.PsqlSimple.Orphans where
 

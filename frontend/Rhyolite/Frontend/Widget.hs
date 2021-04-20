@@ -2,12 +2,16 @@
 -- controls for insertion before and after, and deletion. See 'ListEdit' and
 -- 'extensibleListWidget'.
 
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Rhyolite.Frontend.Widget where
 
 import Control.Monad.Fix
+import Data.Either.Combinators (rightToMaybe)
 import Data.Map (Map)
+import Data.Text (Text)
 import qualified Data.Map as Map
 import Reflex.Dom.Core hiding (Delete)
 
@@ -82,3 +86,25 @@ extensibleListWidgetWithSize n x0 xs0 addAtEnd itemWidget = do
           valuesMapD = joinDynThroughMap $ fmap (fmap snd) resultMapD
           valuesD = fmap Map.elems valuesMapD
   return valuesD
+
+-- | Widget used as a modal div for widgets that want to take some action when clicked anywhere but itself, such as dropdown widgets or the like.
+  -- The first argument is a CSS class name, the suggested CSS class styling for use of this widget is as follows:
+  -- position: fixed;
+  -- top: 0;
+  -- bottom: 0;
+  -- right: 0;
+  -- left: 0;
+  -- z-index: 100;
+withBackdrop :: forall m t a. (DomBuilder t m, MonadFix m, MonadHold t m) => Text -> Event t (m (Event t a)) -> m (Event t a)
+withBackdrop cls openBackdropWithChild = mdo
+  sth <- widgetHold (return never) $ ffor (leftmost [close, open]) $ \case
+    Nothing -> return never
+    Just child -> do
+      (backgroundEl, _) <- elClass' "div" cls blank
+      childResult <- child
+      let backgroundEvent = domEvent Click backgroundEl
+      return $ leftmost [Left <$> backgroundEvent, Right <$> childResult]
+  let close :: Event t (Maybe (m (Event t a))) = Nothing <$ (switch . current $ sth)
+      open :: Event t (Maybe (m (Event t a))) = Just <$> openBackdropWithChild
+  return $ fmapMaybe rightToMaybe $ switch . current $ sth
+

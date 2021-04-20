@@ -202,8 +202,8 @@ resetPassword aid nonce password = do
   if account_passwordResetNonce a == Just nonce
     then do
       setAccountPassword aid password
-      return $ Just aid
-    else return Nothing
+      return aid
+    else fail "nonce mismatch"
 
 login
   :: (PersistBackend m, SqlDb (PhantomDb m))

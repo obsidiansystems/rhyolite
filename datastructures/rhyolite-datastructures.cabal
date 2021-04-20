@@ -22,6 +22,7 @@ library
   build-depends:
       aeson
     , base
+    , base-orphans
     , containers
     , data-default
     , lens

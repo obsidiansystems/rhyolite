@@ -27,6 +27,7 @@ library
     , constraints
     , constraints-extras
     , containers
+    , cryptohash
     , data-default
     , database-id-class
     , database-id-groundhog
@@ -38,6 +39,9 @@ library
     , groundhog-th
     , HaskellNet
     , HaskellNet-SSL
+    , http-client
+    , http-client-tls
+    , http-types
     , io-streams
     , lens
     , lifted-base
@@ -66,7 +70,6 @@ library
     , stm
     , template-haskell
     , text
-    , these
     , time
     , timerep
     , transformers
