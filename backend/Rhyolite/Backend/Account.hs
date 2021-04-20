@@ -197,8 +197,8 @@ resetPassword
   -> UTCTime
   -> Text
   -> m (Maybe (Id Account))
-resetPassword aid nonce password = do
-  a <- maybe (error "resetPassword: Account not found") id <$> get (fromId aid)
+resetPassword aid nonce password = runMaybeT $ do
+  Just a <- get $ fromId aid
   if account_passwordResetNonce a == Just nonce
     then do
       setAccountPassword aid password
