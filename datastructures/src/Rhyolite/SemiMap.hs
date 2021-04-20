@@ -1,12 +1,12 @@
 -- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO this is necessary because of the lack of a Foldable instance for Alt
 
 module Rhyolite.SemiMap where
 
@@ -22,6 +22,7 @@ import qualified Data.Set as Set
 import GHC.Generics (Generic)
 
 import Rhyolite.Aeson.Orphans ()
+import Data.Orphans () -- for Foldable (Alt f)
 
 -- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
 -- distinguish two semantic meanings of the monoidal map:
