@@ -142,7 +142,7 @@ getSearchPath = do
   rows <- query_ "SHOW search_path"
   case listToMaybe rows of
     Nothing -> error "getSearchPath: Unexpected result from queryRaw"
-    Just searchPath -> return searchPath
+    Just (Only searchPath) -> return searchPath
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
