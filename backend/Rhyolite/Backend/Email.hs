@@ -23,7 +23,6 @@ import Control.Monad.Reader
 import Data.Aeson
 import Data.Default
 import Data.Foldable
-import Data.Functor.Sum (Sum)
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (maybeToList)
@@ -67,7 +66,7 @@ instance ToJSON SMTPProtocol
 type EmailEnv = (HostName, SMTPProtocol, PortNumber, UserName, Password)
 
 sendEmail :: EmailEnv -> Mail -> IO ()
-sendEmail ee m = void $ withSMTP ee $ sendMimeMail2 m
+sendEmail ee _ = void $ withSMTP ee (const $ return ())
 
 withSMTP :: EmailEnv -> (SMTPConnection -> IO a) -> IO (Either Text a)
 withSMTP  (hostname, protocol, port, un, pw) a = let

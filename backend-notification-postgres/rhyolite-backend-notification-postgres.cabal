@@ -22,6 +22,8 @@ library
     , postgresql-simple
     , rhyolite-backend-db
     , rhyolite-common
+    , gargoyle-postgresql
+    , gargoyle-postgresql-connect
     , resource-pool
     , split
     , stm

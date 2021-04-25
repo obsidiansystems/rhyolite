@@ -15,6 +15,7 @@
 
 module Rhyolite.Backend.Listen where
 
+import Gargoyle.PostgreSQL
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TChan, atomically, dupTChan, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Monad (forever)

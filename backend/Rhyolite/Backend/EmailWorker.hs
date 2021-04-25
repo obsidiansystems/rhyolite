@@ -143,7 +143,7 @@ sendQueuedEmail :: EmailEnv -> Mail.Address -> [Mail.Address] -> ByteString -> I
 sendQueuedEmail env sender recipients payload = do
   let from = T.unpack . Mail.addressEmail $ sender
       to = map (T.unpack . Mail.addressEmail) recipients
-  void $ withSMTP env $ SMTP.sendMail from to payload
+  void $ withSMTP env $ const $ return ()
 
 -- | Spawns a thread to monitor mail queue table and send emails if necessary
 emailWorker :: (MonadLoggerIO m, RunDb f)
