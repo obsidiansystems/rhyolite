@@ -4,6 +4,7 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 
+* Bump groundhog
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)
 * Remove rhyolite-logging and use monad-logger-extras in rhyolite-db instead. `LoggingEnv` is replaced by `Logger`.
 * Remove `runPrerenderedRhyoliteWidget`. Use `runRhyoliteWidget` instead.
