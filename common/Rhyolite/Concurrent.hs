@@ -18,12 +18,22 @@ worker :: (MonadIO m)
        => Int -- ^ Delay between operations, in microseconds
        -> IO a -- ^ Operation to perform
        -> m (IO ())
-worker delay x = return . killThread <=< liftIO . forkIO . supervise . void . forever $
+worker = taggedWorker ""
+
+-- | Perform a tagged, supervised operation with delays in between, on a separate thread. Return an IO action for killing the thread.
+taggedWorker
+  :: MonadIO m
+  => String -- ^ Tag for this worker: displayed in error messages
+  -> Int
+  -> IO a
+  -> m (IO ())
+taggedWorker tag delay x = return . killThread <=< liftIO . forkIO . supervise tag . void . forever $
   x >> threadDelay delay
 
-supervise :: Show a => IO a -> IO ()
-supervise a = forever $ withAsync a $ \child -> do
+supervise :: Show a => String -> IO a -> IO ()
+supervise tag a = forever $ withAsync a $ \child -> do
+  let msgPrefix = if null tag then "supervise: " else "supervise: " <> tag <> ": "
   result <- waitCatch child
-  printResult :: Either SomeException () <- try $ putStrLn $ "supervise: child terminated with " <> show result <> "; restarting"
+  printResult :: Either SomeException () <- try $ putStrLn $ msgPrefix <> "child terminated with " <> show result <> "; restarting"
   threadDelay 1000000
-  when (isLeft printResult) $ putStrLn "supervise: note: an exception was encountered when printing the previous result"
+  when (isLeft printResult) $ putStrLn $ msgPrefix <> "note: an exception was encountered when printing the previous result"
