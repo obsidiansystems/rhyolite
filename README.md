@@ -19,7 +19,7 @@
    with import ./.obelisk/impl { inherit system iosSdkVersion; };
    project ./. ({ pkgs, hackGet, ... }@args: {
 
-     overrides = pkgs.lib.composeExtensions (import (hackGet ./dep/rhyolite) args).haskellOverrides
+     overrides = pkgs.lib.composeExtensions (pkgs.callPackage (hackGet ./dep/rhyolite) args).haskellOverrides
        (self: super: with pkgs.haskell.lib; {
          # Your custom overrides go here.
        });
