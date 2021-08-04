@@ -2,6 +2,7 @@
   "owner": "obsidiansystems",
   "repo": "groundhog",
   "branch": "develop",
-  "rev": "e08021aef70f17196214e795789d0993177231b5",
-  "sha256": "13ikpayvzv85wmfgh7wnf73ayhjy77384mnwvqcxi0nbn5m7kk56"
+  "private": false,
+  "rev": "01c3f1829de18881f25818b928b43862c0e3234a",
+  "sha256": "0qgl4bcmxnh466qa8arf25jq7l8qs527drgvdj2whg3vwd3shp8f"
 }

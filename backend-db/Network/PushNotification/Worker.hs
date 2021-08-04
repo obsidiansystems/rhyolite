@@ -94,7 +94,7 @@ apnsWorker
   -> f (Pool Postgresql)
   -> m (IO ())
 apnsWorker cfg delay db = askLoggerIO >>= \logger -> return . killThread <=<
-  liftIO . forkIO . supervise . liftIO . IOS.withAPNSSocket cfg $ \apnsConn -> do
+  liftIO . forkIO . supervise "" . liftIO . IOS.withAPNSSocket cfg $ \apnsConn -> do
     void $ flip runLoggingT logger $ forever $ do
       fix $ \loop -> do
         processApplePushMessage db (IOS.sendApplePushMessage apnsConn) >>= \case

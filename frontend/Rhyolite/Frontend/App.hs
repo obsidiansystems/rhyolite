@@ -311,7 +311,7 @@ runObeliskRhyoliteWidget ::
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
   -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
-  -> RoutedT t (R frontendRoute) m a
+  -> RoutedT t (R frontendRoute) m (Dynamic t (AppWebSocket t qWire), a)
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   obR <- askRoute
   r' <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
@@ -320,31 +320,7 @@ runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
         Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
         Just (Just r) -> r
   let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
-  lift $ runPrerenderedRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
-
-{-# DEPRECATED runPrerenderedRhyoliteWidget "Use runRhyoliteWidget instead" #-}
-runPrerenderedRhyoliteWidget
-   :: forall qFrontend qWire req m t b x.
-      ( PerformEvent t m
-      , TriggerEvent t m
-      , PostBuild t m
-      , MonadHold t m
-      , MonadFix m
-      , Prerender x t m
-      , Request req
-      , Query qFrontend
-      , Group qFrontend
-      , Additive qFrontend
-      , Eq qWire
-      , Monoid (QueryResult qFrontend)
-      , FromJSON (QueryResult qWire)
-      , ToJSON qWire
-      )
-   => QueryMorphism qFrontend qWire
-   -> Text
-   -> RhyoliteWidget qFrontend req t m b
-   -> m b
-runPrerenderedRhyoliteWidget toWire url child = snd <$> runRhyoliteWidget toWire url child
+  lift $ runRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
 
 runRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
