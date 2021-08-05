@@ -86,9 +86,11 @@ library
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
-    -- Rhyolite.Backend.Logging
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
+
+  reexported-modules:
+    Rhyolite.Backend.Listen
 
   other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
