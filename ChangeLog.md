@@ -4,6 +4,9 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 
+* Move `Rhyolite.Backend.Listen` to it's own project `rhyolite-notification-postgres` and re-export.
+  Note that convenience funtions such as `insertAndNotify`, etc are currently missing.
+* Rhyolite.Backend.Account has been temporarily disabled until it's it's groundhog dependency is removed.
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
 * Bump groundhog
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)
