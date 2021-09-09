@@ -309,17 +309,14 @@ runObeliskRhyoliteWidget ::
   -> URI -- ^ http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
-  -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
-  -> RoutedT t (R frontendRoute) m (Dynamic t (AppWebSocket t qWire), a)
-runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
-  obR <- askRoute
-  r' <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
-  let route = case r' of
-        Nothing -> error $ T.unpack $ "route config missing: " <> configRoute
-        Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
-        Just (Just r) -> r
-  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
-  lift $ runRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  -> RoutedT t route (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
+  -> RoutedT t route m a
+runObeliskRhyoliteWidget toWire route enc listenRoute child = do
+  let
+    wsUrl = T.pack $ show $ (websocketUri route)
+      { uriPath = T.unpack $ T.takeWhile (/= '?') $ renderBackendRoute enc listenRoute
+      }
+  mapRoutedT (fmap snd . runRhyoliteWidget toWire wsUrl) child
 
 runRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
