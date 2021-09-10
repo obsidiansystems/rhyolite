@@ -23,16 +23,20 @@ library
       aeson
     , base
     , base-orphans
+    , constraints-extras
     , containers
     , data-default
+    , dependent-sum
     , lens
     , monoidal-containers
     , mtl
     , reflex
     , rhyolite-aeson-orphans
+    , some
     , these
 
   exposed-modules:
+    Data.TSum
     Rhyolite.Map.Monoidal
     Rhyolite.SemiMap
 

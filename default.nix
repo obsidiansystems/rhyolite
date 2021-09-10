@@ -45,6 +45,7 @@ let
     push-notifications = repos.push-notifications;
     vessel = repos.vessel;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
+    constraints-extras = repos.constraints-extras;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
