@@ -26,17 +26,10 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
-    # bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
-    # groundhog = repos.groundhog + "/groundhog";
-    # groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
-    # groundhog-th = repos.groundhog + "/groundhog-th";
-    groundhog = ../groundhog + "/groundhog";
-    groundhog-postgresql = ../groundhog + "/groundhog-postgresql";
-    groundhog-th = ../groundhog + "/groundhog-th";
-    # HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
-    # HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
-    # postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
+    groundhog = repos.groundhog + "/groundhog";
+    groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
+    groundhog-th = repos.groundhog + "/groundhog-th";
 
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + "/gargoyle";
@@ -64,12 +57,6 @@ let
       # HaskellNet = haskellLib.markUnbroken super.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
       HaskellNet = self.callHackage "HaskellNet" "0.6" {};
       HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {}; # (super is marked as broken)
-      # postgresql-simple = haskellLib.dontCheck (
-      #     haskellLib.overrideCabal super.postgresql-simple {
-      #       revision = null;
-      #       editedCabalFile = null;
-      #     }
-      #   );
       # validation = haskellLib.dontCheck super.validation;
       database-id-class = haskellLib.doJailbreak super.database-id-class;
 
@@ -83,11 +70,6 @@ let
         ver = "0.1.1.1";
         sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
       } {});
-      # monoid-subclasses = self.callHackageDirect {
-      #   pkg = "monoid-subclasses";
-      #   ver = "1.1";
-      #   sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
-      # } {};
 
     })
   ];
