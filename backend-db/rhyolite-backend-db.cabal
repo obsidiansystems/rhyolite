@@ -35,7 +35,7 @@ library
     , mtl
     , postgresql-simple
     , postgresql-lo-stream
-    , push-notifications
+    -- , push-notifications
     , resource-pool
     , rhyolite-common
     , template-haskell
@@ -48,7 +48,7 @@ library
 
   exposed-modules:
     Database.Groundhog.Postgresql.Orphans
-    Network.PushNotification.Worker
+    -- Network.PushNotification.Worker
     Rhyolite.Backend.DB
     Rhyolite.Backend.DB.LargeObjects
     Rhyolite.Backend.DB.PsqlSimple
