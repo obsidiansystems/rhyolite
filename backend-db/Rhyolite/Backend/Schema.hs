@@ -22,7 +22,7 @@ import qualified Data.Map as Map
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
 import Database.Id.Class
-import Database.PostgreSQL.Simple.FromField (FromField, fromField, Conversion, conversionError)
+import Database.PostgreSQL.Simple.FromField (FromField, fromField, Conversion, ResultError(..), conversionError, returnError)
 import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.Types (Binary (..), Identifier (..))
 
@@ -77,7 +77,7 @@ instance (Typeable a, FromJSON a) => FromField (Json a) where
     Binary v <- fromField f mb
     let ev = eitherDecode' v
     case ev of
-      Left err -> fail $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
+      Left err -> returnError ConversionFailed f $ show (typeRep (Proxy :: Proxy a)) <> ":" <> err
       Right v' -> return $ Json v'
 
 instance NeverNull (Json a)

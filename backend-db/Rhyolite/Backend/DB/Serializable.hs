@@ -42,7 +42,7 @@ import qualified Control.Monad.State as S
 -- It "disallows" (makes harder) arbitrary IO.
 -- It "disallows" (makes harder) catching IO exceptions *inside* the transaction.
 newtype Serializable a = Serializable (ReaderT Pg.Connection (LoggingT IO) a)
-  deriving (Functor, Applicative, Monad, MonadThrow, MonadLogger)
+  deriving (Functor, Applicative, Monad, MonadFail, MonadThrow, MonadLogger)
   -- NOTE: We *intentionally* leave out
   --   - 'MonadCatch' so you can't accidentally mask a serialization error from the outer retry logic.
   --   - 'MonadBaseControl' (et al) for the same reason.

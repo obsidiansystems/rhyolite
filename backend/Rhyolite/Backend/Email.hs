@@ -92,7 +92,7 @@ instance FromJSON PortNumber where
 instance ToJSON PortNumber where
   toJSON n = toJSON (fromIntegral n :: Word16)
 
-newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailEnv m a } deriving (Functor, Applicative, Monad, MonadIO, MonadRoute r, MonadSign, MonadTrans, MonadLogger)
+newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailEnv m a } deriving (Functor, Applicative, Monad, MonadFail, MonadIO, MonadRoute r, MonadSign, MonadTrans, MonadLogger)
 
 instance MonadIO m => MonadEmail (EmailT m) where
   sendMail mail = do

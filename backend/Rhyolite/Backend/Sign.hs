@@ -60,7 +60,7 @@ readSigned s = do
   pure $ readSignedWithKey k s
 
 newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
+  deriving (Functor, Applicative, Monad, MonadFail, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
 
 runSignT :: SignT m a -> CS.Key -> m a
 runSignT (SignT a) = runReaderT a

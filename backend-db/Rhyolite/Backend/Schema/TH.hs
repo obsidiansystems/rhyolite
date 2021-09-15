@@ -42,12 +42,12 @@ import Rhyolite.Backend.Schema -- Not needed for this module, but without it, th
 
 deriveNewtypePersistBackend :: (TypeQ -> TypeQ) -> (TypeQ -> TypeQ) -> Name -> Name -> DecsQ
 deriveNewtypePersistBackend toT fromT to from =
-  liftM (:[]) $ liftM3 (InstanceD Nothing) (cxt [appT (conT ''PersistBackend) (fromT m), appT (conT ''Monad) m]) (appT (conT ''PersistBackend) (toT m)) $ liftM2 (<>) typeInstances functions
+  liftM (:[]) $ liftM3 (InstanceD Nothing) (cxt [appT (conT ''PersistBackend) (fromT m), appT (conT ''Monad) m, appT (conT ''MonadFail) m]) (appT (conT ''PersistBackend) (toT m)) $ liftM2 (<>) typeInstances functions
   where
     m = varT $ mkName "m"
     typeInstances = do
-      phantomDbInst <- tySynInstD ''PhantomDb $ tySynEqn [toT m] $ appT (conT ''PhantomDb) (fromT m)
-      tableAnalysisInst <- tySynInstD ''TableAnalysis $ tySynEqn [toT m] $ appT (conT ''TableAnalysis) (fromT m)
+      phantomDbInst <- tySynInstD $ tySynEqn Nothing (conT ''PhantomDb `appT` toT m) $ appT (conT ''PhantomDb) (fromT m)
+      tableAnalysisInst <- tySynInstD $ tySynEqn Nothing (conT ''TableAnalysis `appT` toT m) $ appT (conT ''TableAnalysis) (fromT m)
       return [phantomDbInst, tableAnalysisInst]
     n =: e = valD (varP n) (normalB e) []
     functions = sequence

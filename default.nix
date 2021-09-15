@@ -26,14 +26,17 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
-    bytestring-trie = repos.bytestring-trie;
+    # bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
-    groundhog = repos.groundhog + "/groundhog";
-    groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
-    groundhog-th = repos.groundhog + "/groundhog-th";
-    HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
-    HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
-    postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
+    # groundhog = repos.groundhog + "/groundhog";
+    # groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
+    # groundhog-th = repos.groundhog + "/groundhog-th";
+    groundhog = ../groundhog + "/groundhog";
+    groundhog-postgresql = ../groundhog + "/groundhog-postgresql";
+    groundhog-th = ../groundhog + "/groundhog-th";
+    # HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
+    # HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
+    # postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
 
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + "/gargoyle";
@@ -53,33 +56,38 @@ let
   haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
+      aeson-gadt-th = self.callHackage "aeson-gadt-th" "0.2.5.0" {};
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
-      postgresql-simple = haskellLib.dontCheck (
-          haskellLib.overrideCabal super.postgresql-simple {
-            revision = null;
-            editedCabalFile = null;
-          }
-        );
-      validation = haskellLib.dontCheck super.validation;
+      pcg-random = self.callHackage "pcg-random" "0.1.3.7" {};
+      # HaskellNet = haskellLib.markUnbroken super.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
+      HaskellNet = self.callHackage "HaskellNet" "0.6" {};
+      HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {}; # (super is marked as broken)
+      # postgresql-simple = haskellLib.dontCheck (
+      #     haskellLib.overrideCabal super.postgresql-simple {
+      #       revision = null;
+      #       editedCabalFile = null;
+      #     }
+      #   );
+      # validation = haskellLib.dontCheck super.validation;
+      database-id-class = haskellLib.doJailbreak super.database-id-class;
 
-      postgresql-lo-stream = self.callHackageDirect {
-        pkg = "postgresql-lo-stream";
-        ver = "0.1.1.1";
-        sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
-      } {};
+      postgresql-lo-stream = haskellLib.doJailbreak (haskellLib.markUnbroken super.postgresql-lo-stream);
+      vessel = haskellLib.doJailbreak super.vessel;
+      database-id-groundhog = haskellLib.doJailbreak super.database-id-groundhog;
 
-      monad-logger-extras = self.callHackageDirect {
+      monad-logger = self.callHackage "monad-logger" "0.3.36" {};
+      monad-logger-extras = haskellLib.doJailbreak (self.callHackageDirect {
         pkg = "monad-logger-extras";
         ver = "0.1.1.1";
         sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
-      } {};
-      monoid-subclasses = self.callHackageDirect {
-        pkg = "monoid-subclasses";
-        ver = "1.1";
-        sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
-      } {};
+      } {});
+      # monoid-subclasses = self.callHackageDirect {
+      #   pkg = "monoid-subclasses";
+      #   ver = "1.1";
+      #   sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
+      # } {};
 
     })
   ];

@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "groundhog",
-  "branch": "develop",
+  "branch": "develop-ghc810",
   "private": false,
-  "rev": "01c3f1829de18881f25818b928b43862c0e3234a",
-  "sha256": "0qgl4bcmxnh466qa8arf25jq7l8qs527drgvdj2whg3vwd3shp8f"
+  "rev": "63678a7fda46491f3191d1f0cb248a966c57bccc",
+  "sha256": "0p3n2fyircnzc02nh5a88n669q89ldqznznvn6hdvv5lh6cbvndl"
 }

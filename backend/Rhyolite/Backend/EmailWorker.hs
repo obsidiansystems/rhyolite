@@ -25,6 +25,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe
 import Data.Pool
 import qualified Data.Text as T
+import qualified Data.Text.Lazy.Encoding as TL
 import Data.Time (UTCTime)
 import Database.Groundhog.Postgresql hiding (Cond)
 import Database.Groundhog.TH
@@ -141,9 +142,9 @@ clearMailQueue db emailEnv = do
 
 sendQueuedEmail :: EmailEnv -> Mail.Address -> [Mail.Address] -> ByteString -> IO ()
 sendQueuedEmail env sender recipients payload = do
-  let from = T.unpack . Mail.addressEmail $ sender
-      to = map (T.unpack . Mail.addressEmail) recipients
-  void $ withSMTP env $ SMTP.sendMail from to payload
+  let from = sender
+      to = recipients
+  void $ withSMTP env $ SMTP.sendMail $ Mail.addPart [Mail.plainPart (TL.decodeUtf8 $ LBS.fromStrict payload)] $ (Mail.emptyMail from) { Mail.mailTo = to } -- TODO ensure this doesn't require html part as well
 
 -- | Spawns a thread to monitor mail queue table and send emails if necessary
 emailWorker :: (MonadLoggerIO m, RunDb f)
