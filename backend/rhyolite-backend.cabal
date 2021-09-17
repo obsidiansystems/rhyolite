@@ -79,7 +79,7 @@ library
     , vessel
     , websockets
     , websockets-snap
-    , witherable >= 0.2 && < 0.4
+    , witherable >= 0.2 && < 0.5
 
   exposed-modules:
     -- Rhyolite.Backend.Account

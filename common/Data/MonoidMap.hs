@@ -5,6 +5,7 @@
 -- for 'Semigroup' and 'Monoid' of the corresponding data structures if you're
 -- interested).
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -20,7 +21,17 @@ import Data.Semigroup (Semigroup, (<>))
 import Reflex (Query, QueryResult, crop, Group(..), Additive)
 
 newtype MonoidMap k v = MonoidMap { unMonoidMap :: MonoidalMap k v }
-  deriving (Show, Eq, Ord, Foldable, Functor, Traversable, Filterable)
+  deriving (Show, Eq, Ord, Foldable, Functor, Traversable
+#if !MIN_VERSION_witherable(0,4,0)
+           , Filterable
+#endif
+           )
+
+#if MIN_VERSION_witherable(0,4,0)
+instance Filterable (MonoidMap k) where
+  mapMaybe f (MonoidMap m) = MonoidMap $ Map.mapMaybe f m
+  filter f (MonoidMap m) = MonoidMap $ Map.filter f m
+#endif
 
 monoidMap :: (Ord k, Eq v, Monoid v) => MonoidalMap k v -> MonoidMap k v
 monoidMap = MonoidMap . Map.filter (/= mempty)

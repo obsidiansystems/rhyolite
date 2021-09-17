@@ -62,7 +62,7 @@ library
     , vector
     , vessel
     , validation
-    , witherable >= 0.2 && < 0.4
+    , witherable >= 0.2 && < 0.5
 
   exposed-modules:
     Rhyolite.Frontend.App
