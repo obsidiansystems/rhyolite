@@ -53,6 +53,7 @@ import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
 import Network.URI (URI, parseURI)
 import qualified Reflex as R
 import Data.Witherable (Filterable)
+import Obelisk.Frontend.Cookie
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
@@ -108,7 +109,7 @@ vesselToWire = QueryMorphism
 type RhyoliteWidgetInternal q r t m = QueryT t q (RequesterT t r Identity m)
 
 newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: RhyoliteWidgetInternal q r t m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadFix, MonadException)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadFix, MonadException, HasCookies)
 
 deriving instance ( Group q
                   , Additive q
