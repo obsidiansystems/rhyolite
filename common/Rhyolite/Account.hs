@@ -24,7 +24,7 @@ import Database.Id.Class (HasId, Id)
 import GHC.Generics (Generic)
 
 import Rhyolite.Schema (Email)
-import Obelisk.Route(Encoder, isoEncoder)
+import Obelisk.Route(Encoder, viewEncoder)
 import Rhyolite.Sign (Signed(..))
 
 
@@ -65,4 +65,4 @@ _Signed :: Iso (Signed (PasswordResetToken f)) (Signed (PasswordResetToken g)) T
 _Signed = iso unSigned Signed
 
 accountRouteEncoder :: (Applicative check, Applicative parse) => Encoder check parse (AccountRoute f) Text
-accountRouteEncoder = isoEncoder (_AccountRoute . _Signed)
+accountRouteEncoder = viewEncoder (_AccountRoute . _Signed)
