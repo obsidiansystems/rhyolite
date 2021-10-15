@@ -80,7 +80,7 @@ makeDefaultKeyIdInt64 ''Account 'AccountKey
 migrateAccount :: PersistBackend m => TableAnalysis m -> Migration m
 migrateAccount tableInfo = migrate tableInfo (undefined :: Account)
 
--- Returns whether a new account had to be created
+-- | Returns whether a new account had to be created
 ensureAccountExists
   :: ( PersistBackend m
      , SqlDb (PhantomDb m)
@@ -105,7 +105,7 @@ ensureAccountExists nm email = do
           notify NotificationType_Insert nm aid'
           return (True, aid')
 
--- Creates account if it doesn't already exist and sends pw email
+-- | Creates account if it doesn't already exist and sends pw email
 ensureAccountExistsEmail
   :: ( PersistBackend m, MonadBase Serializable m
      , MonadSign m, SigningKey m ~ CS.Key
@@ -122,8 +122,8 @@ ensureAccountExistsEmail
   -> m (Bool, Id Account)
 ensureAccountExistsEmail n = ensureAccountExistsEmail' (ensureAccountExists n)
 
--- Creates account if it doesn't already exist and sends pw email
--- Allows the option for a custom "ensure account" creation function
+-- | Creates account if it doesn't already exist and sends pw email Allows the
+-- option for a custom "ensure account" creation function
 ensureAccountExistsEmail'
   :: ( PersistBackend m, MonadBase Serializable m
      , MonadSign m, SigningKey m ~ CS.Key
