@@ -69,6 +69,7 @@ library
     Rhyolite.Frontend.App
     Rhyolite.Frontend.Cookie
     Rhyolite.Frontend.Form
+    Rhyolite.Frontend.JS.Window
     Rhyolite.Frontend.Modal.Base
     Rhyolite.Frontend.Modal.Class
     Rhyolite.Frontend.Widget
