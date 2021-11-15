@@ -38,6 +38,7 @@ library
     , dependent-map
     , dependent-monoidal-map
     , dependent-sum
+    , dependent-sum-template
     , file-embed
     , filepath
     , http-types
@@ -48,6 +49,7 @@ library
     , mtl
     , network-uri
     , obelisk-route
+    , patch
     , reflex
     , resource-pool
     , semialign
@@ -81,6 +83,10 @@ library
     Rhyolite.Schema.Task
     Rhyolite.Sign
     Rhyolite.TH
+    Rhyolite.Vessel.ErrorV
+    Rhyolite.Vessel.ErrorV.Internal
+    Rhyolite.Vessel.AuthMapV
+    Rhyolite.Vessel.AuthenticatedV
     Rhyolite.WebSocket
 
   reexported-modules:
