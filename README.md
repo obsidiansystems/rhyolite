@@ -36,7 +36,6 @@
 
    - rhyolite-backend
    - rhyolite-backend-db
-   - rhyolite-backend-snap
    - rhyolite-common
    - rhyolite-datastructures
    - rhyolite-frontend
