@@ -4,7 +4,9 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 
-* Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+* Breaking changes:
+  * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+  * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
 * Version bumps:
   * vessel 0.2.0.0
 
