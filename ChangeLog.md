@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## 2021-11-16
 
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
 * Bump groundhog
@@ -15,6 +15,10 @@ This project's release branch is `master`. This log is written from the perspect
   * Update widget emails for newer routes.
   * Use a record for email configuration.
   * Add a function for email with a StaticWidget
+* Simple authenticated queries
+  * `ErrorV` vessel captures logic for possibly failing queries
+  * `AuthMapV` gathers queries associated to different identities so that they can be processed together.
+  * `AuthenticatedV` distinguishes between public queries that need no authentication and private queries which do.
 
 ## 2020-04-28
 
