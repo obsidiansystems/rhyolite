@@ -4,6 +4,10 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 
+* Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+
+## 2021-11-16
+
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
 * Bump groundhog
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)

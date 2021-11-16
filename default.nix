@@ -17,7 +17,6 @@ let
     rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
-    rhyolite-backend-snap = ./backend-snap;
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
@@ -104,7 +103,6 @@ in obelisk // {
       rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
-      rhyolite-backend-snap = ./backend-snap;
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
@@ -114,7 +112,6 @@ in obelisk // {
       ghc = [
         "rhyolite-backend"
         "rhyolite-backend-db"
-        "rhyolite-backend-snap"
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-aeson-orphans"

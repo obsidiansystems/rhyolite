@@ -1,7 +1,6 @@
 packages:
   aeson-orphans/
   backend-db/
-  backend-snap/
   backend/
   common/
   datastructures/
