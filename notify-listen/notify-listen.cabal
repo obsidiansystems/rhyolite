@@ -1,5 +1,5 @@
-name: rhyolite-backend-notification-postgres
-version: 0.1
+name: notify-listen
+version: 0.1.0.0
 license: BSD3
 copyright: Copyright (C) Obsidian Systems LLC 2021
 author: Obsidian Systems LLC
@@ -20,15 +20,12 @@ library
     , dependent-sum
     , dependent-sum-aeson-orphans
     , postgresql-simple
-    , rhyolite-backend-db
-    , rhyolite-common
     , resource-pool
     , split
     , stm
     , text
 
   exposed-modules:
-    Rhyolite.Backend.Listen
+    Database.PostgreSQL.NotifyListen
 
-  other-extensions: TemplateHaskell
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

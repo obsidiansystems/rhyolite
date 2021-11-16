@@ -2,7 +2,7 @@ packages:
   aeson-orphans/
   backend-db/
   backend/
-  backend-notification-postgres/
+  notify-listen/
   common/
   datastructures/
   frontend/
