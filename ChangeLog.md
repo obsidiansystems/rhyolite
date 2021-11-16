@@ -7,11 +7,13 @@ This project's release branch is `master`. This log is written from the perspect
 * Breaking changes:
   * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
   * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
+  * Move `Rhyolite.Backend.Listen` to it's own project `rhyolite-notification-postgres` and re-export.
+  Note that convenience funtions such as `insertAndNotify`, etc are currently missing.
+  * Rhyolite.Backend.Account has been temporarily disabled until it's it's groundhog dependency is removed.
 * Version bumps:
   * vessel 0.2.0.0
 
 ## 2021-11-16
-
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
 * Bump groundhog
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)

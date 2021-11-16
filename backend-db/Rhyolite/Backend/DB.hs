@@ -53,7 +53,6 @@ import Data.Time (UTCTime)
 import Database.PostgreSQL.Simple.Transaction (withTransactionSerializable)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
-import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import qualified Database.PostgreSQL.Simple as Pg
@@ -138,13 +137,12 @@ liftBaseThrough f t = do
     f $ run t
   restoreM st
 
-getSearchPath :: PersistBackend m => m String
+getSearchPath :: (PostgresRaw m, Monad m) => m String
 getSearchPath = do
-  searchPath' <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
-  case searchPath' of
-    (searchPath:[]) -> return searchPath
-    [] -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not return a value"
-    _ -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not returned multiple values"
+  rows <- query_ "SHOW search_path"
+  case listToMaybe rows of
+    Nothing -> error "getSearchPath: Unexpected result from queryRaw"
+    Just (Only searchPath) -> return searchPath
 
 setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
