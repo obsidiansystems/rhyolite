@@ -25,6 +25,7 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
+    bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
     groundhog = repos.groundhog + "/groundhog";
