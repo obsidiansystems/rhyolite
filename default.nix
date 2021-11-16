@@ -14,7 +14,6 @@ let
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
-    rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
     rhyolite-backend-snap = ./backend-snap;
@@ -102,7 +101,6 @@ in obelisk // {
   proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
     packages = {
-      rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
       rhyolite-backend-snap = ./backend-snap;
@@ -118,7 +116,6 @@ in obelisk // {
         "rhyolite-backend-snap"
       ] ++ ghcjs;
       ghcjs = [
-        "rhyolite-aeson-orphans"
         "rhyolite-common"
         "rhyolite-datastructures"
         "rhyolite-frontend"
