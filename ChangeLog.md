@@ -5,6 +5,8 @@ This project's release branch is `master`. This log is written from the perspect
 ## Unreleased
 
 * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+* Version bumps:
+  * vessel 0.2.0.0
 
 ## 2021-11-16
 
