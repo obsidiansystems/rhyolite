@@ -19,7 +19,9 @@ let
     rhyolite-backend-db = ./backend-db;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
-    postgresql-simple-class = ./postgresql-simple-class;
+    psql-simple-class = ./psql-extras/psql-simple-class;
+    psql-simple-beam = ./psql-extras/psql-simple-beam;
+    psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
     rhyolite-groundhog-legacy = ./groundhog-legacy;
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;

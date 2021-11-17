@@ -1,10 +1,7 @@
 cabal-version:      2.4
-name:               postgresql-simple-class
+name: psql-simple-beam
 version:            0.1.0.0
-synopsis:           A typeclass for postgresql-simple
-description:
-  Typeclass and instances for database queries using postgresql-simple
-
+synopsis:           A beam instance for Psql
 homepage:           https://github.com/obsidiansystems/rhyolite
 bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
 license:            BSD-3-Clause
@@ -16,12 +13,13 @@ category:           Database
 extra-source-files: CHANGELOG.md
 
 library
-  exposed-modules:  Database.PostgreSQL.Simple.Class
+  exposed-modules:  Database.PostgreSQL.Simple.Beam
   build-depends:
     , base
     , bytestring
     , mtl
     , postgresql-simple
+    , psql-simple-class
     , transformers
 
   hs-source-dirs:   src

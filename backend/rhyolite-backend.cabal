@@ -56,7 +56,7 @@ library
     , obelisk-route
     , parsec
     , postgresql-simple
-    , postgresql-simple-class
+    , psql-simple-class
     , pwstore-fast
     , reflex
     , reflex-dom
