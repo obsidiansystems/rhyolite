@@ -23,7 +23,6 @@ import Control.Monad.Reader
 import Data.Aeson
 import Data.Default
 import Data.Foldable
-import Data.Functor.Sum (Sum)
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (maybeToList)

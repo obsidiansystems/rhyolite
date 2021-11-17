@@ -52,15 +52,17 @@ library
     , monoidal-containers
     , mtl
     , network
+    , notify-listen
     , obelisk-route
     , parsec
     , postgresql-simple
+    , postgresql-simple-class
     , pwstore-fast
     , reflex
     , reflex-dom
     , resource-pool
     , rhyolite-backend-db
-    , notify-listen
+    , rhyolite-groundhog-legacy
     , rhyolite-common
     , rhyolite-datastructures
     , semialign
@@ -82,7 +84,7 @@ library
     , witherable >= 0.2 && < 0.4
 
   exposed-modules:
-    -- Rhyolite.Backend.Account
+    Rhyolite.Backend.Account
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker

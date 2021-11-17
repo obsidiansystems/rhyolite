@@ -25,20 +25,16 @@ module Rhyolite.Backend.DB.PsqlSimple
 
 import Control.Exception.Lifted (Exception, catch, throw)
 import Database.PostgreSQL.Simple.Class
-import Control.Monad.Reader (ReaderT, ask)
+import Control.Monad.Reader (ask)
 import Control.Monad.State as State
-import qualified Control.Monad.State.Strict as Strict
-import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
 import Data.Coerce
-import Data.Int (Int64)
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
 import Database.Id.Class (Id(..), IdData)
 import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
-import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser, fromRow)
+import Database.PostgreSQL.Simple.FromRow (FromRow, fromRow)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
@@ -46,18 +42,6 @@ import Database.PostgreSQL.Simple.Types ((:.), Binary, In (..), Only (..), PGArr
                                          fromQuery)
 import Language.Haskell.TH (Exp, Name, Q, appE, mkName, tupE, varE, listE, sigE)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
-
-import qualified Control.Monad.Trans.Cont
-import qualified Control.Monad.Trans.Except
-import qualified Control.Monad.Trans.Identity
-import qualified Control.Monad.Trans.List
-import qualified Control.Monad.Trans.RWS.Lazy
-import qualified Control.Monad.Trans.RWS.Strict
-import qualified Control.Monad.Trans.Writer.Lazy
-import qualified Control.Monad.Trans.Writer.Strict
--- transformers >= 0.5.3
--- import qualified Control.Monad.Trans.Select
--- import qualified Control.Monad.Trans.Accum
 
 data WrappedSqlError = WrappedSqlError
   { _wrappedSqlError_rawQuery :: BS.ByteString

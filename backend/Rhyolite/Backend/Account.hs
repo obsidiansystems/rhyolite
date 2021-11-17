@@ -56,7 +56,8 @@ import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.Serializable (Serializable)
 import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
-import Rhyolite.Backend.Listen
+import Database.PostgreSQL.Simple.Class
+import Database.PostgreSQL.NotifyListen.Groundhog
 import Rhyolite.Backend.Sign (sign, signWithKey)
 
 import Rhyolite.Account
@@ -86,6 +87,7 @@ ensureAccountExists
      , SqlDb (PhantomDb m)
      , Has' ToJSON n Identity
      , ForallF ToJSON n
+     , Psql m
      )
   => n (Id Account)
   -> Email
@@ -114,6 +116,7 @@ ensureAccountExistsEmail
      , ToJSON (f (Id Account))
      , Has' ToJSON n Identity
      , ForallF ToJSON n
+     , Psql m
      )
   => n (Id Account)
   -> (Id Account -> f (Id Account))

@@ -17,7 +17,10 @@ Description:
 {-# Language UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-module Database.PostgreSQL.NotifyListen.Groundhog where
+module Database.PostgreSQL.NotifyListen.Groundhog
+  ( module Database.PostgreSQL.NotifyListen.Groundhog
+  , NL.NotificationType (..)
+  ) where
 
 import Control.Concurrent.STM
 import Control.Monad
@@ -54,7 +57,6 @@ startNotificationListener
   -> IO (IO notifyMessage, IO ())
 startNotificationListener =
   NL.startNotificationListener notifyChannel . coerce
-
 
 notify
   :: ( Has' ToJSON n Identity

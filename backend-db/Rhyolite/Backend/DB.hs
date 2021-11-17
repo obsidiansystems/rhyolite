@@ -33,7 +33,7 @@ import Control.Monad.Trans.Reader (ReaderT(..))
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
-import Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.Reader (runReaderT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
@@ -50,14 +50,12 @@ import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
-import Database.PostgreSQL.Simple.Transaction (withTransactionSerializable)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
-import Database.Groundhog.Postgresql (Postgresql(..), SqlDb, isFieldNothing, in_)
 import Database.Id.Class
 import Database.Id.Groundhog
 

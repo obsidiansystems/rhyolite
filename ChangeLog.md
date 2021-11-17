@@ -7,9 +7,8 @@ This project's release branch is `master`. This log is written from the perspect
 * Breaking changes:
   * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
   * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
-  * Move `Rhyolite.Backend.Listen` to its own project `notify-listen`. The module is now called `Database.PostgreSQL.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Database.PostgreSQL.NotifyListen.Groundhog` module
   * Rename `PostgresRaw` to `Psql` and move it to `postgresql-simple-class`.
-  * Rhyolite.Backend.Account has been temporarily disabled until its groundhog dependency is removed.
+  * Move `Rhyolite.Backend.Listen` to its own project `notify-listen`. The module is now called `Database.PostgreSQL.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Database.PostgreSQL.NotifyListen.Groundhog` module. The various `notify` functions now require `Psql m`.
 * Version bumps:
   * vessel 0.2.0.0
 

@@ -19,7 +19,7 @@ let
     rhyolite-backend-db = ./backend-db;
     notify-listen = ./notify-listen;
     postgresql-simple-class = ./postgresql-simple-class;
-    groundhog-legacy = ./groundhog-legacy;
+    rhyolite-groundhog-legacy = ./groundhog-legacy;
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
