@@ -12,7 +12,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans -Wno-deprecations #-}
 
 module Rhyolite.Backend.DB.PsqlSimple
-  ( PostgresRaw (..)
+  ( Psql (..)
   , In (..), Only (..), Values (..)
   , Binary (..), (:.)(..), PGArray (..)
   , ToRow (..), FromRow (..)
@@ -24,12 +24,14 @@ module Rhyolite.Backend.DB.PsqlSimple
   ) where
 
 import Control.Exception.Lifted (Exception, catch, throw)
+import Database.PostgreSQL.Simple.Class
 import Control.Monad.Reader (ReaderT, ask)
 import Control.Monad.State as State
 import qualified Control.Monad.State.Strict as Strict
 import Control.Monad.Trans.Maybe (MaybeT)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
+import Data.Coerce
 import Data.Int (Int64)
 import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
 import Database.Id.Class (Id(..), IdData)
@@ -91,60 +93,8 @@ rethrowWithQuery_ psql err =
     , _wrappedSqlError_error = err
     }
 
-class PostgresRaw m where
-  execute :: ToRow q => Query -> q -> m Int64
-  default execute :: ( m ~ t n , MonadTrans t , Monad n , PostgresRaw n , ToRow q) => Query -> q -> m Int64
-  execute psql qs = lift $ execute psql qs
-
-  execute_ :: Query -> m Int64
-  default execute_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) =>  Query -> m Int64
-  execute_ = lift . execute_
-
-  executeMany :: ToRow q => Query -> [q] -> m Int64
-  default executeMany :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m Int64
-  executeMany psql qs = lift $ executeMany psql qs
-
-  query :: (ToRow q, FromRow r) => Query -> q -> m [r]
-  default query :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m [r]
-  query psql qs = lift $ query psql qs
-
-  query_ :: FromRow r => Query -> m [r]
-  default query_ :: (m ~ t n, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> m [r]
-  query_ = lift . query_
-
-  queryWith :: ToRow q => RowParser r -> Query -> q -> m [r]
-  default queryWith :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> q -> m [r]
-  queryWith parser psql qs = lift $ queryWith parser psql qs
-
-  queryWith_ :: RowParser r -> Query -> m [r]
-  default queryWith_ :: (m ~ t n, PostgresRaw n, Monad n, MonadTrans t) => RowParser r -> Query -> m [r]
-  queryWith_ parser psql = lift $ queryWith_ parser psql
-
-  formatQuery :: ToRow q => Query -> q -> m BS.ByteString
-  default formatQuery :: (m ~ t n, ToRow q, PostgresRaw n, Monad n, MonadTrans t) => Query -> q -> m BS.ByteString
-  formatQuery psql qs = lift $ formatQuery psql qs
-
-  returning :: (ToRow q, FromRow r) => Query -> [q] -> m [r]
-  default returning :: (m ~ t n, ToRow q, FromRow r, PostgresRaw n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
-  returning psql qs = lift $ returning psql qs
-
-
-traceQuery :: (PostgresRaw m, MonadIO m, ToRow q, FromRow r) => Query -> q -> m [r]
-traceQuery p q = do
-  s <- formatQuery p q
-  liftIO (BSC.putStrLn s)
-  query p q
-
-traceExecute :: (PostgresRaw m, MonadIO m, ToRow q) => Query -> q -> m Int64
-traceExecute p q = do
-  s <- formatQuery p q
-  liftIO (BSC.putStrLn s)
-  execute p q
-
-traceExecute_ :: (PostgresRaw m, MonadIO m, ToRow q) => Query -> q -> m ()
-traceExecute_ p q = void $ traceExecute p q
-
-instance MonadIO m => PostgresRaw (DbPersist Postgresql m) where
+instance MonadIO m => Psql (DbPersist Postgresql m) where
+  askConn = coerce <$> DbPersist ask
   execute psql qs = liftWithConn $ \conn ->
     Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
   execute_ psql = liftWithConn $ \conn -> Sql.execute_ conn psql `catch` rethrowWithQuery_ psql
@@ -162,23 +112,6 @@ liftWithConn :: MonadIO m
 liftWithConn f = DbPersist $ do
   (Postgresql conn) <- ask
   liftIO (f conn)
-
-instance (Monad m, PostgresRaw m) => PostgresRaw (StateT s m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (Strict.StateT s m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (MaybeT m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (ReaderT r m)
-
-instance (Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.List.ListT m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Except.ExceptT e m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Identity.IdentityT m)
-instance (Monoid w, Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Writer.Strict.WriterT w m)
-instance (Monoid w, Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Writer.Lazy.WriterT w m)
-instance (Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Cont.ContT r m)
-instance (Monoid w, Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.RWS.Strict.RWST r w s m)
-instance (Monoid w, Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.RWS.Lazy.RWST r w s m)
--- transformers >= 0.5.3
--- instance (Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Select.SelectT r m)
--- instance (Monoid w, Monad m, PostgresRaw m) => PostgresRaw (Control.Monad.Trans.Accum.AccumT w m)
 
 ---------------------------------
 -- PostgreSQL.Simple instances --

@@ -20,6 +20,7 @@ library
     , dependent-sum
     , dependent-sum-aeson-orphans
     , postgresql-simple
+    , postgresql-simple-class
     , resource-pool
     , split
     , stm

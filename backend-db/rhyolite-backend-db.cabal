@@ -34,6 +34,7 @@ library
     , monoidal-containers
     , mtl
     , postgresql-simple
+    , postgresql-simple-class
     , postgresql-lo-stream
     , push-notifications
     , resource-pool

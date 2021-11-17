@@ -36,6 +36,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Typeable
 import qualified Database.PostgreSQL.Simple as PG
+import Database.PostgreSQL.Simple.Class
 import qualified Database.PostgreSQL.Simple.Notification as PG
 import GHC.Generics (Generic)
 
@@ -100,10 +101,10 @@ startNotificationListener notifyChannel pool = do
   return (STM.atomically $ STM.readTChan chan', nkill)
 
 -- | Get the schema name out of the current @search_path@
-getSchemaName :: PG.Connection
-              -> IO String
-getSchemaName conn =  do
-  searchPath <- getSearchPath conn
+getSchemaName :: Psql m
+              => m String
+getSchemaName =  do
+  searchPath <- getSearchPath
   let searchPathComponents = wordsBy (==',') searchPath
       schemaName = case searchPathComponents of
        (x:_:_:_) -> x
@@ -111,9 +112,9 @@ getSchemaName conn =  do
   return schemaName
 
 -- | Get the current @search_path@
-getSearchPath :: PG.Connection -> IO String
-getSearchPath conn = do
-  rows <- PG.query_ conn "SHOW search_path"
+getSearchPath :: Psql m => m String
+getSearchPath = do
+  rows <- query_ "SHOW search_path"
   case listToMaybe rows of
     Nothing -> error "getSearchPath: Unexpected result from queryRaw"
     Just (PG.Only searchPath) -> return searchPath
@@ -188,22 +189,22 @@ notifyCmd (NotificationChannel chan) = fromString $ "NOTIFY " <> chan <> ", ?"
 notify ::
   ( Has' ToJSON notice Identity
   , ForallF ToJSON notice
+  , Psql m
   )
   => NotificationChannel
-  -> PG.Connection
   -> NotificationType
   -> notice a
   -> a
-  -> IO ()
-notify notifyChannel conn nt n a = do
-  schemaName <- getSchemaName conn
+  -> m ()
+notify notifyChannel nt n a = do
+  schemaName <- getSchemaName
   let cmd = notifyCmd notifyChannel
       notifyMsg = DbNotification
         { _dbNotification_schemaName = SchemaName $ T.pack schemaName
         , _dbNotification_notificationType = nt
         , _dbNotification_message = n :=> Identity a
         }
-  _ <- PG.execute conn cmd
+  _ <- execute cmd
     [ T.unpack $ T.decodeUtf8 $ LBS.toStrict $ encode notifyMsg
     ]
   return ()

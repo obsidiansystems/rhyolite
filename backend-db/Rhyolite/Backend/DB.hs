@@ -66,7 +66,7 @@ import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
 
-type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
+type Db m = (PersistBackend m, Psql m, SqlDb (PhantomDb m))
 
 runDbPersistTransactionMode
   :: (MonadIO m, MonadLoggerIO m)
@@ -137,22 +137,22 @@ liftBaseThrough f t = do
     f $ run t
   restoreM st
 
-getSearchPath :: (PostgresRaw m, Monad m) => m String
+getSearchPath :: (Psql m, Monad m) => m String
 getSearchPath = do
   rows <- query_ "SHOW search_path"
   case listToMaybe rows of
     Nothing -> error "getSearchPath: Unexpected result from queryRaw"
     Just (Only searchPath) -> return searchPath
 
-setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
+setSearchPath :: (Monad m, Psql m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
 
-setSchema :: (Monad m, PostgresRaw m) => SchemaName -> m ()
+setSchema :: (Monad m, Psql m) => SchemaName -> m ()
 setSchema schema = void $ execute [sql| SET search_path TO ?,"$user",public |] (Only schema)
 
 -- | Sets the search path to a particular schema, runs an action in that schema, and resets the search path
 withSchema
-  :: (PostgresRaw m, PersistBackend m)
+  :: (Psql m, PersistBackend m)
   => SchemaName
   -> m r
   -> m r
@@ -164,7 +164,7 @@ withSchema schema a = do
   return r
 
 ensureSchemaExists
-  :: (Monad m, PostgresRaw m)
+  :: (Monad m, Psql m)
   => SchemaName
   -> m ()
 ensureSchemaExists schema = void $ execute [sql| CREATE SCHEMA IF NOT EXISTS ? |] (Only schema)

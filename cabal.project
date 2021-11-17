@@ -7,3 +7,5 @@ packages:
   datastructures/
   frontend/
   test/
+  groundhog-legacy/
+  postgresql-simple-class/
