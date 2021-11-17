@@ -2,6 +2,9 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+* Remove Rhyolite.HList.
+
 ## 2021-11-16
 
 * Breaking changes:
