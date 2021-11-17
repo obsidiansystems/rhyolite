@@ -16,6 +16,8 @@ library
   exposed-modules:  Database.PostgreSQL.Simple.Beam
   build-depends:
     , base
+    , beam-core
+    , beam-postgres
     , bytestring
     , mtl
     , postgresql-simple
