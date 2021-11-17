@@ -57,28 +57,26 @@ listenCmd (NotificationChannel chan) = fromString $ "LISTEN " <> chan
 -- postgres @LISTEN@ mechanism.
 notificationListener
   :: (FromJSON notifyMessage)
-  => NotificationChannel
-  -- ^ The channel to listen on
-  -> Pool PG.Connection
+  => Pool PG.Connection
   -- ^ Connection pool
   -> IO (TChan notifyMessage, IO ())
   -- ^ @notifyMessage@ is usually a 'DbNotification'
-notificationListener notifyChannel db = do
+notificationListener db = do
   nChan <- STM.newBroadcastTChanIO
   daemonThread <- forkIO $ withResource db $ \conn -> do
-    let cmd = listenCmd notifyChannel
+    let cmd = listenCmd defaultNotificationChannel
     _ <- PG.execute_ conn cmd
     forever $ do
       -- Handle notifications
       PG.Notification _ channel message <- PG.getNotification conn
       case channel of
-        _ | channel ==  channelToByteString notifyChannel -> do
+        _ | channel ==  channelToByteString defaultNotificationChannel -> do
           -- Notification is on the expected NOTIFY channel
           case decode $ LBS.fromStrict message of
             Just a -> STM.atomically $ STM.writeTChan nChan a
-            _ -> putStrLn $ errorMessage notifyChannel $
+            _ -> putStrLn $ errorMessage defaultNotificationChannel $
               "Could not parse message: " <> show message
-        _ -> putStrLn $ errorMessage notifyChannel $
+        _ -> putStrLn $ errorMessage defaultNotificationChannel $
           "Received a message on unexpected channel: " <> show channel
   return (nChan, killThread daemonThread)
   where
@@ -92,11 +90,10 @@ notificationListener notifyChannel db = do
 -- 'DbNotification' retrieval function and finalizer
 startNotificationListener
   :: FromJSON notifyMessage
-  => NotificationChannel
-  -> Pool PG.Connection
+  => Pool PG.Connection
   -> IO (IO notifyMessage, IO ())
-startNotificationListener notifyChannel pool = do
-  (chan, nkill) <- notificationListener notifyChannel pool
+startNotificationListener pool = do
+  (chan, nkill) <- notificationListener pool
   chan' <- STM.atomically $ STM.dupTChan chan
   return (STM.atomically $ STM.readTChan chan', nkill)
 
@@ -191,14 +188,13 @@ notify ::
   , ForallF ToJSON notice
   , Psql m
   )
-  => NotificationChannel
-  -> NotificationType
+  => NotificationType
   -> notice a
   -> a
   -> m ()
-notify notifyChannel nt n a = do
+notify nt n a = do
   schemaName <- getSchemaName
-  let cmd = notifyCmd notifyChannel
+  let cmd = notifyCmd defaultNotificationChannel
       notifyMsg = DbNotification
         { _dbNotification_schemaName = SchemaName $ T.pack schemaName
         , _dbNotification_notificationType = nt
