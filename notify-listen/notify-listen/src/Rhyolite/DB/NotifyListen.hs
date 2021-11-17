@@ -12,7 +12,7 @@ Description:
 {-# Language StandaloneDeriving #-}
 {-# Language UndecidableInstances #-}
 
-module Database.PostgreSQL.NotifyListen where
+module Rhyolite.DB.NotifyListen where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TChan)

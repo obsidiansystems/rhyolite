@@ -52,7 +52,7 @@ library
     , monoidal-containers
     , mtl
     , network
-    , notify-listen
+    , rhyolite-notify-listen
     , obelisk-route
     , parsec
     , postgresql-simple

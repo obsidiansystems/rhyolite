@@ -57,7 +57,7 @@ import Rhyolite.Backend.DB.Serializable (Serializable)
 import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
 import Database.PostgreSQL.Simple.Class
-import Database.PostgreSQL.NotifyListen.Groundhog
+import Rhyolite.DB.NotifyListen.Groundhog
 import Rhyolite.Backend.Sign (sign, signWithKey)
 
 import Rhyolite.Account

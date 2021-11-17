@@ -17,7 +17,8 @@ let
     rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
-    notify-listen = ./notify-listen;
+    rhyolite-notify-listen = ./notify-listen/notify-listen;
+    rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     postgresql-simple-class = ./postgresql-simple-class;
     rhyolite-groundhog-legacy = ./groundhog-legacy;
     rhyolite-common = ./common;

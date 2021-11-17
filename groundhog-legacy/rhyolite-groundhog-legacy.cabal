@@ -13,7 +13,7 @@ category:           Web
 extra-source-files: CHANGELOG.md
 
 library
-  exposed-modules:  Database.PostgreSQL.NotifyListen.Groundhog
+  exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
   build-depends:
     , aeson
     , base
@@ -23,7 +23,7 @@ library
     , database-id-groundhog
     , groundhog
     , groundhog-postgresql
-    , notify-listen
+    , rhyolite-notify-listen
     , postgresql-simple
     , postgresql-simple-class
     , resource-pool

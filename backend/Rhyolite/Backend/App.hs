@@ -48,7 +48,7 @@ import Reflex (Group(..), Additive)
 
 import Rhyolite.Api
 import Rhyolite.App
-import Database.PostgreSQL.NotifyListen (startNotificationListener, defaultNotificationChannel)
+import Rhyolite.DB.NotifyListen (startNotificationListener, defaultNotificationChannel)
 import Rhyolite.Concurrent
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)

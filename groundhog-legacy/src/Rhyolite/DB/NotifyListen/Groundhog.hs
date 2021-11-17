@@ -17,8 +17,8 @@ Description:
 {-# Language UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-partial-type-signatures #-}
 
-module Database.PostgreSQL.NotifyListen.Groundhog
-  ( module Database.PostgreSQL.NotifyListen.Groundhog
+module Rhyolite.DB.NotifyListen.Groundhog
+  ( module Rhyolite.DB.NotifyListen.Groundhog
   , NL.NotificationType (..)
   ) where
 
@@ -37,8 +37,8 @@ import Database.Groundhog.Instances ()
 import Database.Groundhog.Postgresql
 import Database.Id.Class (HasId, Id, IdData)
 import Database.Id.Groundhog (DefaultKeyId, fromId, toId)
-import qualified Database.PostgreSQL.NotifyListen as NL
-import Database.PostgreSQL.NotifyListen (NotificationType(..))
+import qualified Rhyolite.DB.NotifyListen as NL
+import Rhyolite.DB.NotifyListen (NotificationType(..))
 import Database.PostgreSQL.Simple.Class
 import GHC.Generics
 
