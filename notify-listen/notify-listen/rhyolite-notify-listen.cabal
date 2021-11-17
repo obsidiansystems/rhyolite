@@ -1,0 +1,32 @@
+name: rhyolite-notify-listen
+version: 0.1.0.0
+license: BSD3
+copyright: Copyright (C) Obsidian Systems LLC 2021
+author: Obsidian Systems LLC
+maintainer: maintainer@obsidian.systems
+stability: Experimental
+build-type: Simple
+cabal-version: >=1.2
+description: Notification mechanism using postgres.
+library
+  hs-source-dirs: src
+
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , constraints
+    , constraints-extras
+    , dependent-sum
+    , dependent-sum-aeson-orphans
+    , postgresql-simple
+    , psql-simple-class
+    , resource-pool
+    , split
+    , stm
+    , text
+
+  exposed-modules:
+    Rhyolite.DB.NotifyListen
+
+  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

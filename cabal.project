@@ -2,7 +2,13 @@ packages:
   aeson-orphans/
   backend-db/
   backend/
+  notify-listen/notify-listen/
+  notify-listen/notify-listen-beam/
   common/
   datastructures/
   frontend/
   test/
+  groundhog-legacy/
+  psql-extras/psql-simple-class/
+  psql-extras/psql-simple-beam/
+  psql-extras/psql-simple-groundhog/

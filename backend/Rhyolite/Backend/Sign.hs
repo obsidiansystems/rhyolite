@@ -31,7 +31,7 @@ import qualified Web.ClientSession as CS
 
 import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
 import Rhyolite.Backend.DB.LargeObjects (PostgresLargeObject (withLargeObject))
-import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw)
+import Rhyolite.Backend.DB.PsqlSimple (Psql)
 import Rhyolite.Email (MonadEmail)
 import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
@@ -84,7 +84,7 @@ instance Monad m => MonadSign (SignT m) where
 
 deriveNewtypePersistBackend (\m -> [t| SignT $m |]) (\m -> [t| ReaderT CS.Key $m |]) 'SignT 'unSignT
 
-instance (Monad m, PostgresRaw m) => PostgresRaw (SignT m)
+instance (Monad m, Psql m) => Psql (SignT m)
 instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (SignT m) where
   withLargeObject oid mode f = do
     k <- SignT ask

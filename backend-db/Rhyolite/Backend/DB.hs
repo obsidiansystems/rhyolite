@@ -33,7 +33,7 @@ import Control.Monad.Trans.Reader (ReaderT(..))
 -- import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST) -- only in newer transformers
 import qualified Control.Monad.Trans.RWS.Lazy as Lazy (RWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
-import Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.Reader (runReaderT)
 import qualified Control.Monad.Trans.State.Lazy as Lazy (StateT)
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
 -- import qualified Control.Monad.Trans.Writer.CPS as CPS (WriterT) -- only in newer transformers
@@ -50,15 +50,12 @@ import Data.Maybe (listToMaybe)
 import Data.Pool (Pool, withResource)
 import Data.String (fromString)
 import Data.Time (UTCTime)
-import Database.PostgreSQL.Simple.Transaction (withTransactionSerializable)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
-import Database.Groundhog.Generic (mapAllRows, runDbConnNoTransaction)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
-import Database.Groundhog.Postgresql (Postgresql(..), SqlDb, isFieldNothing, in_)
 import Database.Id.Class
 import Database.Id.Groundhog
 
@@ -67,7 +64,7 @@ import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
 
-type Db m = (PersistBackend m, PostgresRaw m, SqlDb (PhantomDb m))
+type Db m = (PersistBackend m, Psql m, SqlDb (PhantomDb m))
 
 runDbPersistTransactionMode
   :: (MonadIO m, MonadLoggerIO m)
@@ -138,23 +135,22 @@ liftBaseThrough f t = do
     f $ run t
   restoreM st
 
-getSearchPath :: PersistBackend m => m String
+getSearchPath :: (Psql m, Monad m) => m String
 getSearchPath = do
-  searchPath' <- queryRaw False "SHOW search_path" [] $ mapAllRows (fmap fst . fromPersistValues)
-  case searchPath' of
-    (searchPath:[]) -> return searchPath
-    [] -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not return a value"
-    _ -> error "Rhyolite.Backend.DB(getSearchPath) queryRaw did not returned multiple values"
+  rows <- query_ "SHOW search_path"
+  case listToMaybe rows of
+    Nothing -> error "getSearchPath: Unexpected result from queryRaw"
+    Just (Only searchPath) -> return searchPath
 
-setSearchPath :: (Monad m, PostgresRaw m) => String -> m ()
+setSearchPath :: (Monad m, Psql m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
 
-setSchema :: (Monad m, PostgresRaw m) => SchemaName -> m ()
+setSchema :: (Monad m, Psql m) => SchemaName -> m ()
 setSchema schema = void $ execute [sql| SET search_path TO ?,"$user",public |] (Only schema)
 
 -- | Sets the search path to a particular schema, runs an action in that schema, and resets the search path
 withSchema
-  :: (PostgresRaw m, PersistBackend m)
+  :: (Psql m, PersistBackend m)
   => SchemaName
   -> m r
   -> m r
@@ -166,7 +162,7 @@ withSchema schema a = do
   return r
 
 ensureSchemaExists
-  :: (Monad m, PostgresRaw m)
+  :: (Monad m, Psql m)
   => SchemaName
   -> m ()
 ensureSchemaExists schema = void $ execute [sql| CREATE SCHEMA IF NOT EXISTS ? |] (Only schema)
