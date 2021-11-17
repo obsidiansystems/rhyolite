@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## 2021-11-16
 
 * Breaking changes:
   * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
