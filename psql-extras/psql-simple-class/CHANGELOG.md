@@ -2,4 +2,4 @@
 
 ## 0.1.0.0
 
-* Create class PsqlConn with various instances
+* Create class Psql with various instances

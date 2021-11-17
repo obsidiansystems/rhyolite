@@ -23,79 +23,18 @@ module Rhyolite.Backend.DB.PsqlSimple
   , fromIdRow
   ) where
 
-import Control.Exception.Lifted (Exception, catch, throw)
-import Database.PostgreSQL.Simple.Class
-import Control.Monad.Reader (ask)
-import Control.Monad.State as State
-import qualified Data.ByteString as BS
-import Data.Coerce
-import Database.Groundhog.Postgresql (DbPersist (..), Postgresql (..))
 import Database.Id.Class (Id(..), IdData)
-import Database.PostgreSQL.Simple (Connection, SqlError)
 import qualified Database.PostgreSQL.Simple as Sql
+import Database.PostgreSQL.Simple.Class
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, fromRow)
+import Database.PostgreSQL.Simple.Groundhog
 import Database.PostgreSQL.Simple.SqlQQ (sql)
-import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
+import Database.PostgreSQL.Simple.ToField (Action, ToField, toField)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
-import Database.PostgreSQL.Simple.Types ((:.), Binary, In (..), Only (..), PGArray (..), Query, Values (..),
-                                         fromQuery)
-import Language.Haskell.TH (Exp, Name, Q, appE, mkName, tupE, varE, listE, sigE)
-import Language.Haskell.TH.Quote (QuasiQuoter (..))
-
-data WrappedSqlError = WrappedSqlError
-  { _wrappedSqlError_rawQuery :: BS.ByteString
-  , _wrappedSqlError_formattedQuery :: BS.ByteString
-  , _wrappedSqlError_error :: SqlError
-  }
-  deriving Show
-
-instance Exception WrappedSqlError
-
-rethrowWithQuery :: ToRow q => Connection -> Query -> q -> SqlError -> IO a
-rethrowWithQuery conn psql qs err = do
-  expr <- Sql.formatQuery conn psql qs
-  throw $ WrappedSqlError
-    { _wrappedSqlError_rawQuery = fromQuery psql
-    , _wrappedSqlError_formattedQuery = expr
-    , _wrappedSqlError_error = err
-    }
-
-rethrowWithQueryMany :: ToRow q => Connection -> Query -> [q] -> SqlError -> IO a
-rethrowWithQueryMany conn psql qs err = do
-  expr <- Sql.formatMany conn psql qs
-  throw $ WrappedSqlError
-    { _wrappedSqlError_rawQuery = fromQuery psql
-    , _wrappedSqlError_formattedQuery = expr
-    , _wrappedSqlError_error = err
-    }
-rethrowWithQuery_ :: Query -> SqlError -> IO a
-rethrowWithQuery_ psql err =
-  throw $ WrappedSqlError
-    { _wrappedSqlError_rawQuery = fromQuery psql
-    , _wrappedSqlError_formattedQuery = fromQuery psql
-    , _wrappedSqlError_error = err
-    }
-
-instance MonadIO m => Psql (DbPersist Postgresql m) where
-  askConn = coerce <$> DbPersist ask
-  execute psql qs = liftWithConn $ \conn ->
-    Sql.execute conn psql qs `catch` rethrowWithQuery conn psql qs
-  execute_ psql = liftWithConn $ \conn -> Sql.execute_ conn psql `catch` rethrowWithQuery_ psql
-  executeMany psql qs = liftWithConn $ \conn -> Sql.executeMany conn psql qs `catch` rethrowWithQueryMany conn psql qs
-  query psql qs = liftWithConn $ \conn -> Sql.query conn psql qs `catch` rethrowWithQuery conn psql qs
-  query_ psql = liftWithConn $ \conn -> Sql.query_ conn psql `catch` rethrowWithQuery_ psql
-  queryWith parser psql qs = liftWithConn $ \conn -> Sql.queryWith parser conn psql qs `catch` rethrowWithQuery_ psql
-  queryWith_ parser psql = liftWithConn $ \conn -> Sql.queryWith_ parser conn psql `catch` rethrowWithQuery_ psql
-  formatQuery psql qs = liftWithConn $ \conn -> Sql.formatQuery conn psql qs
-  returning psql qs = liftWithConn $ \conn -> Sql.returning conn psql qs `catch` rethrowWithQueryMany conn psql qs
-
-liftWithConn :: MonadIO m
-             => (Connection -> IO a)
-             -> DbPersist Postgresql m a
-liftWithConn f = DbPersist $ do
-  (Postgresql conn) <- ask
-  liftIO (f conn)
+import Database.PostgreSQL.Simple.Types
+import Language.Haskell.TH (Exp, Name, Q, appE, listE, mkName, sigE, tupE, varE)
+import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 ---------------------------------
 -- PostgreSQL.Simple instances --

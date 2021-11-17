@@ -1,5 +1,5 @@
-# Revision history for psql-simple-class
+# Revision history for psql-simple-beam
 
 ## 0.1.0.0
 
-* Create class PsqlConn with various instances
+* Create Psql instance for beam's `Pg`

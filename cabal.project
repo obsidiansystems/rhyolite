@@ -9,6 +9,6 @@ packages:
   frontend/
   test/
   groundhog-legacy/
-  psql-simple-extras/psql-simple-class/
-  psql-simple-extras/psql-simple-beam/
-  psql-simple-extras/psql-simple-groundhog/
+  psql-extras/psql-simple-class/
+  psql-extras/psql-simple-beam/
+  psql-extras/psql-simple-groundhog/
