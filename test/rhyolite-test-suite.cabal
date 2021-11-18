@@ -13,10 +13,9 @@ executable rhyolite-test-suite
   hs-source-dirs: src-bin
   main-is: test.hs
   build-depends: base
-               , rhyolite-aeson-orphans
+               , bytestring-aeson-orphans
                , rhyolite-backend
                , rhyolite-backend-db
-               , rhyolite-backend-snap
                , rhyolite-common
                , rhyolite-datastructures
                , rhyolite-frontend

@@ -2,12 +2,30 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+* Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
+* Remove the aeson orphan instances for Alt, Any and Down.
+* Remove Rhyolite.HList.
+* Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
+
 ## 2021-11-18
 
 * Fixed a bug in `handleAuthMapQuery` where tokens were always validated
 
 ## 2021-11-16
 
+* Breaking changes:
+  * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+  * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
+  * Rename `PostgresRaw` to `Psql` and move it to `psql-simple-class`.
+  * Move Psql (formerly PostgresRaw) instance for groundhog's `DbPersist` to psql-simple-groundhog.
+  * Move `Rhyolite.Backend.Listen` to its own project `rhyolite-notify-listen`. The module is now called `Rhyolite.DB.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Rhyolite.DB.NotifyListen.Groundhog` module. The various `notify` functions now require `Psql m`.
+* New:
+  * Add a `Psql` instance for beam's `Pg`
+* Version bumps:
+  * vessel 0.2.0.0
+
+## 2021-11-16
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
 * Bump groundhog
 * Bump obelisk (develop as of 2021-04-19) and reflex-platform (0.7.1.0)

@@ -29,11 +29,10 @@ library
     , monoidal-containers
     , mtl
     , reflex
-    , rhyolite-aeson-orphans
+    , bytestring-aeson-orphans
     , these
 
   exposed-modules:
-    Rhyolite.Map.Monoidal
     Rhyolite.SemiMap
 
   other-extensions: TemplateHaskell

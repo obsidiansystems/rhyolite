@@ -14,10 +14,14 @@ let
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
-    rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
-    rhyolite-backend-snap = ./backend-snap;
+    rhyolite-notify-listen = ./notify-listen/notify-listen;
+    rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
+    psql-simple-class = ./psql-extras/psql-simple-class;
+    psql-simple-beam = ./psql-extras/psql-simple-beam;
+    psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
+    rhyolite-groundhog-legacy = ./groundhog-legacy;
     rhyolite-common = ./common;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
@@ -25,6 +29,7 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
+    bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
     groundhog = repos.groundhog + "/groundhog";
@@ -32,6 +37,7 @@ let
     groundhog-th = repos.groundhog + "/groundhog-th";
     HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
     HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
+    monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
 
     # Newer versions than those in reflex-platform
@@ -101,10 +107,8 @@ in obelisk // {
   proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
     packages = {
-      rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
-      rhyolite-backend-snap = ./backend-snap;
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
@@ -114,10 +118,8 @@ in obelisk // {
       ghc = [
         "rhyolite-backend"
         "rhyolite-backend-db"
-        "rhyolite-backend-snap"
       ] ++ ghcjs;
       ghcjs = [
-        "rhyolite-aeson-orphans"
         "rhyolite-common"
         "rhyolite-datastructures"
         "rhyolite-frontend"

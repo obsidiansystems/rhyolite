@@ -20,7 +20,7 @@ module Rhyolite.Backend.DB.Serializable
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Reader (ReaderT, runReaderT, withReaderT)
+import Control.Monad.Reader (ReaderT, runReaderT, withReaderT, ask)
 import Control.Monad.Logger (MonadLogger, LoggingT)
 import Control.Monad.Logger.Extras (Logger, runLoggerLoggingT)
 import Data.Coerce (coerce)
@@ -51,7 +51,8 @@ newtype Serializable a = Serializable (ReaderT Pg.Connection (LoggingT IO) a)
 instance MonadBase Serializable Serializable where
   liftBase = id
 
-instance PsqlSimple.PostgresRaw Serializable where
+instance PsqlSimple.Psql Serializable where
+  askConn = coerce <$> unsafeLiftDbPersist ask
   execute psql qs = unsafeLiftDbPersist $ PsqlSimple.execute psql qs
   execute_ = unsafeLiftDbPersist . PsqlSimple.execute_
   executeMany psql qs = unsafeLiftDbPersist $ PsqlSimple.executeMany psql qs
