@@ -118,7 +118,7 @@ handleAuthMapQuery
 handleAuthMapQuery readToken handler (AuthMapV vt) = do
   let unfilteredVt = getSubVessel vt
       unvalidatedTokens = MMap.keys unfilteredVt
-  validTokens <- Set.fromList <$> witherM (\t -> pure t <$ readToken t) unvalidatedTokens
+  validTokens <- Set.fromList <$> witherM (\t -> (t <$) <$> readToken t) unvalidatedTokens
   let filteredVt = MMap.intersectionWith const unfilteredVt (MMap.fromSet (\_ -> ()) validTokens)
       invalidTokens = MMap.fromSet (\_ -> failureErrorV ()) $
         Set.difference (Set.fromList unvalidatedTokens) validTokens
