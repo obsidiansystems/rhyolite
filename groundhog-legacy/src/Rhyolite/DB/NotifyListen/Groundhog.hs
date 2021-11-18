@@ -42,21 +42,18 @@ import Rhyolite.DB.NotifyListen (NotificationType(..))
 import Database.PostgreSQL.Simple.Class
 import GHC.Generics
 
-notifyChannel :: NL.NotificationChannel
-notifyChannel = NL.defaultNotificationChannel
-
 notificationListener
   :: (FromJSON notifyMessage)
   => Pool Postgresql
   -> IO (TChan notifyMessage, IO ())
-notificationListener = NL.notificationListener notifyChannel . coerce
+notificationListener = NL.notificationListener . coerce
 
 startNotificationListener
   :: FromJSON notifyMessage
   => Pool Postgresql
   -> IO (IO notifyMessage, IO ())
 startNotificationListener =
-  NL.startNotificationListener notifyChannel . coerce
+  NL.startNotificationListener . coerce
 
 notify
   :: ( Has' ToJSON n Identity
@@ -67,7 +64,7 @@ notify
   -> n a
   -> a
   -> m ()
-notify nt n a = NL.notify notifyChannel nt n a
+notify nt n a = NL.notify nt n a
 
 -- | Class for relating application-specific db notification types with db
 -- entity types.

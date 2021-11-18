@@ -12,7 +12,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
   * Rename `PostgresRaw` to `Psql` and move it to `psql-simple-class`.
   * Move Psql (formerly PostgresRaw) instance for groundhog's `DbPersist` to psql-simple-groundhog.
-  * Move `Rhyolite.Backend.Listen` to its own project `rhyolite-notify-listen`. The module is now called `Rhyolite.DB.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Rhyolite.DB.NotifyListen.Groundhog` module. The various `notify` functions now require `Psql m`.
+  * Move `Rhyolite.Backend.Listen` to its own project `rhyolite-notify-listen`. The module is now called `Rhyolite.DB.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Rhyolite.DB.NotifyListen.Groundhog` module, and in `notify-listen-beam` for beam versions. The various `notify` functions now require `Psql m`.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:
