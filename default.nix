@@ -14,7 +14,6 @@ let
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
-    rhyolite-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-backend-db = ./backend-db;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
@@ -30,6 +29,7 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
+    bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
     groundhog = repos.groundhog + "/groundhog";
@@ -37,6 +37,7 @@ let
     groundhog-th = repos.groundhog + "/groundhog-th";
     HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
     HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
+    monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
 
     # Newer versions than those in reflex-platform
@@ -106,7 +107,6 @@ in obelisk // {
   proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
     packages = {
-      rhyolite-aeson-orphans = ./aeson-orphans;
       rhyolite-backend = ./backend;
       rhyolite-backend-db = ./backend-db;
       rhyolite-common = ./common;
@@ -120,7 +120,6 @@ in obelisk // {
         "rhyolite-backend-db"
       ] ++ ghcjs;
       ghcjs = [
-        "rhyolite-aeson-orphans"
         "rhyolite-common"
         "rhyolite-datastructures"
         "rhyolite-frontend"

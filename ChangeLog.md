@@ -3,7 +3,14 @@
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
 ## Unreleased
+* Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
+* Remove the aeson orphan instances for Alt, Any and Down.
 * Remove Rhyolite.HList.
+* Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
+
+## 2021-11-18
+
+* Fixed a bug in `handleAuthMapQuery` where tokens were always validated
 
 ## 2021-11-16
 

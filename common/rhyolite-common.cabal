@@ -70,7 +70,6 @@ library
 
 
   exposed-modules:
-    Data.MonoidMap
     Rhyolite.Account
     Rhyolite.Api
     Rhyolite.App

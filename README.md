@@ -34,7 +34,6 @@
 1. You can now add any of Rhyolite’s packages as dependencies to your
    Obelisk project. Here is the full list of packages provided:
 
-   - rhyolite-aeson-orphans
    - rhyolite-backend
    - rhyolite-backend-db
    - rhyolite-common

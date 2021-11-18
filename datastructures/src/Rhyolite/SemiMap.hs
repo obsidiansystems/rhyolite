@@ -21,7 +21,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
 
-import Rhyolite.Aeson.Orphans ()
+import ByteString.Aeson.Orphans ()
 import Data.Orphans () -- for Foldable (Alt f)
 
 -- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
