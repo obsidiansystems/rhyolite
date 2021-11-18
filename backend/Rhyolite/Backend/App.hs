@@ -48,7 +48,7 @@ import Reflex (Group(..), Additive)
 
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.DB.NotifyListen (startNotificationListener, defaultNotificationChannel)
+import Rhyolite.DB.NotifyListen (startNotificationListener)
 import Rhyolite.Concurrent
 import Rhyolite.Sign (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
@@ -446,7 +446,7 @@ serveDbOverWebsocketsRaw
   -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (m a, IO ())
 serveDbOverWebsocketsRaw withWsConn version fromWire db handleApi handleNotify handleQuery pipe = do
-  (getNextNotification, finalizeListener) <- startNotificationListener defaultNotificationChannel db
+  (getNextNotification, finalizeListener) <- startNotificationListener db
   rec (qh, finalizeFeed) <- feedPipeline (handleNotify <$> getNextNotification) handleQuery r
       (qh', r) <- unPipeline pipe qh r'
       (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn version fromWire handleApi qh'
