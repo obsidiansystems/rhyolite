@@ -20,11 +20,8 @@ module Rhyolite.Backend.DB.PsqlSimple
   , Query (..), sql, traceQuery, traceExecute, traceExecute_
   , liftWithConn
   , queryQ, executeQ, executeQ_, sqlQ, traceQueryQ, traceExecuteQ, traceExecuteQ_
-  , fromIdRow
   ) where
 
-import Database.Id.Class (Id(..), IdData)
-import qualified Database.PostgreSQL.Simple as Sql
 import Database.PostgreSQL.Simple.Class
 import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, fromRow)
@@ -39,12 +36,6 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 ---------------------------------
 -- PostgreSQL.Simple instances --
 ---------------------------------
-
-instance (FromField (IdData a)) => FromField (Id a) where
-  fromField f mbs = fmap Id (fromField f mbs)
-
-instance (ToField (IdData a)) => ToField (Id a) where
-  toField (Id x) = toField x
 
 defaultQQ :: String -> QuasiQuoter
 defaultQQ name = QuasiQuoter
@@ -101,6 +92,3 @@ extractVars = extractVars'
       let (pre,post) = break (=='?') s'
           (s'',vars) = extractVars' post
       in (pre ++ s'', vars)
-
-fromIdRow :: (Only (Id v) :. v) -> (Id v, v)
-fromIdRow (Only k Sql.:. v) = (k, v)

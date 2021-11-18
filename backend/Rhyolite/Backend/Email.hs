@@ -37,11 +37,11 @@ import Data.Word
 import GHC.Generics (Generic)
 import Network.HaskellNet.Auth
 import Network.HaskellNet.SMTP.SSL hiding (sendMail)
-import Network.Mail.Mime (Address (..), Mail (..), htmlPart, plainPart)
+import Network.Mail.Mime (Address(..), Mail(..), htmlPart, plainPart)
 import Network.Mail.SMTP (simpleMail)
 import Network.Socket (HostName, PortNumber)
 import Text.Blaze.Html.Renderer.Text
-import Text.Blaze.Html5 (Html, (!))
+import Text.Blaze.Html5 ((!), Html)
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5.Attributes as A
@@ -50,6 +50,7 @@ import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Builder.Static
 import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
+import Rhyolite.DB.Groundhog.Orphans ()
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Sign
