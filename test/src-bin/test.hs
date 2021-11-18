@@ -1,11 +1,31 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Main where
 
-import Rhyolite.App --common
-import Rhyolite.Backend.App -- backend
-import Rhyolite.Backend.DB -- backend-db
-import Rhyolite.Frontend.App -- frontend
-import Rhyolite.SemiMap -- datastructures
+--common
+import Rhyolite.App
+-- backend
+import Rhyolite.Backend.App
+-- backend-db
+import Rhyolite.Backend.DB
+-- frontend
+import Rhyolite.Frontend.App
+-- datastructures
+import Rhyolite.SemiMap
+
+-- psql-extras
+import qualified Database.PostgreSQL.Simple.Class
+import qualified Database.PostgreSQL.Simple.Beam
+import qualified Database.PostgreSQL.Simple.Groundhog
+
+-- notify-listen
+import qualified Rhyolite.DB.NotifyListen
+import qualified Rhyolite.DB.NotifyListen.Beam
+
+-- groundhog-legacy
+import qualified Rhyolite.DB.Groundhog
+
+-- email
+import qualified Rhyolite.Email
 
 main :: IO ()
 main = putStrLn "rhyolite submodules were successfully built"
