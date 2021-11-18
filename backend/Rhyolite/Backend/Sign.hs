@@ -37,9 +37,9 @@ import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
 import Rhyolite.Sign (MonadSign (..), Signed (..))
 
-signWithKey :: (Typeable b, ToJSON b, MonadIO m) => CS.Key -> b -> m (Signed a)
-signWithKey k (v :: b) =
-  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeRep (Proxy @b), v)
+signWithKey :: (Typeable a, ToJSON a, MonadIO m) => CS.Key -> a -> m (Signed a)
+signWithKey k (v :: a) =
+  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeRep (Proxy @a), v)
 
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
