@@ -5,6 +5,7 @@ This project's release branch is `master`. This log is written from the perspect
 ## Unreleased
 * Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
 * Remove Rhyolite.HList.
+* Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
 
 ## 2021-11-16
 
