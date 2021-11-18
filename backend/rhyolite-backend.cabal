@@ -54,6 +54,7 @@ library
     , mtl
     , network
     , rhyolite-notify-listen
+    , rhyolite-groundhog-legacy
     , obelisk-route
     , parsec
     , postgresql-simple

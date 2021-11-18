@@ -10,10 +10,11 @@ author:             Obsidian Systems LLC
 maintainer:         maintainer@obsidian.systems
 copyright:          2021 Obsidian Systems LLC
 category:           Web
-extra-source-files: CHANGELOG.md
+extra-source-files: README.md
 
 library
   exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
+                    Rhyolite.DB.Groundhog.Orphans
   build-depends:
     , aeson
     , base
