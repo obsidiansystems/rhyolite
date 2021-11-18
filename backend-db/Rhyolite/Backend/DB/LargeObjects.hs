@@ -31,11 +31,11 @@ import System.IO (IOMode)
 import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 
-import Rhyolite.Backend.DB.PsqlSimple (PostgresRaw (..), liftWithConn)
+import Rhyolite.Backend.DB.PsqlSimple (Psql (..), liftWithConn)
 import Rhyolite.Backend.DB.Serializable (Serializable, toDbPersist, unsafeLiftDbPersist)
 import Rhyolite.Schema (LargeObjectId (..))
 
-class PostgresRaw m => PostgresLargeObject m where
+class Psql m => PostgresLargeObject m where
   -- | Create a new postgres large object, returning its object id.
   newEmptyLargeObject :: m LargeObjectId
   default newEmptyLargeObject :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')

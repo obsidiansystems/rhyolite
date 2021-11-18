@@ -52,14 +52,17 @@ library
     , monoidal-containers
     , mtl
     , network
+    , rhyolite-notify-listen
     , obelisk-route
     , parsec
     , postgresql-simple
+    , psql-simple-class
     , pwstore-fast
     , reflex
     , reflex-dom
     , resource-pool
     , rhyolite-backend-db
+    , rhyolite-groundhog-legacy
     , rhyolite-common
     , rhyolite-datastructures
     , semialign
@@ -85,7 +88,6 @@ library
     Rhyolite.Backend.App
     Rhyolite.Backend.Email
     Rhyolite.Backend.EmailWorker
-    Rhyolite.Backend.Listen
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 

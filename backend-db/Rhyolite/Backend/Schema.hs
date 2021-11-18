@@ -15,7 +15,7 @@ import Control.Exception
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Universe
-import Data.Aeson (FromJSON, ToJSON, decode', eitherDecode', encode)
+import Data.Aeson (FromJSON, ToJSON, eitherDecode', encode)
 import Data.Functor.Identity (Identity(..))
 import Data.Typeable (Proxy(..), Typeable, TypeRep, typeRep)
 import qualified Data.Map as Map
