@@ -15,6 +15,14 @@ is now used as a dependency.
   * Remove the aeson orphan instances for Alt, Any and Down.
   * Remove Rhyolite.HList.
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map).
+  * Move `traceQuery` and `traceExecute` to psql-simple-class
+  * Use `postgresql-simple-interpolate` for quasiquotated postgresql-simple queries. The following function names have changed:
+    * queryQ -> iquery
+    * executeQ -> iexecute
+    * executeQ_ -> iexecute_
+    * traceQueryQ -> itraceQuery (defined in psql-simple-class)
+    * traceExecuteQ -> itraceExecute (defined in psql-simple-class)
+    * traceExecuteQ_ -> itraceExecute_ (defined in psql-simple-class)
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:

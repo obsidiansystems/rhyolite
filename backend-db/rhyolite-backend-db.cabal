@@ -37,6 +37,7 @@ library
     , psql-simple-class
     , psql-simple-groundhog
     , postgresql-lo-stream
+    , postgresql-simple-interpolate
     , push-notifications
     , resource-pool
     , rhyolite-common

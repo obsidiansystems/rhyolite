@@ -1,5 +1,7 @@
 {-# Language DefaultSignatures #-}
 {-# Language GADTs #-}
+{-# Language QuasiQuotes #-}
+{-# Language TemplateHaskell #-}
 module Database.PostgreSQL.Simple.Class where
 
 import Control.Monad (void)
@@ -20,8 +22,11 @@ import qualified Data.ByteString.Char8 as BSC
 import Data.Int (Int64)
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser)
+import Database.PostgreSQL.Simple.SqlQQ.Interpolated
 import Database.PostgreSQL.Simple.ToRow (ToRow)
 import Database.PostgreSQL.Simple.Types (Query)
+import Language.Haskell.TH (appE)
+import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 class Monad m => Psql m where
   askConn :: m Connection
@@ -78,6 +83,18 @@ traceExecute p q = do
 
 traceExecute_ :: (Psql m, MonadIO m, ToRow q) => Query -> q -> m ()
 traceExecute_ p q = void $ traceExecute p q
+
+-- | Invokes 'traceQuery' with arguments provided by 'isql'
+itraceQuery :: QuasiQuoter
+itraceQuery = isql { quoteExp = appE [| uncurry traceQuery |] . quoteInterpolatedSql }
+
+-- | Invokes 'traceExecute' with arguments provided by 'isql'
+itraceExecute :: QuasiQuoter
+itraceExecute = isql { quoteExp = appE [| uncurry traceExecute |] . quoteInterpolatedSql }
+
+-- | Invokes 'traceExecute_' with arguments provided by 'isql'
+itraceExecute_ :: QuasiQuoter
+itraceExecute_ = isql { quoteExp = appE [| uncurry traceExecute_ |] . quoteInterpolatedSql }
 
 instance (Monad m, Psql m) => Psql (StateT s m)
 instance (Monad m, Psql m) => Psql (Strict.StateT s m)
