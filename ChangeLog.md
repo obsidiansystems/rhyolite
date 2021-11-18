@@ -7,6 +7,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Remove the aeson orphan instances for Alt, Any and Down.
 * Remove Rhyolite.HList.
 * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
+* Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
 
 ## 2021-11-16
 
