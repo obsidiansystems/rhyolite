@@ -15,22 +15,43 @@ extra-source-files: README.md
 library
   exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
                     Rhyolite.DB.Groundhog.Orphans
+                    Rhyolite.DB.Groundhog.Email
+                    Rhyolite.DB.Groundhog.Schema
+                    Rhyolite.DB.Groundhog.Schema.Class
+                    Rhyolite.DB.Groundhog.TH
+                    Rhyolite.DB.Groundhog
   build-depends:
     , aeson
     , base
+    , bytestring
     , constraints
     , constraints-extras
+    , containers
     , database-id-class
     , database-id-groundhog
     , groundhog
     , groundhog-postgresql
-    , rhyolite-notify-listen
+    , groundhog-th
+    , lens
+    , monad-control
+    , monad-logger
+    , monad-logger-extras
+    , monoidal-containers
+    , mtl
     , postgresql-simple
     , psql-simple-class
     , resource-pool
+    , rhyolite-common
     , rhyolite-backend-db
+    , rhyolite-email
+    , rhyolite-notify-listen
     , stm
+    , template-haskell
+    , text
     , these
+    , time
+    , transformers
+    , universe
 
   hs-source-dirs:   src
   default-language: Haskell2010

@@ -50,7 +50,6 @@ library
     , universe
 
   exposed-modules:
-    Database.Groundhog.Postgresql.Orphans
     Network.PushNotification.Worker
     Rhyolite.Backend.DB
     Rhyolite.Backend.DB.LargeObjects

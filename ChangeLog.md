@@ -25,6 +25,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
   * Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
+  * Move instances from `Database.Groundhog.Postgresql.Orphans` to `Rhyolite.DB.Groundhog.Orphans` in groundhog-legacy.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:

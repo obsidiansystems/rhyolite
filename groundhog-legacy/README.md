@@ -33,3 +33,7 @@ This function has been removed.
 ### Rhyolite.Backend.Listen
 
 This module has been moved to `Rhyolite.DB.NotifyListen.Groundhog` in this package.
+
+### Database.Groundhog.Postgresql.Orphans
+
+These orphans have been moved to `Rhyolite.DB.Groundhog.Orphans` in this package.
