@@ -8,6 +8,10 @@ This project's release branch is `master`. This log is written from the perspect
 * Remove Rhyolite.HList.
 * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
 
+## 2021-11-18
+
+* Fixed a bug in `handleAuthMapQuery` where tokens were always validated
+
 ## 2021-11-16
 
 * Breaking changes:
