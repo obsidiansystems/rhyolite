@@ -1,5 +1,4 @@
 packages:
-  aeson-orphans/
   backend-db/
   backend/
   notify-listen/notify-listen/
