@@ -54,12 +54,13 @@ import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic.Sql (operator)
 import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
+import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Database.Id.Class
 import Database.Id.Groundhog
 
-import Rhyolite.Backend.DB.PsqlSimple
+import Database.PostgreSQL.Simple.Class
 import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
 import Rhyolite.Backend.Schema ()
 import Rhyolite.Schema
@@ -140,13 +141,13 @@ getSearchPath = do
   rows <- query_ "SHOW search_path"
   case listToMaybe rows of
     Nothing -> error "getSearchPath: Unexpected result from queryRaw"
-    Just (Only searchPath) -> return searchPath
+    Just (Pg.Only searchPath) -> return searchPath
 
 setSearchPath :: (Monad m, Psql m) => String -> m ()
 setSearchPath sp = void $ execute_ $ "SET search_path TO " `mappend` fromString sp
 
 setSchema :: (Monad m, Psql m) => SchemaName -> m ()
-setSchema schema = void $ execute [sql| SET search_path TO ?,"$user",public |] (Only schema)
+setSchema schema = void $ execute [sql| SET search_path TO ?,"$user",public |] (Pg.Only schema)
 
 -- | Sets the search path to a particular schema, runs an action in that schema, and resets the search path
 withSchema
@@ -165,7 +166,7 @@ ensureSchemaExists
   :: (Monad m, Psql m)
   => SchemaName
   -> m ()
-ensureSchemaExists schema = void $ execute [sql| CREATE SCHEMA IF NOT EXISTS ? |] (Only schema)
+ensureSchemaExists schema = void $ execute [sql| CREATE SCHEMA IF NOT EXISTS ? |] (Pg.Only schema)
 
 -- | Convenience function for getting the first result of a projection as a 'Maybe'
 project1

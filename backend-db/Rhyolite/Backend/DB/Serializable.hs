@@ -20,17 +20,18 @@ module Rhyolite.Backend.DB.Serializable
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Reader (ReaderT, runReaderT, withReaderT, ask)
-import Control.Monad.Logger (MonadLogger, LoggingT)
+import Control.Monad.Logger (LoggingT, MonadLogger)
 import Control.Monad.Logger.Extras (Logger, runLoggerLoggingT)
+import Control.Monad.Reader (ReaderT, ask, runReaderT, withReaderT)
 import Data.Coerce (coerce)
-import qualified Database.Groundhog.Generic.Migration as Mig
-import Database.Groundhog.Postgresql (Postgresql (..))
-import qualified Database.PostgreSQL.Simple as Pg
-import qualified Database.PostgreSQL.Simple.Transaction as Pg
 import Data.Pool (Pool, withResource)
 import qualified Database.Groundhog.Core as Hog
-import qualified Rhyolite.Backend.DB.PsqlSimple as PsqlSimple
+import qualified Database.Groundhog.Generic.Migration as Mig
+import Database.Groundhog.Postgresql (Postgresql(..))
+import qualified Database.PostgreSQL.Simple as Pg
+import Database.PostgreSQL.Simple.Class as PsqlSimple
+import Database.PostgreSQL.Simple.Groundhog ()
+import qualified Database.PostgreSQL.Simple.Transaction as Pg
 
 import qualified Control.Monad.State as S
 

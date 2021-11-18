@@ -23,6 +23,7 @@ is now used as a dependency.
     * traceQueryQ -> itraceQuery (defined in psql-simple-class)
     * traceExecuteQ -> itraceExecute (defined in psql-simple-class)
     * traceExecuteQ_ -> itraceExecute_ (defined in psql-simple-class)
+  * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:
