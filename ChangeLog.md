@@ -3,7 +3,6 @@
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
 ## Unreleased
-is now used as a dependency.
 * Breaking changes:
   * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
   * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
@@ -14,7 +13,7 @@ is now used as a dependency.
   * Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
   * Remove the aeson orphan instances for Alt, Any and Down.
   * Remove Rhyolite.HList.
-  * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map).
+  * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:
