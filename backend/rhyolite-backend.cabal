@@ -49,10 +49,12 @@ library
     , monad-control
     , monad-logger
     , monad-loops
+    , monoid-map
     , monoidal-containers
     , mtl
     , network
     , rhyolite-notify-listen
+    , rhyolite-groundhog-legacy
     , obelisk-route
     , parsec
     , postgresql-simple
