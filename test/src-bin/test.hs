@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Main where
 
-import Rhyolite.Aeson.Orphans -- aeson-orphans
 import Rhyolite.App --common
 import Rhyolite.Backend.App -- backend
 import Rhyolite.Backend.DB -- backend-db
