@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## 2021-11-18
+
+* Fixed a bug in `handleAuthMapQuery` where tokens were always validated
+
 ## 2021-11-16
 
 * Rhyolite.Concurrent: add taggedWorker to make it easier to determine the source of error messages
