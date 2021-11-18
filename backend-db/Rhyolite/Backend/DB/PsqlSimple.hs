@@ -27,10 +27,7 @@ import Database.PostgreSQL.Simple.FromField (FromField, fromField)
 import Database.PostgreSQL.Simple.FromRow (FromRow, fromRow)
 import Database.PostgreSQL.Simple.Groundhog
 import Database.PostgreSQL.Simple.SqlQQ (sql)
-import Database.PostgreSQL.Simple.ToField (Action, ToField, toField)
+import Database.PostgreSQL.Simple.SqlQQ.Interpolated
+import Database.PostgreSQL.Simple.ToField (ToField, toField)
 import Database.PostgreSQL.Simple.ToRow (ToRow, toRow)
 import Database.PostgreSQL.Simple.Types
-import Language.Haskell.TH (Exp, Name, Q, appE, listE, mkName, sigE, tupE, varE)
-import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Database.PostgreSQL.Simple.SqlQQ.Interpolated
-
