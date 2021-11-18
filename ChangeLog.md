@@ -14,6 +14,15 @@ This project's release branch is `master`. This log is written from the perspect
   * Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
   * Remove the aeson orphan instances for Alt, Any and Down.
   * Remove Rhyolite.HList.
+  * Move `traceQuery` and `traceExecute` to psql-simple-class
+  * Use `postgresql-simple-interpolate` for quasiquotated postgresql-simple queries. The following function names have changed:
+    * queryQ -> iquery
+    * executeQ -> iexecute
+    * executeQ_ -> iexecute_
+    * traceQueryQ -> itraceQuery (defined in psql-simple-class)
+    * traceExecuteQ -> itraceExecute (defined in psql-simple-class)
+    * traceExecuteQ_ -> itraceExecute_ (defined in psql-simple-class)
+  * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
   * Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
 * New:

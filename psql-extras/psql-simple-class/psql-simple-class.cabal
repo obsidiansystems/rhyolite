@@ -22,6 +22,8 @@ library
     , bytestring
     , mtl
     , postgresql-simple
+    , postgresql-simple-interpolate
+    , template-haskell
     , transformers
 
   hs-source-dirs:   src

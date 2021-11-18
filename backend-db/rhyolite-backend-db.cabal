@@ -37,6 +37,7 @@ library
     , psql-simple-class
     , psql-simple-groundhog
     , postgresql-lo-stream
+    , postgresql-simple-interpolate
     , push-notifications
     , resource-pool
     , rhyolite-common
@@ -53,7 +54,6 @@ library
     Network.PushNotification.Worker
     Rhyolite.Backend.DB
     Rhyolite.Backend.DB.LargeObjects
-    Rhyolite.Backend.DB.PsqlSimple
     Rhyolite.Backend.DB.PsqlSimple.Orphans
     Rhyolite.Backend.DB.Serializable
     Rhyolite.Backend.TaskWorker

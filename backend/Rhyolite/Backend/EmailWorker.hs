@@ -15,9 +15,9 @@ module Rhyolite.Backend.EmailWorker where
 
 import Control.Exception.Lifted (bracket)
 import Control.Monad.Base (MonadBase (liftBase))
-import Control.Monad.Trans.Control
 import Control.Monad.Logger
 import Control.Monad.Reader
+import Control.Monad.Trans.Control
 import Data.Aeson
 import Data.Aeson.TH
 import Data.ByteString (ByteString)
@@ -31,18 +31,20 @@ import Database.Groundhog.TH
 import Database.Id.Class
 import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
-import qualified Network.Mail.Mime as Mail
+import Database.PostgreSQL.Simple (Only(..))
+import Database.PostgreSQL.Simple.Class
+import Database.PostgreSQL.Simple.SqlQQ
 import qualified Network.HaskellNet.SMTP as SMTP
+import qualified Network.Mail.Mime as Mail
 
-import Rhyolite.Concurrent
 import qualified Data.Map.Monoidal as Map
 import Rhyolite.Backend.DB
 import Rhyolite.Backend.DB.LargeObjects
-import Rhyolite.Backend.DB.PsqlSimple
 import Rhyolite.Backend.DB.Serializable (Serializable)
 import qualified Rhyolite.Backend.DB.Serializable as Serializable
 import Rhyolite.Backend.Email
 import Rhyolite.Backend.Schema.TH
+import Rhyolite.Concurrent
 import Rhyolite.Schema
 
 -- | Emails waiting to be sent

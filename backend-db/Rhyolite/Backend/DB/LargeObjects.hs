@@ -30,8 +30,9 @@ import qualified Database.PostgreSQL.Simple.LargeObjects as Sql
 import System.IO (IOMode)
 import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
+import Database.PostgreSQL.Simple.Class
+import Database.PostgreSQL.Simple.Groundhog
 
-import Rhyolite.Backend.DB.PsqlSimple (Psql (..), liftWithConn)
 import Rhyolite.Backend.DB.Serializable (Serializable, toDbPersist, unsafeLiftDbPersist)
 import Rhyolite.Schema (LargeObjectId (..))
 

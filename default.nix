@@ -39,6 +39,7 @@ let
     HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
     monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
+    postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
 
     # Newer versions than those in reflex-platform
     gargoyle = repos.gargoyle + "/gargoyle";
