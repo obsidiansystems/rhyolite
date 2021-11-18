@@ -12,7 +12,23 @@ Description:
 {-# Language StandaloneDeriving #-}
 {-# Language UndecidableInstances #-}
 
-module Rhyolite.DB.NotifyListen where
+module Rhyolite.DB.NotifyListen
+  ( -- * Sending notifications
+    notify
+  , NotificationType(..)
+  , DbNotification(..)
+    -- * Running a notification listener
+  , notificationListener
+  , startNotificationListener
+  , NotificationChannel(..)
+  , defaultNotificationChannel
+  -- * Helpers
+  , listenCmd
+  , notifyCmd
+  , SchemaName(..)
+  , getSchemaName
+  , getSearchPath
+  ) where
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TChan)
@@ -163,7 +179,7 @@ notifyCmd (NotificationChannel chan) = fromString $ "NOTIFY " <> chan <> ", ?"
 -- different types. To use this, construct a GADT that defines your
 -- notification protocol:
 --
--- > data Notice a where
+-- > data Notify a where
 -- >   Notify_Account :: Notify (Id Account)
 -- >   Notify_Chatroom :: Notify (Id Chatroom)
 -- >   Notify_Message :: Notify (Id Message)
