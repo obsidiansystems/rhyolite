@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "bytestring-aeson-orphans",
-  "branch": "master",
+  "branch": "release/0.1.0.0",
   "private": false,
-  "rev": "09fad3b556a8225f8fb23ff6eaf08c336c75620b",
-  "sha256": "0xg0l53j3iw44izk4j2lp7frkgf7xzzzk0ln31ppkhzpf7gvv7cn"
+  "rev": "ca7818097360480b28745e56f7580ab0505a7c95",
+  "sha256": "1i4pdgv72x8idyq3limjvj25innw1pl4nd1m55ag29c5kcd9ap8q"
 }
