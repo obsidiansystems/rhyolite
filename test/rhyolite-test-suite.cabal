@@ -15,7 +15,6 @@ executable rhyolite-test-suite
   build-depends: base
                , bytestring-aeson-orphans
                , rhyolite-backend
-               , rhyolite-backend-db
                , rhyolite-common
                , rhyolite-datastructures
                , rhyolite-frontend

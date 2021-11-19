@@ -35,7 +35,6 @@
    Obelisk project. Here is the full list of packages provided:
 
    - rhyolite-backend
-   - rhyolite-backend-db
    - rhyolite-common
    - rhyolite-datastructures
    - rhyolite-frontend

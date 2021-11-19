@@ -23,8 +23,12 @@ library
                     Rhyolite.DB.Groundhog
                     Rhyolite.DB.Groundhog.Serializable
                     Rhyolite.Network.PushNotification.Worker
+                    Rhyolite.Task.Groundhog
+                    Rhyolite.Task.Groundhog.Worker
   build-depends:
     , aeson
+    , async
+    , unbounded-delays
     , base
     , bytestring
     , constraints

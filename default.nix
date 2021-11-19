@@ -15,7 +15,6 @@ let
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
     rhyolite-backend = ./backend;
-    rhyolite-backend-db = ./backend-db;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
@@ -111,7 +110,6 @@ in obelisk // {
     overrides = haskellOverrides;
     packages = {
       rhyolite-backend = ./backend;
-      rhyolite-backend-db = ./backend-db;
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
@@ -120,7 +118,6 @@ in obelisk // {
     shells = rec {
       ghc = [
         "rhyolite-backend"
-        "rhyolite-backend-db"
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-common"
