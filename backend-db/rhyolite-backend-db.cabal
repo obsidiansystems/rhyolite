@@ -52,7 +52,6 @@ library
     , universe
 
   exposed-modules:
-    Rhyolite.Backend.DB.PsqlSimple.Orphans
     Rhyolite.Backend.TaskWorker
     Rhyolite.Backend.Schema.Task
 

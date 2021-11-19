@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "postgresql-simple",
-  "branch": "fix-spurious-aborts",
+  "branch": "obsidian-patches",
   "private": false,
-  "rev": "7d15beb99860327440f11c1c2d7737107c03e0ec",
-  "sha256": "08763kn04a17a14z8z8wlqsfhd2yd19vkpfxcfy2am2s6xwk7880"
+  "rev": "66c577055742c7a58fdd33c55b4c5162dcd5828c",
+  "sha256": "11ncja98ynry0bqirah65psp35czg9j62ms2jrsk5f6jiysl7gkl"
 }
