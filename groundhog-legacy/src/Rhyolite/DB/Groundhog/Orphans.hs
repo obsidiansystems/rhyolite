@@ -5,6 +5,7 @@
 {-# options_ghc -fno-warn-orphans #-}
 module Rhyolite.DB.Groundhog.Orphans where
 
+import Control.Exception.Lifted (bracket)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
@@ -12,7 +13,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
 import Database.Groundhog.Postgresql
-import Control.Exception.Lifted (bracket)
 import Database.Groundhog.Postgresql.Array
 import Database.Id.Class
 import Database.PostgreSQL.Simple.Class
@@ -21,6 +21,7 @@ import Database.PostgreSQL.Simple.Groundhog
 import qualified Database.PostgreSQL.Simple.LargeObjects as Sql
 import qualified Database.PostgreSQL.Simple.LargeObjects.Stream as LO
 import Database.PostgreSQL.Simple.ToField
+import Rhyolite.DB.Groundhog.Serializable
 import qualified System.IO.Streams as Streams
 
 instance (FromField (IdData a)) => FromField (Id a) where
@@ -55,3 +56,14 @@ instance (MonadIO m, MonadBaseControl IO m) => PostgresLargeObject (DbPersist Po
   streamLargeObjectRange oid start end os =
     liftWithConn (\conn -> LO.streamLargeObjectRange conn (toOid oid) start end os)
   deleteLargeObject oid = liftWithConn $ \conn -> Sql.loUnlink conn $ toOid oid
+
+instance PostgresLargeObject Serializable where
+  newEmptyLargeObject = unsafeLiftDbPersist newEmptyLargeObject
+  withLargeObject oid mode f = unsafeLiftDbPersist $ withLargeObject oid mode (toDbPersist . f)
+  newLargeObjectFromFile = unsafeLiftDbPersist . newLargeObjectFromFile
+  newLargeObjectBS = unsafeLiftDbPersist . newLargeObjectBS
+  newLargeObjectLBS = unsafeLiftDbPersist . newLargeObjectLBS
+  newLargeObjectStream = unsafeLiftDbPersist . newLargeObjectStream
+  streamLargeObject oid os = unsafeLiftDbPersist $ streamLargeObject oid os
+  streamLargeObjectRange oid start end os = unsafeLiftDbPersist $ streamLargeObjectRange oid start end os
+  deleteLargeObject = unsafeLiftDbPersist . deleteLargeObject

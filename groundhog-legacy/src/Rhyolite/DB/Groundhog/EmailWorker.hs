@@ -11,7 +11,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Rhyolite.Backend.EmailWorker where
+module Rhyolite.DB.Groundhog.EmailWorker where
 
 import Control.Exception.Lifted (bracket)
 import Control.Monad.Base (MonadBase (liftBase))
@@ -33,18 +33,18 @@ import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Database.PostgreSQL.Simple (Only(..))
 import Database.PostgreSQL.Simple.Class
+import Database.PostgreSQL.Simple.Groundhog
 import Database.PostgreSQL.Simple.SqlQQ
 import qualified Network.HaskellNet.SMTP as SMTP
 import qualified Network.Mail.Mime as Mail
 
 import qualified Data.Map.Monoidal as Map
-import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.LargeObjects
-import Rhyolite.Backend.DB.Serializable (Serializable)
-import qualified Rhyolite.Backend.DB.Serializable as Serializable
-import Rhyolite.Backend.Email
-import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
+import Rhyolite.DB.Groundhog
+import Rhyolite.DB.Groundhog.Serializable (Serializable)
+import qualified Rhyolite.DB.Groundhog.Serializable as Serializable
+import Rhyolite.DB.Groundhog.TH
+import Rhyolite.Email
 import Rhyolite.Schema
 
 -- | Emails waiting to be sent
@@ -123,7 +123,7 @@ clearMailQueue db emailEnv = do
             Nothing -> True
             Just expiry' -> now < expiry'
         when notExpired $ do
-          withStreamedLargeObject oid $ \payload ->
+          liftWithConn $ \conn -> withStreamedLargeObject conn oid $ \payload ->
             sendQueuedEmail emailEnv from to (LBS.toStrict payload)
           $logInfo $ T.pack $ mconcat
             [ "["

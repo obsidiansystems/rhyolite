@@ -87,8 +87,6 @@ library
   exposed-modules:
     Rhyolite.Backend.Account
     Rhyolite.Backend.App
-    Rhyolite.Backend.Email
-    Rhyolite.Backend.EmailWorker
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 

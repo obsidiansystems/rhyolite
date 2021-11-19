@@ -36,6 +36,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
   * Move `LargeObjectId` to `psql-simple-class`.
   * Remove the `Rhyolite.TH` module. Use `file-embed` instead.
+  * Move `Rhyolite.Backend.EmailWorker` to `Rhyolite.DB.Groundhog.EmailWorker` in `groundhog-legacy`.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:

@@ -16,6 +16,7 @@ library
   exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
                     Rhyolite.DB.Groundhog.Orphans
                     Rhyolite.DB.Groundhog.Email
+                    Rhyolite.DB.Groundhog.EmailWorker
                     Rhyolite.DB.Groundhog.Schema
                     Rhyolite.DB.Groundhog.Schema.Class
                     Rhyolite.DB.Groundhog.TH
@@ -34,6 +35,7 @@ library
     , groundhog
     , groundhog-postgresql
     , groundhog-th
+    , HaskellNet
     , http-conduit
     , lens
     , monad-control
@@ -45,6 +47,7 @@ library
     , postgresql-lo-stream
     , io-streams
     , lifted-base
+    , mime-mail
     , psql-simple-class
     , push-notifications
     , resource-pool
