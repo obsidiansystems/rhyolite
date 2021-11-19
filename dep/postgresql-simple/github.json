@@ -1,7 +1,8 @@
 {
-  "owner": "3noch",
+  "owner": "obsidiansystems",
   "repo": "postgresql-simple",
-  "branch": "eac@fix-spurious-aborts",
-  "rev": "e02684f9c38acf736ac590b36b919000a2b45bc4",
-  "sha256": "0qfqq6sldxaxjvickayg3dcmmippmmnfbhpfvbv4mc7kr58dlqxg"
+  "branch": "fix-spurious-aborts",
+  "private": false,
+  "rev": "7d15beb99860327440f11c1c2d7737107c03e0ec",
+  "sha256": "08763kn04a17a14z8z8wlqsfhd2yd19vkpfxcfy2am2s6xwk7880"
 }
