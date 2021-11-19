@@ -5,36 +5,37 @@ This project's release branch is `master`. This log is written from the perspect
 ## Unreleased
 
 * Breaking changes:
-  * Remove `Rhyolite.Backend.DB.PsqlSimple.Orphans`. Changes have been moved our fork of [postgresql-simple](https://github.com/obsidiansystems/postgresql-simple).
-  * Remove rhyolite-backend-snap. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+  * Remove the `rhyolite-backend-snap` package. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
+  * Remove the `backend-db` package. See the [groundhog-legacy migration guide](groundhog-legacy/README.md) and the notes below:
+    * Remove `Rhyolite.Backend.DB.PsqlSimple.Orphans`. Changes have been moved our fork of [postgresql-simple](https://github.com/obsidiansystems/postgresql-simple).
+    * Rename `PostgresRaw` to `Psql` and move it to `psql-simple-class`.
+    * Move Psql (formerly PostgresRaw) instance for groundhog's `DbPersist` to psql-simple-groundhog.
+    * Remove `fromIdRow` from `Rhyolite.Backend.DB.PsqlSimple`
+    * Move `traceQuery` and `traceExecute` to psql-simple-class
+    * Use `postgresql-simple-interpolate` for quasiquotated postgresql-simple queries. The following function names have changed:
+      * queryQ -> iquery
+      * executeQ -> iexecute
+      * executeQ_ -> iexecute_
+      * traceQueryQ -> itraceQuery (defined in psql-simple-class)
+      * traceExecuteQ -> itraceExecute (defined in psql-simple-class)
+      * traceExecuteQ_ -> itraceExecute_ (defined in psql-simple-class)
+    * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
+    * Move instances from `Database.Groundhog.Postgresql.Orphans` to `Rhyolite.DB.Groundhog.Orphans` in groundhog-legacy.
+    * Move `Network.PushNotification.Worker` to `groundhog-legacy` and rename it to `Rhyolite.Network.PushNotification.Worker`.
+    * Move `Rhyolite.Backend.DB` to `groundhog-legacy` and rename it to `Rhyolite.DB.Groundhog`.
+    * Move the `PostgresLargeObject` class to `psql-simple-class` and move its groundhog-based instances to `groundhog-legacy`.
+      * `withStreamedLargeObject` no longer requires groundhog, but does require a connection. Use `liftWithConn` to use it with groundhog.
+    * Move `Rhyolite.Backend.DB.Serializable` to `Database.PostgreSQL.Serializable` in `psql-serializable` and move its groundhog-based instances to `groundhog-legacy`'s `Rhyolite.DB.Groundhog.Serializable` module.
+    * Move `Rhyolite.Backend.Schema` and `Rhyolite.Backend.Schema.Class` to `Rhyolite.DB.Groundhog.Schema` and `Rhyolite.DB.Groundhog.Schema.Class` in `groundhog-legacy`.
+    * Move `Rhyolite.Schema.Task` and `Rhyolite.Backend.Schema.Task` to `Rhyolite.Task.Groundhog`, and move `Rhyolite.Backend.TaskWorker` to `Rhyolite.Task.Groundhog.Worker`, both in `groundhog-legacy`.
+    * Move `Rhyolite.Backend.Schema.TH` to `Rhyolite.DB.Groundhog.TH` in `groundhog-legacy`.
   * Remove `Rhyolite.Map.Monoidal`. For `=:` use `Data.Map.Monoidal.singleton` instead, and for `restrictKeys` use monoidal-containers >= 0.6.1.0.
-  * Rename `PostgresRaw` to `Psql` and move it to `psql-simple-class`.
-  * Move Psql (formerly PostgresRaw) instance for groundhog's `DbPersist` to psql-simple-groundhog.
-  * Move `Rhyolite.Backend.Listen` to its own project `rhyolite-notify-listen`. The module is now called `Rhyolite.DB.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Rhyolite.DB.NotifyListen.Groundhog` module, and in `notify-listen-beam` for beam versions. The various `notify` functions now require `Psql m`.
-  * Remove `fromIdRow` from `Rhyolite.Backend.DB.PsqlSimple`
   * Remove rhyolite-aeson-orphans. It has been renamed and moved to [bytestring-aeson-orphans](https://github.com/obsidiansystems/bytestring-aeson-orphans) and is now used as a dependency.
-  * Remove the aeson orphan instances for Alt, Any and Down.
+    * Remove the aeson orphan instances for Alt, Any and Down.
+  * Move `Rhyolite.Backend.Listen` to its own project `rhyolite-notify-listen`. The module is now called `Rhyolite.DB.NotifyListen`. `insertAndNotify` and related classes and functions can now be found in the groundhog-legacy package in the `Rhyolite.DB.NotifyListen.Groundhog` module, and in `notify-listen-beam` for beam versions. The various `notify` functions now require `Psql m`.
   * Remove Rhyolite.HList.
-  * Move `traceQuery` and `traceExecute` to psql-simple-class
-  * Use `postgresql-simple-interpolate` for quasiquotated postgresql-simple queries. The following function names have changed:
-    * queryQ -> iquery
-    * executeQ -> iexecute
-    * executeQ_ -> iexecute_
-    * traceQueryQ -> itraceQuery (defined in psql-simple-class)
-    * traceExecuteQ -> itraceExecute (defined in psql-simple-class)
-    * traceExecuteQ_ -> itraceExecute_ (defined in psql-simple-class)
-  * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
   * Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
-  * Move instances from `Database.Groundhog.Postgresql.Orphans` to `Rhyolite.DB.Groundhog.Orphans` in groundhog-legacy.
-  * Move `Network.PushNotification.Worker` to `groundhog-legacy` and rename it to `Rhyolite.Network.PushNotification.Worker`.
-  * Move `Rhyolite.Backend.DB` to `groundhog-legacy` and rename it to `Rhyolite.DB.Groundhog`.
-  * Move the `PostgresLargeObject` class to `psql-simple-class` and move its groundhog-based instances to `groundhog-legacy`.
-    * `withStreamedLargeObject` no longer requires groundhog, but does require a connection. Use `liftWithConn` to use it with groundhog.
-  * Move `Rhyolite.Backend.DB.Serializable` to `Database.PostgreSQL.Serializable` in `psql-serializable` and move its groundhog-based instances to `groundhog-legacy`'s `Rhyolite.DB.Groundhog.Serializable` module.
-  * Move `Rhyolite.Backend.Schema` and `Rhyolite.Backend.Schema.Class` to `Rhyolite.DB.Groundhog.Schema` and `Rhyolite.DB.Groundhog.Schema.Class` in `groundhog-legacy`.
-  * Move `Rhyolite.Schema.Task` and `Rhyolite.Backend.Schema.Task` to `Rhyolite.Task.Groundhog`, and move `Rhyolite.Backend.TaskWorker` to `Rhyolite.Task.Groundhog.Worker`, both in `groundhog-legacy`.
-  * Move `Rhyolite.Backend.Schema.TH` to `Rhyolite.DB.Groundhog.TH` in `groundhog-legacy`.
   * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
   * Move `LargeObjectId` to `psql-simple-class`.
   * Remove the `Rhyolite.TH` module. Use `file-embed` instead.
