@@ -34,7 +34,8 @@ import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.STM (TChan)
 import qualified Control.Concurrent.STM as STM
 import Control.Monad (forever)
-import Data.Aeson (FromJSON, ToJSON, decode, encode)
+import Data.Aeson (FromJSON, ToJSON, encode, fromJSON)
+import Data.Aeson.Parser
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Constraint.Extras
@@ -88,7 +89,7 @@ notificationListener db = do
       case channel of
         _ | channel ==  channelToByteString defaultNotificationChannel -> do
           -- Notification is on the expected NOTIFY channel
-          case decode $ LBS.fromStrict message of
+          case decodeStrictWith value' fromJSON message of
             Just a -> STM.atomically $ STM.writeTChan nChan a
             _ -> putStrLn $ errorMessage defaultNotificationChannel $
               "Could not parse message: " <> show message
