@@ -27,6 +27,8 @@ let
     rhyolite-email = ./email;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
+    signed-data = ./signed-data/signed-data;
+    signed-data-clientsession = ./signed-data/signed-data-clientsession;
   };
 
   # srcs used for overrides
