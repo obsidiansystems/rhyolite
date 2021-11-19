@@ -20,10 +20,13 @@ executable rhyolite-test-suite
                , rhyolite-frontend
                , rhyolite-email
                , rhyolite-groundhog-legacy
+               , rhyolite-groundhog-legacy-types
                , rhyolite-notify-listen
                , rhyolite-notify-listen-beam
                , psql-simple-beam
                , psql-simple-class
                , psql-simple-groundhog
+               , signed-data
+               , signed-data-clientsession
 
   ghc-options: -threaded -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts

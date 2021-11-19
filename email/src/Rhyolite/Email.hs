@@ -55,7 +55,7 @@ import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Builder.Static
 import Rhyolite.Route
-import Rhyolite.Sign
+import Data.Signed
 
 class Monad m => MonadEmail m where
   sendMail :: Mail -> m ()

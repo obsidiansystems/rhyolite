@@ -12,4 +12,6 @@ packages:
   psql-extras/psql-simple-beam/
   psql-extras/psql-simple-class/
   psql-extras/psql-simple-groundhog/
+  signed-data/signed-data/
+  signed-data/signed-data-clientsession/
   test/

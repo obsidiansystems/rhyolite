@@ -70,14 +70,12 @@ library
 
 
   exposed-modules:
-    Rhyolite.Account
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
     Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Schema
-    Rhyolite.Sign
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
     Rhyolite.Vessel.AuthMapV

@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Rhyolite.Sign where
+module Data.Signed where
 
 import Data.Text (Text)
 import Data.Aeson (FromJSON, ToJSON, FromJSONKey, ToJSONKey)

@@ -1,5 +1,5 @@
--- | Functions to encrypt the cookie data using "Web.ClientSession", see the
--- relevant datatypes in "Rhyolite.Sign".
+-- | Functions to encrypt data using "Web.ClientSession"
+
 
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -13,7 +13,11 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Rhyolite.Backend.Sign where
+module Data.Signed.ClientSession
+  ( module Data.Signed.ClientSession
+  , CS.Key
+  , CS.getKey
+  ) where
 
 import Control.Monad (guard)
 import Control.Monad.Base
@@ -21,21 +25,14 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Data.Aeson (FromJSON, ToJSON, encode)
+import Data.Aeson (FromJSON, ToJSON, encode, fromJSON)
+import Data.Aeson.Parser (decodeStrictWith, value')
 import qualified Data.ByteString.Lazy as LBS
 import Data.Proxy (Proxy(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Typeable (Typeable, typeRep)
-import Database.Groundhog (DbPersist)
-import Database.PostgreSQL.Simple.Class
 import qualified Web.ClientSession as CS
-
-import Rhyolite.DB.Groundhog.TH (deriveNewtypePersistBackend)
-import Database.PostgreSQL.Simple.Class (PostgresLargeObject (withLargeObject))
-import Rhyolite.Email (MonadEmail)
-import Rhyolite.Request.Common (decodeValue')
-import Rhyolite.Route (MonadRoute)
-import Rhyolite.Sign (MonadSign(..), Signed(..))
+import Data.Signed (MonadSign(..), Signed(..))
 
 signWithKey :: (Typeable a, ToJSON a, MonadIO m) => CS.Key -> a -> m (Signed a)
 signWithKey k (v :: a) =
@@ -44,7 +41,7 @@ signWithKey k (v :: a) =
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
   tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-  (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
+  (t, v :: b) <- decodeStrictWith value' fromJSON tvJson
   guard $ t == show (typeRep $ Proxy @b)
   return v
 
@@ -60,7 +57,7 @@ readSigned s = do
   pure $ readSignedWithKey k s
 
 newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadEmail, MonadRoute r, MonadLogger)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadLogger)
 
 runSignT :: SignT m a -> CS.Key -> m a
 runSignT (SignT a) = runReaderT a
@@ -82,17 +79,6 @@ instance Monad m => MonadSign (SignT m) where
   type SigningKey (SignT m) = CS.Key
   askSigningKey = SignT ask
 
-deriveNewtypePersistBackend (\m -> [t| SignT $m |]) (\m -> [t| ReaderT CS.Key $m |]) 'SignT 'unSignT
-
-instance (Monad m, Psql m) => Psql (SignT m)
-instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (SignT m) where
-  withLargeObject oid mode f = do
-    k <- SignT ask
-    lift $ withLargeObject oid mode (\lofd -> runSignT (f lofd) k)
-
 -- Orphans
 instance MonadSign m => MonadSign (NoLoggingT m) where
   type SigningKey (NoLoggingT m) = SigningKey m
-
-instance MonadSign m => MonadSign (DbPersist conn m) where
-  type SigningKey (DbPersist conn m) = SigningKey m

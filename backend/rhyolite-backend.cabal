@@ -23,7 +23,6 @@ library
     , base
     , blaze-html
     , bytestring
-    , clientsession
     , constraints
     , constraints-extras
     , containers
@@ -83,11 +82,11 @@ library
     , websockets
     , websockets-snap
     , witherable >= 0.2 && < 0.4
+    , signed-data
+    , signed-data-clientsession
 
   exposed-modules:
-    Rhyolite.Backend.Account
     Rhyolite.Backend.App
-    Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell

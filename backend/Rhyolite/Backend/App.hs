@@ -41,7 +41,6 @@ import qualified Database.PostgreSQL.Simple as Pg
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
 import Snap.Core (MonadSnap, Snap)
-import qualified Web.ClientSession as CS
 import qualified Network.WebSockets as WS
 import Data.Vessel
 import Reflex (Group(..), Additive)
@@ -50,9 +49,9 @@ import Rhyolite.Api
 import Rhyolite.App
 import Rhyolite.DB.NotifyListen (startNotificationListener)
 import Rhyolite.Concurrent
-import Rhyolite.Sign (Signed)
+import Data.Signed (Signed)
 import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Rhyolite.Backend.Sign (readSignedWithKey)
+import Data.Signed.ClientSession as CS (readSignedWithKey, Key)
 import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
 
 -- | This query morphism translates between un-annotated queries for use over the wire, and ones with SelectedCount annotations used in the backend to be able to determine the differences between queries. This version is for use with the older Functor style of queries and results.
