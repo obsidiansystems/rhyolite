@@ -65,6 +65,7 @@ library
     , rhyolite-backend-db
     , rhyolite-groundhog-legacy
     , rhyolite-common
+    , rhyolite-email
     , rhyolite-datastructures
     , semialign
     , smtp-mail

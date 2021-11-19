@@ -30,8 +30,8 @@ import Database.Groundhog (DbPersist)
 import Database.PostgreSQL.Simple.Class
 import qualified Web.ClientSession as CS
 
-import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
-import Rhyolite.Backend.DB.LargeObjects (PostgresLargeObject (withLargeObject))
+import Rhyolite.DB.Groundhog.TH (deriveNewtypePersistBackend)
+import Database.PostgreSQL.Simple.Class (PostgresLargeObject (withLargeObject))
 import Rhyolite.Email (MonadEmail)
 import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
