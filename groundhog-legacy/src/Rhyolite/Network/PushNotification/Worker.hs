@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Network.PushNotification.Worker where
+module Rhyolite.Network.PushNotification.Worker where
 
 import Control.Concurrent
 import Control.Monad
@@ -31,11 +31,11 @@ import Database.Groundhog.Postgresql
 import Database.Id.Class
 import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
-import Rhyolite.Backend.DB
-import Rhyolite.Backend.Schema.TH
 import Rhyolite.Concurrent
 import Rhyolite.Schema
 import GHC.Generics
+import Rhyolite.DB.Groundhog.TH
+import Rhyolite.DB.Groundhog
 
 import Network.HTTP.Conduit
 

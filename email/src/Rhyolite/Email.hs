@@ -14,14 +14,18 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Rhyolite.Backend.Email where
+module Rhyolite.Email where
 
 import Control.Monad (void)
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Reader (ReaderT, lift)
 import Control.Monad.Reader
+import Control.Monad.Trans.Except (ExceptT)
+import Control.Monad.Trans.Maybe (MaybeT)
 import Data.Aeson
 import Data.Default
+import Data.FileEmbed (embedFile)
 import Data.Foldable
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.List.NonEmpty (NonEmpty)
@@ -37,6 +41,7 @@ import Data.Word
 import GHC.Generics (Generic)
 import Network.HaskellNet.Auth
 import Network.HaskellNet.SMTP.SSL hiding (sendMail)
+import Network.Mail.Mime (Mail)
 import Network.Mail.Mime (Address(..), Mail(..), htmlPart, plainPart)
 import Network.Mail.SMTP (simpleMail)
 import Network.Socket (HostName, PortNumber)
@@ -49,12 +54,20 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Builder.Static
-import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
-import Rhyolite.DB.Groundhog.Orphans ()
-import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Sign
-import Rhyolite.TH (embedFile)
+
+class Monad m => MonadEmail m where
+  sendMail :: Mail -> m ()
+
+instance MonadEmail m => MonadEmail (ReaderT r m) where
+  sendMail = lift . sendMail
+
+instance MonadEmail m => MonadEmail (MaybeT m) where
+  sendMail = lift . sendMail
+
+instance MonadEmail m => MonadEmail (ExceptT e m) where
+  sendMail = lift . sendMail
 
 data SMTPProtocol = SMTPProtocol_Plain
                   | SMTPProtocol_SSL
@@ -117,8 +130,6 @@ sendEmailFrom name' email recipients sub body =
                         []
                         sub
                         [htmlPart $ renderHtml body]
-
-deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailEnv $m |]) 'EmailT 'unEmailT
 
 data WidgetEmailCfg br fr = WidgetEmailCfg
   { _widgetEmailName :: Text

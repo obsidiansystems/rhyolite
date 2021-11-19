@@ -20,6 +20,8 @@ library
                     Rhyolite.DB.Groundhog.Schema.Class
                     Rhyolite.DB.Groundhog.TH
                     Rhyolite.DB.Groundhog
+                    Rhyolite.DB.Groundhog.Serializable
+                    Rhyolite.Network.PushNotification.Worker
   build-depends:
     , aeson
     , base
@@ -32,6 +34,7 @@ library
     , groundhog
     , groundhog-postgresql
     , groundhog-th
+    , http-conduit
     , lens
     , monad-control
     , monad-logger
@@ -39,10 +42,13 @@ library
     , monoidal-containers
     , mtl
     , postgresql-simple
+    , postgresql-lo-stream
+    , io-streams
+    , lifted-base
     , psql-simple-class
+    , push-notifications
     , resource-pool
     , rhyolite-common
-    , rhyolite-backend-db
     , rhyolite-email
     , rhyolite-notify-listen
     , stm
@@ -51,6 +57,10 @@ library
     , these
     , time
     , transformers
+    , transformers-base
+    , exceptions
+    , psql-simple-groundhog
+    , psql-serializable
     , universe
 
   hs-source-dirs:   src

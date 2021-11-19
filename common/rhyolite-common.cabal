@@ -74,13 +74,11 @@ library
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
-    Rhyolite.Email
     Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Schema
     Rhyolite.Schema.Task
     Rhyolite.Sign
-    Rhyolite.TH
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
     Rhyolite.Vessel.AuthMapV

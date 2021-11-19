@@ -38,9 +38,11 @@ library
     , psql-simple-groundhog
     , postgresql-lo-stream
     , postgresql-simple-interpolate
+    , psql-serializable
     , push-notifications
     , resource-pool
     , rhyolite-common
+    , rhyolite-groundhog-legacy
     , template-haskell
     , text
     , time
@@ -50,15 +52,8 @@ library
     , universe
 
   exposed-modules:
-    Network.PushNotification.Worker
-    Rhyolite.Backend.DB
-    Rhyolite.Backend.DB.LargeObjects
     Rhyolite.Backend.DB.PsqlSimple.Orphans
-    Rhyolite.Backend.DB.Serializable
     Rhyolite.Backend.TaskWorker
-    Rhyolite.Backend.Schema
-    Rhyolite.Backend.Schema.Class
     Rhyolite.Backend.Schema.Task
-    Rhyolite.Backend.Schema.TH
 
   ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls

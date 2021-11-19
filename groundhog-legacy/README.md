@@ -37,3 +37,20 @@ This module has been moved to `Rhyolite.DB.NotifyListen.Groundhog` in this packa
 ### Database.Groundhog.Postgresql.Orphans
 
 These orphans have been moved to `Rhyolite.DB.Groundhog.Orphans` in this package.
+
+### Network.PushNotification.Worker
+This module has been renamed to `Rhyolite.Network.PushNotification.Worker` and moved to this package.
+
+### Rhyolite.Backend.DB
+This module has been renamed to `Rhyolite.DB.Groundhog` and moved to this package.
+
+### Rhyolite.Backend.DB.Serializable
+
+`Serializable` is now found in the `psql-serializable` package and the groundhog-specific functionality is in `Rhyolite.DB.Groundhog.Serializable` in this package.
+
+### Rhyolite.Backend.Scheam
+This module has been renamed to `Rhyolite.DB.Groundhog.Schema` and moved to this package.
+
+### Rhyolite.Backend.Schema.Class
+This module has been renamed to `Rhyolite.DB.Groundhog.Schema.Class` and moved to this package.
+

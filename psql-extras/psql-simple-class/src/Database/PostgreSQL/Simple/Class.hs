@@ -1,4 +1,5 @@
 {-# Language DefaultSignatures #-}
+{-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
 {-# Language QuasiQuotes #-}
 {-# Language TemplateHaskell #-}
@@ -12,21 +13,30 @@ import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
 import qualified Control.Monad.Trans.Cont
 import qualified Control.Monad.Trans.Except
 import qualified Control.Monad.Trans.Identity
-import Control.Monad.Trans.Maybe (MaybeT)
+import Control.Monad.Trans.Maybe (MaybeT(..))
 import qualified Control.Monad.Trans.RWS.Lazy
 import qualified Control.Monad.Trans.RWS.Strict
+import Control.Monad.Trans.Reader (ReaderT(..), ask)
 import qualified Control.Monad.Trans.Writer.Lazy
 import qualified Control.Monad.Trans.Writer.Strict
 import qualified Data.ByteString as BS
+import Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as LBS
 import Data.Int (Int64)
+import Data.Typeable
+import Data.Word
 import Database.PostgreSQL.Simple (Connection)
 import Database.PostgreSQL.Simple.FromRow (FromRow, RowParser)
+import Database.PostgreSQL.Simple.LargeObjects (LoFd, Oid(..))
+import qualified Database.PostgreSQL.Simple.LargeObjects.Stream as LO
 import Database.PostgreSQL.Simple.SqlQQ.Interpolated
 import Database.PostgreSQL.Simple.ToRow (ToRow)
 import Database.PostgreSQL.Simple.Types (Query)
 import Language.Haskell.TH (appE)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import System.IO (IOMode)
+import System.IO.Streams (InputStream, OutputStream)
 
 class Monad m => Psql m where
   askConn :: m Connection
@@ -68,7 +78,6 @@ class Monad m => Psql m where
   default returning :: (m ~ t n, ToRow q, FromRow r, Psql n, Monad n, MonadTrans t) => Query -> [q] -> m [r]
   returning psql qs = lift $ returning psql qs
 
-
 traceQuery :: (Psql m, MonadIO m, ToRow q, FromRow r) => Query -> q -> m [r]
 traceQuery p q = do
   s <- formatQuery p q
@@ -108,3 +117,100 @@ instance (Monoid w, Monad m, Psql m) => Psql (Control.Monad.Trans.Writer.Lazy.Wr
 instance (Monad m, Psql m) => Psql (Control.Monad.Trans.Cont.ContT r m)
 instance (Monoid w, Monad m, Psql m) => Psql (Control.Monad.Trans.RWS.Strict.RWST r w s m)
 instance (Monoid w, Monad m, Psql m) => Psql (Control.Monad.Trans.RWS.Lazy.RWST r w s m)
+
+-- | Newtype for referring to database large objects. This generally shouldn't have to go over the wire
+-- but I'm putting it here where it can be placed in types in the common schema, because often the Ids of
+-- those types will want to be shared with the frontend. We're using Word64 here rather than CUInt, which
+-- is the type that Oid wraps, because Word64 has Groundhog instances to steal.
+newtype LargeObjectId = LargeObjectId Word64
+  deriving (Eq, Ord, Show, Read, Typeable)
+
+fromOid :: Oid -> LargeObjectId
+fromOid (Oid n) = LargeObjectId (fromIntegral n)
+
+toOid :: LargeObjectId -> Oid
+toOid (LargeObjectId n) = Oid (fromIntegral n)
+
+class PostgresLargeObject m where
+  -- | Create a new postgres large object, returning its object id.
+  newEmptyLargeObject :: m LargeObjectId
+  default newEmptyLargeObject :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => m LargeObjectId
+  newEmptyLargeObject = lift newEmptyLargeObject
+
+  -- | Act on a large object given by id, opening and closing the file descriptor appropriately.
+  withLargeObject :: LargeObjectId -> IOMode -> (LoFd -> m a) -> m a
+
+  -- | Import a file into the database as a large object.
+  newLargeObjectFromFile :: FilePath -> m LargeObjectId
+  default newLargeObjectFromFile :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => FilePath -> m LargeObjectId
+  newLargeObjectFromFile = lift . newLargeObjectFromFile
+
+  -- | Given a strict ByteString, create a postgres large object and fill it with those contents.
+  newLargeObjectBS :: BS.ByteString -> m LargeObjectId
+  default newLargeObjectBS :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => BS.ByteString -> m LargeObjectId
+  newLargeObjectBS = lift . newLargeObjectBS
+
+  -- | Given a lazy ByteString, create a postgres large object and fill it with those contents.
+  -- Also returns the total length of the data written.
+  newLargeObjectLBS :: LBS.ByteString -> m (LargeObjectId, Int)
+  default newLargeObjectLBS :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => LBS.ByteString -> m (LargeObjectId, Int)
+  newLargeObjectLBS = lift . newLargeObjectLBS
+
+  -- | Create a new large object from an input stream, returning its object id and overall size.
+  newLargeObjectStream :: InputStream BS.ByteString -> m (LargeObjectId, Int)
+  default newLargeObjectStream :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => InputStream BS.ByteString -> m (LargeObjectId, Int)
+  newLargeObjectStream = lift . newLargeObjectStream
+
+  -- | Stream the contents of a database large object to the given output stream. Useful with Snap's addToOutput.
+  streamLargeObject :: LargeObjectId -> OutputStream Builder -> m ()
+  default streamLargeObject :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => LargeObjectId -> OutputStream Builder -> m ()
+  streamLargeObject oid os = lift $ streamLargeObject oid os
+
+  -- | Stream the contents of a database large object to the given output stream. Useful with Snap's addToOutput.
+  streamLargeObjectRange :: LargeObjectId -> Int -> Int -> OutputStream Builder -> m ()
+  default streamLargeObjectRange :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => LargeObjectId -> Int -> Int -> OutputStream Builder -> m ()
+  streamLargeObjectRange oid start end os = lift $ streamLargeObjectRange oid start end os
+
+  -- | Deletes the large object with the specified object id.
+  deleteLargeObject :: LargeObjectId -> m ()
+  default deleteLargeObject :: (m ~ t m', MonadTrans t, PostgresLargeObject m', Monad m')
+    => LargeObjectId -> m ()
+  deleteLargeObject = lift . deleteLargeObject
+
+withStreamedLargeObject
+  :: (MonadIO m)
+  => Connection
+  -> LargeObjectId
+  -> (LBS.ByteString -> IO ())
+  -> m ()
+withStreamedLargeObject conn oid f = liftIO $ LO.withLargeObjectLBS conn (toOid oid) f
+
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (StateT s m) where
+  withLargeObject oid mode f = do
+    s <- State.get
+    (v,s') <- lift $ withLargeObject oid mode (\lofd -> runStateT (f lofd) s)
+    put s'
+    return v
+
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (Strict.StateT s m) where
+  withLargeObject oid mode f = do
+    s <- Strict.get
+    (v,s') <- lift $ withLargeObject oid mode (\lofd -> Strict.runStateT (f lofd) s)
+    put s'
+    return v
+
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (MaybeT m) where
+  withLargeObject oid mode f =
+    MaybeT $ withLargeObject oid mode (\lofd -> runMaybeT (f lofd))
+
+instance (Monad m, PostgresLargeObject m) => PostgresLargeObject (ReaderT r m) where
+  withLargeObject oid mode f = do
+    s <- ask
+    lift $ withLargeObject oid mode (\lofd -> runReaderT (f lofd) s)

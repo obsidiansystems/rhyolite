@@ -20,8 +20,8 @@ import Data.Time
 import Database.Groundhog.Core
 import Database.Groundhog.Expression
 import Database.Groundhog.Postgresql
-import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.Serializable (Serializable)
+import Rhyolite.DB.Groundhog
+import Database.PostgreSQL.Serializable (Serializable)
 
 --TODO: Ensure Tasks are always properly indexed
 --TODO: Use Notifications to start the worker promptly
@@ -70,7 +70,7 @@ taskWorker input pk ready f go db workerName = do
     Nothing -> pure False
     Just (taskId, action) -> do
       followup <- action
-      Rhyolite.Backend.DB.runDb (Identity db) $ do
+      Rhyolite.DB.Groundhog.runDb (Identity db) $ do
         b <- followup
         update
           [ f ~> Task_resultSelector =. Just b
