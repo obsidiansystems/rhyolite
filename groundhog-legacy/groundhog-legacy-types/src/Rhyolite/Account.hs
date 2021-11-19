@@ -25,7 +25,7 @@ import GHC.Generics (Generic)
 
 import Rhyolite.Schema (Email)
 import Obelisk.Route(Encoder, viewEncoder)
-import Rhyolite.Sign (Signed(..))
+import Data.Signed (Signed(..))
 
 
 data Account = Account

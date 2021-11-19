@@ -20,7 +20,7 @@
   Failing due to -Werror.
 -}
 
-module Rhyolite.Backend.Account where
+module Rhyolite.Account.Groundhog where
 
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Trans.Maybe
@@ -50,20 +50,19 @@ import Database.Id.Groundhog.TH
 import Text.Blaze.Html5 (Html)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
-import qualified Web.ClientSession as CS
 
+import Data.Signed.ClientSession as CS (sign, signWithKey, Key)
+import Database.PostgreSQL.Simple.Class
 import Rhyolite.DB.Groundhog
 import Rhyolite.DB.Groundhog.Serializable (Serializable)
 import qualified Rhyolite.DB.Groundhog.Serializable as Serializable
-import Database.PostgreSQL.Simple.Class
 import Rhyolite.DB.NotifyListen.Groundhog
-import Rhyolite.Backend.Sign (sign, signWithKey)
 
 import Rhyolite.Account
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Schema
-import Rhyolite.Sign (MonadSign (SigningKey, askSigningKey), Signed)
+import Data.Signed (MonadSign (SigningKey, askSigningKey), Signed)
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: Account

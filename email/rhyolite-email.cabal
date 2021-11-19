@@ -19,6 +19,7 @@ library
       , HaskellNet
       , HaskellNet-SSL
       , aeson
+      , signed-data
       , data-default
       , mime-mail
       , monad-logger

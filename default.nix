@@ -21,11 +21,14 @@ let
     psql-simple-beam = ./psql-extras/psql-simple-beam;
     psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
     psql-serializable = ./psql-extras/psql-serializable;
-    rhyolite-groundhog-legacy = ./groundhog-legacy;
+    rhyolite-groundhog-legacy = ./groundhog-legacy/groundhog-legacy;
+    rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
+    signed-data = ./signed-data/signed-data;
+    signed-data-clientsession = ./signed-data/signed-data-clientsession;
   };
 
   # srcs used for overrides

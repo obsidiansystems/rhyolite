@@ -25,11 +25,18 @@ library
                     Rhyolite.Network.PushNotification.Worker
                     Rhyolite.Task.Groundhog
                     Rhyolite.Task.Groundhog.Worker
-  build-depends:
+                    Rhyolite.Account.Groundhog
+  build-depends: base
     , aeson
     , async
+    , rhyolite-groundhog-legacy-types
+    , signed-data
+    , signed-data-clientsession
+    , blaze-html
     , unbounded-delays
-    , base
+    , pwstore-fast
+    , data-default
+    , groundhog-postgresql
     , bytestring
     , constraints
     , constraints-extras
