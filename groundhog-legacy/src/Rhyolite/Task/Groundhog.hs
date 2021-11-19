@@ -1,11 +1,17 @@
--- | The concept of 'Task' to use it, e.g. in a queue.
+{-# Language DeriveGeneric #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
-{-# LANGUAGE DeriveGeneric #-}
-module Rhyolite.Schema.Task where
+{-# OPTIONS_GHC -Wno-orphans #-}
+module Rhyolite.Task.Groundhog where
 
 import Data.Aeson
-import Data.Text (Text)
+import Data.Text
+import Database.Groundhog.TH
 import GHC.Generics
+import Rhyolite.DB.Groundhog.TH
 
 -- | A value in the database whose presence indicates that some external work
 -- should be performed.  The work will produce a value of type 'a'
@@ -23,3 +29,7 @@ empty = Task
   { _task_result = Nothing
   , _task_checkedOutBy = Nothing
   }
+
+mkRhyolitePersist Nothing [groundhog|
+  - embedded: Task
+|]

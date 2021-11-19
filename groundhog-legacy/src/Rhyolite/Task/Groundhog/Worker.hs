@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
-module Rhyolite.Backend.TaskWorker where
+module Rhyolite.Task.Groundhog.Worker where
 
-import Rhyolite.Backend.Schema.Task
+import Rhyolite.Task.Groundhog
 
 import Control.Concurrent
 import Control.Concurrent.Async

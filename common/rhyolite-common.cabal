@@ -77,7 +77,6 @@ library
     Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Schema
-    Rhyolite.Schema.Task
     Rhyolite.Sign
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal

@@ -5,8 +5,6 @@ module Main where
 import Rhyolite.App
 -- backend
 import Rhyolite.Backend.App
--- backend-db
-import qualified Rhyolite.Backend.TaskWorker
 -- frontend
 import Rhyolite.Frontend.App
 -- datastructures

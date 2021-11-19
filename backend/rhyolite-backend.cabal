@@ -62,7 +62,6 @@ library
     , reflex
     , reflex-dom
     , resource-pool
-    , rhyolite-backend-db
     , rhyolite-groundhog-legacy
     , rhyolite-common
     , rhyolite-email

@@ -33,6 +33,7 @@ This project's release branch is `master`. This log is written from the perspect
     * `withStreamedLargeObject` no longer requires groundhog, but does require a connection. Use `liftWithConn` to use it with groundhog.
   * Move `Rhyolite.Backend.DB.Serializable` to `Database.PostgreSQL.Serializable` in `psql-serializable` and move its groundhog-based instances to `groundhog-legacy`'s `Rhyolite.DB.Groundhog.Serializable` module.
   * Move `Rhyolite.Backend.Schema` and `Rhyolite.Backend.Schema.Class` to `Rhyolite.DB.Groundhog.Schema` and `Rhyolite.DB.Groundhog.Schema.Class` in `groundhog-legacy`.
+  * Move `Rhyolite.Schema.Task` and `Rhyolite.Backend.Schema.Task` to `Rhyolite.Task.Groundhog`, and move `Rhyolite.Backend.TaskWorker` to `Rhyolite.Task.Groundhog.Worker`, both in `groundhog-legacy`.
   * Move `Rhyolite.Backend.Schema.TH` to `Rhyolite.DB.Groundhog.TH` in `groundhog-legacy`.
   * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
   * Move `LargeObjectId` to `psql-simple-class`.
