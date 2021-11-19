@@ -24,7 +24,7 @@ import qualified Rhyolite.DB.NotifyListen.Beam
 import qualified Rhyolite.DB.Groundhog
 
 -- groundhog-legacy-types
-import "rhyolite-groundhog-legacy-types" qualified Rhyolite.Account as RGLTAccount
+import qualified "rhyolite-groundhog-legacy-types" Rhyolite.Account as RGLTAccount
 
 -- email
 import qualified Rhyolite.Email
