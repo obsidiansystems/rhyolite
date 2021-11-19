@@ -30,8 +30,6 @@ import Network.HTTP.Types.URI (renderQuery, parseQuery)
 import qualified Data.Map as Map
 import Data.Map (Map)
 
-import Rhyolite.Request.Common (decodeValue')
-
 class Monad m => MonadRoute r m | m -> r where
   routeToUrl :: r -> m URI
 
@@ -115,12 +113,12 @@ addSubdomain sub uri = uri { uriAuthority = fmap (\auth -> auth { uriRegName = s
 getDefaultParam :: FromJSON b => Map BS.ByteString (Maybe BS.ByteString) -> Maybe b
 getDefaultParam params = do
   Just v <- Map.lookup (encodeUtf8 "x") params
-  decodeValue' (LBS.fromStrict v)
+  decode' (LBS.fromStrict v)
 
 decodeRoute :: (FromJSON r) => T.Text -> Maybe r
 decodeRoute t = do
   Just v <- Map.lookup (encodeUtf8 "x") (Map.fromList (parseQuery (encodeUtf8 t)))
-  decodeValue' (LBS.fromStrict v)
+  decode' (LBS.fromStrict v)
 
 uriToRouteEnv
   :: URI

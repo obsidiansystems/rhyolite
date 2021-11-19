@@ -21,7 +21,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Data.Aeson (FromJSON, ToJSON, encode)
+import Data.Aeson (FromJSON, ToJSON, encode, decode')
 import qualified Data.ByteString.Lazy as LBS
 import Data.Proxy (Proxy(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -33,7 +33,6 @@ import qualified Web.ClientSession as CS
 import Rhyolite.Backend.Schema.TH (deriveNewtypePersistBackend)
 import Rhyolite.Backend.DB.LargeObjects (PostgresLargeObject (withLargeObject))
 import Rhyolite.Email (MonadEmail)
-import Rhyolite.Request.Common (decodeValue')
 import Rhyolite.Route (MonadRoute)
 import Rhyolite.Sign (MonadSign(..), Signed(..))
 
@@ -44,7 +43,7 @@ signWithKey k (v :: a) =
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
   tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-  (t, v :: b) <- decodeValue' $ LBS.fromStrict tvJson
+  (t, v :: b) <- decode' $ LBS.fromStrict tvJson
   guard $ t == show (typeRep $ Proxy @b)
   return v
 

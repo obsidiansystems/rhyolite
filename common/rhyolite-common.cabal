@@ -75,7 +75,6 @@ library
     Rhyolite.App
     Rhyolite.Concurrent
     Rhyolite.Email
-    Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Schema
     Rhyolite.Schema.Task
