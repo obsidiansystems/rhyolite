@@ -17,14 +17,14 @@
 
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
-module Rhyolite.Backend.DB where
+module Rhyolite.DB.Groundhog where
 
 import Control.Arrow (first)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Logger (LoggingT, MonadLoggerIO (askLoggerIO), NoLoggingT, runLoggingT)
 import Control.Monad.Logger.Extras (Logger(..))
 -- import Control.Monad.Trans.Accum (AccumT) -- not MonadTransControl yet
-import Control.Monad.Trans.Control -- (MonadBaseControl, MonadTransControl, StM, StT)
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Error (Error, ErrorT)
 import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.List (ListT)
@@ -41,8 +41,8 @@ import qualified Control.Monad.Trans.Writer.Lazy as Lazy (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
 import Data.Coerce (Coercible, coerce)
 import Data.Functor (void)
-import Data.Functor.Compose (Compose (..))
-import Data.Functor.Identity (Identity (..))
+import Data.Functor.Compose (Compose(..))
+import Data.Functor.Identity (Identity(..))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Map.Monoidal (MonoidalMap, pattern MonoidalMap)
@@ -53,16 +53,18 @@ import Data.Time (UTCTime)
 import Database.Groundhog.Core
 import Database.Groundhog.Expression (Expression, ExpressionOf, Unifiable)
 import Database.Groundhog.Generic.Sql (operator)
-import Database.Groundhog.Postgresql (Postgresql (..), SqlDb, isFieldNothing, in_)
-import Database.PostgreSQL.Simple.SqlQQ (sql)
-import qualified Database.PostgreSQL.Simple as Pg
-import qualified Database.PostgreSQL.Simple.Transaction as Pg
+import Database.Groundhog.Postgresql (Postgresql(..), SqlDb, in_, isFieldNothing)
 import Database.Id.Class
 import Database.Id.Groundhog
+import qualified Database.PostgreSQL.Simple as Pg
+import Database.PostgreSQL.Simple.SqlQQ (sql)
+import qualified Database.PostgreSQL.Simple.Transaction as Pg
 
+import Database.PostgreSQL.Serializable (Serializable, runSerializable)
 import Database.PostgreSQL.Simple.Class
-import Rhyolite.Backend.DB.Serializable (Serializable, runSerializable)
-import Rhyolite.Backend.Schema ()
+import Rhyolite.DB.Groundhog.Orphans ()
+import Rhyolite.DB.Groundhog.Schema ()
+import Rhyolite.DB.Groundhog.Serializable ()
 import Rhyolite.Schema
 
 type Db m = (PersistBackend m, Psql m, SqlDb (PhantomDb m))

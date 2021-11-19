@@ -21,8 +21,10 @@ let
     psql-simple-class = ./psql-extras/psql-simple-class;
     psql-simple-beam = ./psql-extras/psql-simple-beam;
     psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
+    psql-serializable = ./psql-extras/psql-serializable;
     rhyolite-groundhog-legacy = ./groundhog-legacy;
     rhyolite-common = ./common;
+    rhyolite-email = ./email;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
   };

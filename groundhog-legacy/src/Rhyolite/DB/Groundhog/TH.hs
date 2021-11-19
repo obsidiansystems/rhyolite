@@ -13,31 +13,39 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-redundant-constraints #-}
 
-module Rhyolite.Backend.Schema.TH
+module Rhyolite.DB.Groundhog.TH
   ( deriveNewtypePersistBackend
   , makeDefaultKeyIdInt64
   , makeDefaultKeyIdSimple
   , mkRhyolitePersist
   , makePersistFieldNewtype
-  , module Rhyolite.Backend.Schema
+  , module Rhyolite.DB.Groundhog.Schema
   ) where
 
 import Control.Lens ((%~), _head)
 import Control.Monad
 import Control.Monad.State (mapStateT)
 import Data.Char (toLower)
+import Data.List (isPrefixOf)
+import Data.Semigroup ((<>))
 import Database.Groundhog
 import Database.Groundhog.Core
-import Data.Semigroup ((<>))
-import Data.List (isPrefixOf)
-import Database.Groundhog.TH (migrationFunction, namingStyle, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, defaultCodegenConfig)
+import Database.Groundhog.TH (defaultCodegenConfig, migrationFunction, mkDbFieldName, mkExprFieldName, mkExprSelectorName, mkPersist, namingStyle)
 import Database.Groundhog.TH.Settings (PersistDefinitions(..))
-import Language.Haskell.TH
-
 import Database.Id.Groundhog.TH (makeDefaultKeyIdInt64, makeDefaultKeyIdSimple)
+import Language.Haskell.TH
+import Rhyolite.DB.Groundhog.Schema
 
-import Rhyolite.TH (conName)
-import Rhyolite.Backend.Schema -- Not needed for this module, but without it, the generated code fails to compile in a way which is confusing, so we re-export it.
+conName :: Con -> Name
+conName c = case c of
+  NormalC n _ -> n
+  RecC n _ -> n
+  InfixC _ n _ -> n
+  ForallC _ _ c' -> conName c'
+  GadtC [n] _ _ -> n
+  RecGadtC [n] _ _ -> n
+  _ -> error "conName: GADT constructors with multiple names not yet supported"
+
 
 deriveNewtypePersistBackend :: (TypeQ -> TypeQ) -> (TypeQ -> TypeQ) -> Name -> Name -> DecsQ
 deriveNewtypePersistBackend toT fromT to from =

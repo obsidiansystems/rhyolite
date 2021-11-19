@@ -12,7 +12,7 @@ module Rhyolite.Backend.Schema.Task
 import Rhyolite.Schema.Task
 
 import Database.Groundhog.TH
-import Rhyolite.Backend.Schema.TH
+import Rhyolite.DB.Groundhog.TH
 
 mkRhyolitePersist Nothing [groundhog|
   - embedded: Task

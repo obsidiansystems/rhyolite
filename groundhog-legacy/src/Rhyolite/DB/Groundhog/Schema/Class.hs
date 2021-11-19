@@ -6,7 +6,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Rhyolite.Backend.Schema.Class where
+module Rhyolite.DB.Groundhog.Schema.Class where
 
 import Data.Proxy (Proxy)
 import Database.Groundhog.Core

@@ -52,10 +52,9 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Web.ClientSession as CS
 
-import Rhyolite.Backend.DB
-import Rhyolite.Backend.DB.Serializable (Serializable)
-import qualified Rhyolite.Backend.DB.Serializable as Serializable
-import Rhyolite.Backend.Email
+import Rhyolite.DB.Groundhog
+import Rhyolite.DB.Groundhog.Serializable (Serializable)
+import qualified Rhyolite.DB.Groundhog.Serializable as Serializable
 import Database.PostgreSQL.Simple.Class
 import Rhyolite.DB.NotifyListen.Groundhog
 import Rhyolite.Backend.Sign (sign, signWithKey)

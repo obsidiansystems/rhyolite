@@ -54,7 +54,6 @@ library
     , mtl
     , network
     , rhyolite-notify-listen
-    , rhyolite-groundhog-legacy
     , obelisk-route
     , parsec
     , postgresql-simple
@@ -66,6 +65,7 @@ library
     , rhyolite-backend-db
     , rhyolite-groundhog-legacy
     , rhyolite-common
+    , rhyolite-email
     , rhyolite-datastructures
     , semialign
     , smtp-mail
@@ -88,8 +88,6 @@ library
   exposed-modules:
     Rhyolite.Backend.Account
     Rhyolite.Backend.App
-    Rhyolite.Backend.Email
-    Rhyolite.Backend.EmailWorker
     Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 

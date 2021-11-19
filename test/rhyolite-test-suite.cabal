@@ -19,5 +19,12 @@ executable rhyolite-test-suite
                , rhyolite-common
                , rhyolite-datastructures
                , rhyolite-frontend
+               , rhyolite-email
+               , rhyolite-groundhog-legacy
+               , rhyolite-notify-listen
+               , rhyolite-notify-listen-beam
+               , psql-simple-beam
+               , psql-simple-class
+               , psql-simple-groundhog
 
   ghc-options: -threaded -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -rtsopts

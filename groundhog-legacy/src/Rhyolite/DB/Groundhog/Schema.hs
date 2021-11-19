@@ -1,33 +1,29 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-module Rhyolite.Backend.Schema where
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language RankNTypes #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# options_ghc -fno-warn-orphans #-}
+module Rhyolite.DB.Groundhog.Schema where
 
 import Control.Arrow ((&&&))
 import Control.Exception
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Universe
 import Data.Aeson (FromJSON, ToJSON, eitherDecode', encode)
 import Data.Functor.Identity (Identity(..))
-import Data.Typeable (Proxy(..), Typeable, TypeRep, typeRep)
 import qualified Data.Map as Map
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Typeable (Proxy(..), TypeRep, Typeable, typeRep)
+import Data.Universe
 import Database.Groundhog.Core
 import Database.Groundhog.Generic.Sql ()
 import Database.Id.Class
-import Database.PostgreSQL.Simple.FromField (FromField, fromField, Conversion, conversionError)
-import Database.PostgreSQL.Simple.ToField (ToField, toField, Action)
-import Database.PostgreSQL.Simple.Types (Binary (..), Identifier (..))
+import Database.PostgreSQL.Simple.Class
+import Database.PostgreSQL.Simple.FromField (Conversion, FromField, conversionError, fromField)
+import Database.PostgreSQL.Simple.ToField (Action, ToField, toField)
+import Database.PostgreSQL.Simple.Types (Binary(..), Identifier(..))
 
-import Rhyolite.Schema (Json (..), SchemaName(..), LargeObjectId(..))
-import Rhyolite.Backend.Schema.Class (DerivedEntity, DerivedEntityHead)
+import Rhyolite.DB.Groundhog.Schema.Class (DerivedEntity, DerivedEntityHead)
+import Rhyolite.Schema (Json(..), SchemaName(..))
 
 instance ToField SchemaName where
   toField (SchemaName t) = toField (Identifier t)
@@ -111,4 +107,3 @@ instance PersistField SchemaName where
     (x, pv') <- fromPersistValues pv
     return (SchemaName x, pv')
   dbType p (SchemaName x) = dbType p x
-

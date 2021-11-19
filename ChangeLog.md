@@ -25,6 +25,18 @@ This project's release branch is `master`. This log is written from the perspect
   * Remove `Rhyolite.Backend.DB.PsqlSimple` as all of its functionality has been moved elsewhere.
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
   * Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
+  * Move instances from `Database.Groundhog.Postgresql.Orphans` to `Rhyolite.DB.Groundhog.Orphans` in groundhog-legacy.
+  * Move `Network.PushNotification.Worker` to `groundhog-legacy` and rename it to `Rhyolite.Network.PushNotification.Worker`.
+  * Move `Rhyolite.Backend.DB` to `groundhog-legacy` and rename it to `Rhyolite.DB.Groundhog`.
+  * Move the `PostgresLargeObject` class to `psql-simple-class` and move its groundhog-based instances to `groundhog-legacy`.
+    * `withStreamedLargeObject` no longer requires groundhog, but does require a connection. Use `liftWithConn` to use it with groundhog.
+  * Move `Rhyolite.Backend.DB.Serializable` to `Database.PostgreSQL.Serializable` in `psql-serializable` and move its groundhog-based instances to `groundhog-legacy`'s `Rhyolite.DB.Groundhog.Serializable` module.
+  * Move `Rhyolite.Backend.Schema` and `Rhyolite.Backend.Schema.Class` to `Rhyolite.DB.Groundhog.Schema` and `Rhyolite.DB.Groundhog.Schema.Class` in `groundhog-legacy`.
+  * Move `Rhyolite.Backend.Schema.TH` to `Rhyolite.DB.Groundhog.TH` in `groundhog-legacy`.
+  * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
+  * Move `LargeObjectId` to `psql-simple-class`.
+  * Remove the `Rhyolite.TH` module. Use `file-embed` instead.
+  * Move `Rhyolite.Backend.EmailWorker` to `Rhyolite.DB.Groundhog.EmailWorker` in `groundhog-legacy`.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:
