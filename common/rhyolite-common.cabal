@@ -34,7 +34,6 @@ library
     , constraints-extras
     , containers
     , data-default
-    , database-id-class
     , dependent-map
     , dependent-monoidal-map
     , dependent-sum
@@ -75,7 +74,6 @@ library
     Rhyolite.Concurrent
     Rhyolite.Request.Common
     Rhyolite.Route
-    Rhyolite.Schema
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
     Rhyolite.Vessel.AuthMapV

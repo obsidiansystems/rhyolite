@@ -14,10 +14,12 @@ extra-source-files: CHANGELOG.md
 
 library
     exposed-modules:  Rhyolite.Account
+                      Rhyolite.Schema
     build-depends:    base
                   , lens
                   , aeson
                   , bytestring
+                  , mtl
                   , text
                   , time
                   , database-id-class

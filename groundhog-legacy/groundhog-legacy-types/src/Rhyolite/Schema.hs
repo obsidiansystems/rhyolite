@@ -1,7 +1,6 @@
 -- | Part of the Rhyolite integration with
 -- [groundhog](http://hackage.haskell.org/package/groundhog). In particular, we
--- define 'SchemaName' and 'LargeObjectId' here in order to send them across the
--- wire.
+-- define 'SchemaName' in order to send it across the wire.
 
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -23,7 +22,6 @@ import Control.Monad.Error (MonadError)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable (Typeable)
-import Data.Word (Word64)
 import GHC.Generics (Generic)
 import Obelisk.Route
 
