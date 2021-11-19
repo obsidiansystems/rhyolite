@@ -6,7 +6,7 @@ import Rhyolite.App
 -- backend
 import Rhyolite.Backend.App
 -- backend-db
-import Rhyolite.Backend.DB
+import qualified Rhyolite.Backend.TaskWorker
 -- frontend
 import Rhyolite.Frontend.App
 -- datastructures
