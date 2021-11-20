@@ -8,7 +8,7 @@ import Rhyolite.App
 import Rhyolite.Backend.App
 -- frontend
 import Rhyolite.Frontend.App
--- datastructures
+-- semimap
 import Rhyolite.SemiMap
 
 -- psql-extras

@@ -64,7 +64,7 @@ library
     , rhyolite-groundhog-legacy
     , rhyolite-common
     , rhyolite-email
-    , rhyolite-datastructures
+    , semimap
     , semialign
     , smtp-mail
     , snap-core

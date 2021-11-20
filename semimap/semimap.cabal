@@ -1,6 +1,6 @@
-name: rhyolite-datastructures
+name: semimap
 version: 0.1
-synopsis: Pure datastructures
+synopsis: SemiMap and SemiSet
 license: BSD3
 author: Obsidian Systems LLC
 maintainer: maintainer@obsidian.systems
@@ -9,11 +9,7 @@ category: Web
 build-type: Simple
 cabal-version: >=1.2
 description:
-  Rhyolite is a staging area of common patterns and implementations that
-  Obsidian uses, before they are tested and polished enough to go into obelisk
-  or the reflex family of packages.
-
-  This package mostly defines the concepts of SemiMap and SemiSet.
+  This package defines the concepts of SemiMap and SemiSet.
 
 
 library
@@ -22,15 +18,10 @@ library
   build-depends:
       aeson
     , base
-    , base-orphans
     , containers
-    , data-default
     , lens
     , monoidal-containers
-    , mtl
     , reflex
-    , bytestring-aeson-orphans
-    , these
 
   exposed-modules:
     Rhyolite.SemiMap

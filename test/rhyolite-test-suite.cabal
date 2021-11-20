@@ -16,7 +16,7 @@ executable rhyolite-test-suite
                , bytestring-aeson-orphans
                , rhyolite-backend
                , rhyolite-common
-               , rhyolite-datastructures
+               , semimap
                , rhyolite-frontend
                , rhyolite-email
                , rhyolite-groundhog-legacy
