@@ -36,7 +36,6 @@
 
    - rhyolite-backend
    - rhyolite-common
-   - rhyolite-datastructures
    - rhyolite-frontend
 
 ## Alternative method

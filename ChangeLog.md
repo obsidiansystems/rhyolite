@@ -44,6 +44,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Move `Signed` and `MonadSign` to `signed-data`. Move `signWithKey`, `readSignedWithKey`, `SignT`, etc to `signed-data-clientsession`. Move groundhog instances for `MonadSign` and `SignT` to `Rhyolite.DB.Groundhog.Orphans`.
   * Move `Account` to `groundhog-legacy-types`. Move backend code for accounts, e.g., `ensureAccountExists` to `Rhyolite.Account.Groundhog` in `groundhog-legacy`.
   * Move `Rhyolite.Schema` to `groundhog-legacy-types`.
+  * Rename `datastructures` to `semimap` since it only contains SemiMap.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:

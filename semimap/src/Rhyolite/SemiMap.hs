@@ -1,28 +1,21 @@
 -- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Rhyolite.SemiMap where
 
-import Data.Aeson
-import Data.Coerce
-import Data.Either
+import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Data.Coerce (coerce)
+import Data.Either (isLeft)
 import Data.Map.Monoidal as Map
-import Data.Maybe
-import Data.Monoid hiding (First (..), (<>))
-import Data.Semigroup
+import Data.Maybe (isJust)
+import Data.Semigroup (First(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
-
-import ByteString.Aeson.Orphans ()
-import Data.Orphans () -- for Foldable (Alt f)
 
 -- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
 -- distinguish two semantic meanings of the monoidal map:

@@ -1,7 +1,7 @@
 packages:
   backend/
   common/
-  datastructures/
+  semimap/
   email/
   frontend/
   groundhog-legacy/groundhog-legacy-types/

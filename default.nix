@@ -25,7 +25,7 @@ let
     rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
-    rhyolite-datastructures = ./datastructures;
+    semimap = ./semimap;
     rhyolite-frontend = ./frontend;
     signed-data = ./signed-data/signed-data;
     signed-data-clientsession = ./signed-data/signed-data-clientsession;
@@ -114,7 +114,7 @@ in obelisk // {
     packages = {
       rhyolite-backend = ./backend;
       rhyolite-common = ./common;
-      rhyolite-datastructures = ./datastructures;
+      semimap = ./semimap;
       rhyolite-frontend = ./frontend;
       rhyolite-test-suite = ./test;
     };
@@ -124,7 +124,6 @@ in obelisk // {
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-common"
-        "rhyolite-datastructures"
         "rhyolite-frontend"
       ];
     };
