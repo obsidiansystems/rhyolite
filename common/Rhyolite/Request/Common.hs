@@ -15,6 +15,6 @@ decodeWith p to s =
       _ -> Nothing
     _ -> Nothing
 
-{-# DEPRECATED decodeValue' "Use \"decodeWith value' fromJSON\" instead" #-}
+{-# DEPRECATED decodeValue' "Use \"decode'\" instead" #-}
 decodeValue' :: (Aeson.FromJSON a) => LBS.ByteString -> Maybe a
 decodeValue' = decodeWith AesonParser.value' Aeson.fromJSON

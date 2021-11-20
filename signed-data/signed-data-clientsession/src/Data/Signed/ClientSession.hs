@@ -25,8 +25,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Data.Aeson (FromJSON, ToJSON, encode, fromJSON)
-import Data.Aeson.Parser (decodeStrictWith, value')
+import Data.Aeson (FromJSON, ToJSON, encode, decodeStrict')
 import qualified Data.ByteString.Lazy as LBS
 import Data.Proxy (Proxy(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -41,7 +40,7 @@ signWithKey k (v :: a) =
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
   tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-  (t, v :: b) <- decodeStrictWith value' fromJSON tvJson
+  (t, v :: b) <- decodeStrict' tvJson
   guard $ t == show (typeRep $ Proxy @b)
   return v
 
