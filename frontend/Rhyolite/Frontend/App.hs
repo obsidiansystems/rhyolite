@@ -48,12 +48,12 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
-import GHC.Generics (Generic)
-import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI, parseURI)
-import qualified Reflex as R
 import Data.Witherable (Filterable)
+import GHC.Generics (Generic)
+import Network.URI (URI, parseURI)
 import Obelisk.Frontend.Cookie
+import Obelisk.Route.Frontend (RouteToUrl(..), Routed(..), SetRoute(..))
+import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)

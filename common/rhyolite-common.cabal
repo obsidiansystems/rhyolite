@@ -30,32 +30,22 @@ library
     , bytestring
     , constraints
     , constraints-extras
+    , some
     , containers
     , data-default
     , dependent-map
     , dependent-monoidal-map
     , dependent-sum
-    , dependent-sum-template
-    , file-embed
-    , filepath
     , http-types
-    , lens
-    , mime-mail
     , monad-control
     , monoidal-containers
     , mtl
     , network-uri
-    , obelisk-route
     , patch
     , reflex
-    , resource-pool
-    , semialign
-    , template-haskell
     , text
-    , time
     , transformers
     , transformers-base
-    , vector
     , vessel
     , witherable              >=0.2 && <0.4
 

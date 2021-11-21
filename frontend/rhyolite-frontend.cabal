@@ -17,50 +17,32 @@ library
   build-depends:
       aeson
     , base
-    , bifunctors
-    , binary
     , bytestring
     , constraints
     , constraints-extras
     , containers
     , cookie
     , data-default
-    , dependent-map
-    , dependent-sum
     , either
     , exception-transformers
-    , filepath
-    , font-awesome-type
     , ghcjs-dom
-    , http-types
     , jsaddle
     , lens
-    , mmorph
-    , monad-control
     , mtl
     , network-uri
     , obelisk-executable-config-lookup
     , obelisk-frontend
     , obelisk-route
-    , prim-uniq
     , primitive
-    , raw-strings-qq
     , ref-tf
     , reflex
     , reflex-dom-core
     , rhyolite-common
-    , safe
-    , semigroups
-    , template-haskell
+    , some
     , text
-    , these
     , time
-    , timezone-olson
-    , timezone-series
     , transformers
-    , transformers-base
     , validation
-    , vector
     , vessel
     , witherable                        >=0.2 && <0.4
 

@@ -29,7 +29,7 @@ import Data.Coerce (coerce)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import Data.Semigroup (First (..))
+import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.EventM as EventM

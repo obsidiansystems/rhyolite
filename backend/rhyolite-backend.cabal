@@ -19,65 +19,22 @@ library
   build-depends:
       aeson
     , base
-    , blaze-html
-    , bytestring
+    , some
     , constraints
     , constraints-extras
-    , containers
-    , cryptohash
-    , data-default
-    , database-id-class
-    , database-id-groundhog
-    , dependent-sum
-    , dependent-sum-aeson-orphans
-    , exceptions
-    , groundhog
-    , groundhog-postgresql
-    , groundhog-th
-    , HaskellNet
-    , HaskellNet-SSL
-    , http-client
-    , http-client-tls
-    , http-types
-    , io-streams
     , lens
-    , lifted-base
-    , mime-mail
-    , monad-control
-    , monad-logger
-    , monad-loops
     , monoid-map
     , monoidal-containers
-    , mtl
-    , network
-    , obelisk-route
-    , parsec
     , postgresql-simple
-    , psql-simple-class
-    , pwstore-fast
     , reflex
-    , reflex-dom
     , resource-pool
     , rhyolite-common
-    , rhyolite-email
-    , rhyolite-groundhog-legacy
     , rhyolite-notify-listen
     , semialign
-    , semimap
     , signed-data
     , signed-data-clientsession
-    , smtp-mail
     , snap-core
-    , split
-    , stm
-    , template-haskell
     , text
-    , these
-    , time
-    , timerep
-    , transformers
-    , transformers-base
-    , vector
     , vessel
     , websockets
     , websockets-snap

@@ -11,8 +11,8 @@ module Rhyolite.Frontend.Widget where
 import Control.Monad.Fix
 import Data.Either.Combinators (rightToMaybe)
 import Data.Map (Map)
-import Data.Text (Text)
 import qualified Data.Map as Map
+import Data.Text (Text)
 import Reflex.Dom.Core hiding (Delete)
 
 data ListEdit = ListEdit_InsertBefore | ListEdit_Delete | ListEdit_InsertAfter
@@ -107,4 +107,3 @@ withBackdrop cls openBackdropWithChild = mdo
   let close :: Event t (Maybe (m (Event t a))) = Nothing <$ (switch . current $ sth)
       open :: Event t (Maybe (m (Event t a))) = Just <$> openBackdropWithChild
   return $ fmapMaybe rightToMaybe $ switch . current $ sth
-

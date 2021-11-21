@@ -38,9 +38,9 @@
 module Rhyolite.Api where
 
 import Data.Aeson
-import Data.Some
-import Data.Constraint.Forall
 import Data.Constraint.Extras
+import Data.Constraint.Forall
+import Data.Some
 
 type Request r = (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r)
 

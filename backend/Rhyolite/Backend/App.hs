@@ -24,35 +24,35 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (FromJSON, ToJSON, toJSON)
 import Data.Align
 import Data.Constraint.Extras
-import Data.Map.Monoidal (MonoidalMap)
-import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
-import Data.MonoidMap (MonoidMap (..), monoidMap)
+import Data.Map.Monoidal (MonoidalMap)
+import qualified Data.Map.Monoidal as Map
+import Data.MonoidMap (MonoidMap(..), monoidMap)
 import Data.Pool (Pool)
-import Data.Semigroup (Semigroup, (<>))
+import Data.Semigroup ((<>), Semigroup)
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
-import Data.Witherable (Filterable(..))
-import Debug.Trace (trace)
-import qualified Database.PostgreSQL.Simple as Pg
-import Reflex.Query.Base (mapQuery, mapQueryResult)
-import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
-import Snap.Core (MonadSnap, Snap)
-import qualified Network.WebSockets as WS
 import Data.Vessel
-import Reflex (Group(..), Additive)
+import Data.Witherable (Filterable(..))
+import qualified Database.PostgreSQL.Simple as Pg
+import Debug.Trace (trace)
+import qualified Network.WebSockets as WS
+import Reflex (Additive, Group(..))
+import Reflex.Query.Base (mapQuery, mapQueryResult)
+import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
+import Snap.Core (MonadSnap, Snap)
 
+import Data.Signed (Signed)
+import Data.Signed.ClientSession as CS (Key, readSignedWithKey)
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.DB.NotifyListen (startNotificationListener)
+import Rhyolite.Backend.WebSocket (getDataMessage, sendEncodedDataMessage, withWebsocketsConnection)
 import Rhyolite.Concurrent
-import Data.Signed (Signed)
-import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Data.Signed.ClientSession as CS (readSignedWithKey, Key)
-import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
+import Rhyolite.DB.NotifyListen (startNotificationListener)
+import Rhyolite.WebSocket (TaggedRequest(..), TaggedResponse(..), WebSocketRequest(..), WebSocketResponse(..))
 
 -- | This query morphism translates between un-annotated queries for use over the wire, and ones with SelectedCount annotations used in the backend to be able to determine the differences between queries. This version is for use with the older Functor style of queries and results.
 functorFromWire

@@ -170,4 +170,3 @@ unsafeProjectV = QueryMorphism
       Left _ -> emptyV
       Right r' -> r'
   }
-
