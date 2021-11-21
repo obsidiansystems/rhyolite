@@ -1,15 +1,11 @@
 -- | Utilities and templates to send emails from the backend.
 
 {-# Language DeriveGeneric #-}
-{-# Language FlexibleContexts #-}
-{-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
-{-# Language MultiParamTypeClasses #-}
 {-# Language OverloadedStrings #-}
 {-# Language PolyKinds #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TemplateHaskell #-}
-{-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}

@@ -25,15 +25,14 @@
 -- ApiRequest Credentials PublicRequest PrivateRequest
 -- @
 
+{-# Language ConstraintKinds #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
 {-# Language LambdaCase #-}
-{-# Language PolyKinds #-}
-{-# Language ScopedTypeVariables #-}
-{-# Language FlexibleInstances #-}
 {-# Language MultiParamTypeClasses #-}
+{-# Language PolyKinds #-}
 {-# Language TypeFamilies #-}
-{-# Language FlexibleContexts #-}
-{-# Language ConstraintKinds #-}
 
 module Rhyolite.Api where
 

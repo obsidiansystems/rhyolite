@@ -6,15 +6,11 @@
 {-# Language DeriveTraversable #-}
 {-# Language FlexibleContexts #-}
 {-# Language GeneralizedNewtypeDeriving #-}
-{-# Language MultiParamTypeClasses #-}
 {-# Language PatternGuards #-}
 {-# Language PolyKinds #-}
-{-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TypeApplications #-}
-{-# Language TypeFamilies #-}
-{-# Language TypeSynonymInstances #-}
 {-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}

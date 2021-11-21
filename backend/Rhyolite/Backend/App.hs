@@ -1,17 +1,12 @@
 -- | This module contains the implementation of the view/viewselector machinery.
 
-{-# Language ConstraintKinds #-}
 {-# Language FlexibleContexts #-}
-{-# Language FlexibleInstances #-}
-{-# Language GADTs #-}
-{-# Language MultiParamTypeClasses #-}
 {-# Language OverloadedStrings #-}
 {-# Language RankNTypes #-}
 {-# Language RecursiveDo #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
-{-# Language UndecidableInstances #-}
 
 module Rhyolite.Backend.App where
 
