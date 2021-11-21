@@ -14,11 +14,6 @@ description:
   This package defines some common abstractions and datatypes used by
   rhyolite-backend and rhyolite-frontend.
 
-flag split-these
-  description: Use split these/semialign packages
-  manual:      False
-  default:     True
-
 library
   hs-source-dirs:     .
   build-depends:
@@ -43,19 +38,13 @@ library
     , network-uri
     , patch
     , reflex
+    , semialign  >=1 && <1.2
     , text
+    , these      >=1 && <1.1
     , transformers
     , transformers-base
     , vessel
     , witherable              >=0.2 && <0.4
-
-  if flag(split-these)
-    build-depends:
-        semialign  >=1 && <1.2
-      , these      >=1 && <1.1
-
-  else
-    build-depends: these >=0.7 && <0.9
 
   exposed-modules:
     Rhyolite.Api
