@@ -1,12 +1,12 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleInstances #-}
+{-# Language GADTs #-}
+{-# Language LambdaCase #-}
+{-# Language OverloadedStrings #-}
+{-# Language QuasiQuotes #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeFamilies #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Rhyolite.Network.PushNotification.Worker where

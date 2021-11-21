@@ -1,14 +1,14 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleInstances #-}
+{-# Language GADTs #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language LambdaCase #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language PolyKinds #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 module Rhyolite.Vessel.ErrorV.Internal where
 
 import Data.Aeson

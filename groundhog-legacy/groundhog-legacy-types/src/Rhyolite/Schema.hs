@@ -2,15 +2,15 @@
 -- [groundhog](http://hackage.haskell.org/package/groundhog). In particular, we
 -- define 'SchemaName' in order to send it across the wire.
 
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DefaultSignatures #-}
+{-# Language DeriveDataTypeable #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language RankNTypes #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans -fno-warn-deprecations #-}
 module Rhyolite.Schema where

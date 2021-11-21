@@ -1,8 +1,8 @@
 {-# Language DeriveGeneric #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# Language GADTs #-}
+{-# Language QuasiQuotes #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeFamilies #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Rhyolite.Task.Groundhog where

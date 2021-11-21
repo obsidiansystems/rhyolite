@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# Language FlexibleContexts #-}
+{-# Language RankNTypes #-}
+{-# Language TypeFamilies #-}
 module Rhyolite.Task.Groundhog.Worker where
 
 import Rhyolite.Task.Groundhog

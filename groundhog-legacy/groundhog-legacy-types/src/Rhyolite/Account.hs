@@ -1,16 +1,16 @@
 -- | In this module we have a notion of 'Account' with its associated route ('AccountRoute'), and encoder ('accountRouteEncoder').
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language CPP #-}
+{-# Language DeriveDataTypeable #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GADTs #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.Account where
 

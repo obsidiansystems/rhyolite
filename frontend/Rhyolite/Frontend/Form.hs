@@ -1,18 +1,18 @@
 -- | A mechanism to validate forms.
 
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# Language FlexibleInstances #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language LambdaCase #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language OverloadedStrings #-}
+{-# Language RecursiveDo #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TemplateHaskell #-}
+{-# Language TupleSections #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
+{-# Language RankNTypes #-}
+{-# Language ScopedTypeVariables #-}
 module Rhyolite.Frontend.Form where
 
 import Control.Lens ((%~), makeLenses, preview)

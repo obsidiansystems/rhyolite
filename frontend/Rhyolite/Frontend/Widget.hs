@@ -2,10 +2,10 @@
 -- controls for insertion before and after, and deletion. See 'ListEdit' and
 -- 'extensibleListWidget'.
 
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# Language LambdaCase #-}
+{-# Language OverloadedStrings #-}
+{-# Language RecursiveDo #-}
+{-# Language ScopedTypeVariables #-}
 module Rhyolite.Frontend.Widget where
 
 import Control.Monad.Fix

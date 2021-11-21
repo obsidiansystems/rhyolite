@@ -1,13 +1,13 @@
 -- | Infrastructure for signing data, which you would use, e.g. when signing cookies.
 
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DefaultSignatures #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GADTs #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Data.Signed where
 

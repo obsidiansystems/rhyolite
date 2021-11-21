@@ -1,15 +1,15 @@
 -- | Functions to encrypt data using "Web.ClientSession"
 
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeApplications #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 

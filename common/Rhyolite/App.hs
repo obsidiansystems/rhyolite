@@ -1,21 +1,21 @@
 -- | Miscellaneous utilities related to the 'Query' datatype, and the definition
 -- of 'Single', a view for a single piece of data.
 --
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveFoldable #-}
+{-# Language DeriveGeneric #-}
+{-# Language DeriveTraversable #-}
+{-# Language FlexibleContexts #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language PatternGuards #-}
+{-# Language PolyKinds #-}
+{-# Language RankNTypes #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeApplications #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeSynonymInstances #-}
+{-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 

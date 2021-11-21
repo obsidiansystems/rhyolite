@@ -1,9 +1,9 @@
 -- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
 
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
+{-# Language DeriveFoldable #-}
+{-# Language DeriveFunctor #-}
+{-# Language DeriveGeneric #-}
+{-# Language LambdaCase #-}
 
 module Rhyolite.SemiMap where
 

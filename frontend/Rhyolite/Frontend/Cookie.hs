@@ -1,7 +1,7 @@
 -- | Getting and setting cookies on the frontend.
 
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# Language OverloadedStrings #-}
+{-# Language FlexibleContexts #-}
 module Rhyolite.Frontend.Cookie where
 
 import Control.Monad ((<=<))

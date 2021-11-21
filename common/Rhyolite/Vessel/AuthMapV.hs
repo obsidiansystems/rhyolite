@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleInstances #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 module Rhyolite.Vessel.AuthMapV where
 
 import Data.Aeson

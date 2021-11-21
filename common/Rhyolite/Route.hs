@@ -1,13 +1,13 @@
 -- | This module is still here for backward compatibility reasons. You should
 -- use "Obelisk.Route" instead.
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language CPP #-}
+{-# Language FlexibleInstances #-}
+{-# Language FunctionalDependencies #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language OverloadedStrings #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.Route where
 

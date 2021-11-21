@@ -1,10 +1,10 @@
 -- | A class for widget that can have modals. A concrete implementation is in
 -- "Rhyolite.Frontend.Modal.Base".
 
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# Language DefaultSignatures #-}
+{-# Language FlexibleInstances #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language TypeFamilies #-}
 
 module Rhyolite.Frontend.Modal.Class where
 

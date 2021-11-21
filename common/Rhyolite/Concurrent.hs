@@ -1,6 +1,6 @@
 -- | Create worker threads that are respawned in case of error.
 
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# Language ScopedTypeVariables #-}
 
 module Rhyolite.Concurrent where
 
