@@ -1,20 +1,17 @@
-name: semimap
-version: 0.1
-synopsis: SemiMap and SemiSet
-license: BSD3
-author: Obsidian Systems LLC
-maintainer: maintainer@obsidian.systems
-stability: Experimental
-category: Web
-build-type: Simple
+name:          semimap
+version:       0.1
+synopsis:      SemiMap and SemiSet
+license:       BSD3
+author:        Obsidian Systems LLC
+maintainer:    maintainer@obsidian.systems
+stability:     Experimental
+category:      Web
+build-type:    Simple
 cabal-version: >=1.2
-description:
-  This package defines the concepts of SemiMap and SemiSet.
-
+description:   This package defines the concepts of SemiMap and SemiSet.
 
 library
-  hs-source-dirs: src
-
+  hs-source-dirs:   src
   build-depends:
       aeson
     , base
@@ -23,8 +20,8 @@ library
     , monoidal-containers
     , reflex
 
-  exposed-modules:
-    Rhyolite.SemiMap
-
+  exposed-modules:  Rhyolite.SemiMap
   other-extensions: TemplateHaskell
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
+  ghc-options:
+    -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields
+    -O2 -fprof-auto-calls

@@ -13,58 +13,62 @@ category:           Web
 extra-source-files: README.md
 
 library
-  exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
-                    Rhyolite.DB.Groundhog.Orphans
-                    Rhyolite.DB.Groundhog.Email
-                    Rhyolite.DB.Groundhog.EmailWorker
-                    Rhyolite.DB.Groundhog.Schema
-                    Rhyolite.DB.Groundhog.Schema.Class
-                    Rhyolite.DB.Groundhog.TH
-                    Rhyolite.DB.Groundhog
-                    Rhyolite.DB.Groundhog.Serializable
-                    Rhyolite.Network.PushNotification.Worker
-                    Rhyolite.Task.Groundhog
-                    Rhyolite.Task.Groundhog.Worker
-                    Rhyolite.Account.Groundhog
-  build-depends: base
+  exposed-modules:
+    Rhyolite.Account.Groundhog
+    Rhyolite.DB.Groundhog
+    Rhyolite.DB.Groundhog.Email
+    Rhyolite.DB.Groundhog.EmailWorker
+    Rhyolite.DB.Groundhog.Orphans
+    Rhyolite.DB.Groundhog.Schema
+    Rhyolite.DB.Groundhog.Schema.Class
+    Rhyolite.DB.Groundhog.Serializable
+    Rhyolite.DB.Groundhog.TH
+    Rhyolite.DB.NotifyListen.Groundhog
+    Rhyolite.Network.PushNotification.Worker
+    Rhyolite.Task.Groundhog
+    Rhyolite.Task.Groundhog.Worker
+
+  build-depends:
     , aeson
     , async
-    , rhyolite-groundhog-legacy-types
-    , signed-data
-    , signed-data-clientsession
+    , base
     , blaze-html
-    , unbounded-delays
-    , pwstore-fast
-    , data-default
-    , groundhog-postgresql
     , bytestring
     , constraints
     , constraints-extras
     , containers
+    , data-default
     , database-id-class
     , database-id-groundhog
+    , exceptions
     , groundhog
     , groundhog-postgresql
     , groundhog-th
     , HaskellNet
     , http-conduit
+    , io-streams
     , lens
+    , lifted-base
+    , mime-mail
     , monad-control
     , monad-logger
     , monad-logger-extras
     , monoidal-containers
     , mtl
-    , postgresql-simple
     , postgresql-lo-stream
-    , io-streams
-    , lifted-base
-    , mime-mail
+    , postgresql-simple
+    , psql-serializable
     , psql-simple-class
+    , psql-simple-groundhog
     , push-notifications
+    , pwstore-fast
     , resource-pool
     , rhyolite-common
     , rhyolite-email
+    , rhyolite-groundhog-legacy-types
     , rhyolite-notify-listen
+    , signed-data
+    , signed-data-clientsession
     , stm
     , template-haskell
     , text
@@ -72,9 +76,7 @@ library
     , time
     , transformers
     , transformers-base
-    , exceptions
-    , psql-simple-groundhog
-    , psql-serializable
+    , unbounded-delays
     , universe
 
   hs-source-dirs:   src

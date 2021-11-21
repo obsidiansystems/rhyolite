@@ -1,23 +1,21 @@
-name: rhyolite-backend
-version: 0.1
-license: BSD3
-copyright: Copyright (C) Obsidian Systems LLC 2018
-author: Obsidian Systems LLC
-maintainer: maintainer@obsidian.systems
-stability: Experimental
-build-type: Simple
+name:          rhyolite-backend
+version:       0.1
+license:       BSD3
+copyright:     Copyright (C) Obsidian Systems LLC 2018
+author:        Obsidian Systems LLC
+maintainer:    maintainer@obsidian.systems
+stability:     Experimental
+build-type:    Simple
 cabal-version: >=1.2
 description:
   Rhyolite is a staging area of common patterns and implementations that
   Obsidian uses, before they are tested and polished enough to go into obelisk
   or the reflex family of packages.
-
   This package defines some common patterns, most of them adapted to use
   groundhog as the underlying db library.
 
 library
-  hs-source-dirs: .
-
+  hs-source-dirs:   .
   build-depends:
       aeson
     , base
@@ -52,7 +50,6 @@ library
     , monoidal-containers
     , mtl
     , network
-    , rhyolite-notify-listen
     , obelisk-route
     , parsec
     , postgresql-simple
@@ -61,11 +58,14 @@ library
     , reflex
     , reflex-dom
     , resource-pool
-    , rhyolite-groundhog-legacy
     , rhyolite-common
     , rhyolite-email
-    , semimap
+    , rhyolite-groundhog-legacy
+    , rhyolite-notify-listen
     , semialign
+    , semimap
+    , signed-data
+    , signed-data-clientsession
     , smtp-mail
     , snap-core
     , split
@@ -81,13 +81,13 @@ library
     , vessel
     , websockets
     , websockets-snap
-    , witherable >= 0.2 && < 0.4
-    , signed-data
-    , signed-data-clientsession
+    , witherable                   >=0.2 && <0.4
 
   exposed-modules:
     Rhyolite.Backend.App
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
+  ghc-options:
+    -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields
+    -O2 -fprof-auto-calls
