@@ -3,6 +3,7 @@
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
 ## Unreleased
+* Removed `Rhyolite.Request.Common`, now using functions from Aeson directly. Use `decode'` instead of `decodeValue'`.
 
 * Breaking changes:
   * Remove the `rhyolite-backend-snap` package. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
