@@ -7,10 +7,8 @@ maintainer:    maintainer@obsidian.systems
 stability:     Experimental
 build-type:    Simple
 cabal-version: >=1.2
+synopsis:      Common abstractions and datastructures.
 description:
-  Rhyolite is a staging area of common patterns and implementations that
-  Obsidian uses, before they are tested and polished enough to go into obelisk
-  or the reflex family of packages.
   This package defines some common abstractions and datatypes used by
   rhyolite-backend and rhyolite-frontend.
 

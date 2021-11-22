@@ -7,6 +7,9 @@ maintainer:    maintainer@obsidian.systems
 stability:     Experimental
 build-type:    Simple
 cabal-version: >=1.2
+synopsis:      Build apps that use a rhyolite backend as a datasource
+description:
+  Rhyolite frontend apps are typically obelisk- and reflex-based applications that need live-updating data from the backend. This package provides the adapters necessary to work with requests and streaming data from a rhyolite backend.
 
 library
   hs-source-dirs:  .
