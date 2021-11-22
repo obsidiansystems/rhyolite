@@ -1,0 +1,82 @@
+cabal-version:      2.4
+name:               rhyolite-groundhog-legacy
+version:            0.1.0.0
+synopsis:           Legacy adapter for groundhog-based rhyolite projects
+homepage:           https://github.com/obsidiansystems/rhyolite
+bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+copyright:          2021 Obsidian Systems LLC
+category:           Web
+extra-source-files: README.md
+
+library
+  exposed-modules:  Rhyolite.DB.NotifyListen.Groundhog
+                    Rhyolite.DB.Groundhog.Orphans
+                    Rhyolite.DB.Groundhog.Email
+                    Rhyolite.DB.Groundhog.EmailWorker
+                    Rhyolite.DB.Groundhog.Schema
+                    Rhyolite.DB.Groundhog.Schema.Class
+                    Rhyolite.DB.Groundhog.TH
+                    Rhyolite.DB.Groundhog
+                    Rhyolite.DB.Groundhog.Serializable
+                    Rhyolite.Network.PushNotification.Worker
+                    Rhyolite.Task.Groundhog
+                    Rhyolite.Task.Groundhog.Worker
+                    Rhyolite.Account.Groundhog
+  build-depends: base
+    , aeson
+    , async
+    , rhyolite-groundhog-legacy-types
+    , signed-data
+    , signed-data-clientsession
+    , blaze-html
+    , unbounded-delays
+    , pwstore-fast
+    , data-default
+    , groundhog-postgresql
+    , bytestring
+    , constraints
+    , constraints-extras
+    , containers
+    , database-id-class
+    , database-id-groundhog
+    , groundhog
+    , groundhog-postgresql
+    , groundhog-th
+    , HaskellNet
+    , http-conduit
+    , lens
+    , monad-control
+    , monad-logger
+    , monad-logger-extras
+    , monoidal-containers
+    , mtl
+    , postgresql-simple
+    , postgresql-lo-stream
+    , io-streams
+    , lifted-base
+    , mime-mail
+    , psql-simple-class
+    , push-notifications
+    , resource-pool
+    , rhyolite-common
+    , rhyolite-email
+    , rhyolite-notify-listen
+    , stm
+    , template-haskell
+    , text
+    , these
+    , time
+    , transformers
+    , transformers-base
+    , exceptions
+    , psql-simple-groundhog
+    , psql-serializable
+    , universe
+
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  ghc-options:      -Wall

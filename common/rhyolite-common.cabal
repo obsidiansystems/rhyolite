@@ -34,7 +34,6 @@ library
     , constraints-extras
     , containers
     , data-default
-    , database-id-class
     , dependent-map
     , dependent-monoidal-map
     , dependent-sum
@@ -70,16 +69,10 @@ library
 
 
   exposed-modules:
-    Rhyolite.Account
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
-    Rhyolite.Email
     Rhyolite.Route
-    Rhyolite.Schema
-    Rhyolite.Schema.Task
-    Rhyolite.Sign
-    Rhyolite.TH
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
     Rhyolite.Vessel.AuthMapV

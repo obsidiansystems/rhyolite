@@ -23,7 +23,6 @@ library
     , base
     , blaze-html
     , bytestring
-    , clientsession
     , constraints
     , constraints-extras
     , containers
@@ -54,7 +53,6 @@ library
     , mtl
     , network
     , rhyolite-notify-listen
-    , rhyolite-groundhog-legacy
     , obelisk-route
     , parsec
     , postgresql-simple
@@ -63,9 +61,9 @@ library
     , reflex
     , reflex-dom
     , resource-pool
-    , rhyolite-backend-db
     , rhyolite-groundhog-legacy
     , rhyolite-common
+    , rhyolite-email
     , rhyolite-datastructures
     , semialign
     , smtp-mail
@@ -84,13 +82,11 @@ library
     , websockets
     , websockets-snap
     , witherable >= 0.2 && < 0.4
+    , signed-data
+    , signed-data-clientsession
 
   exposed-modules:
-    Rhyolite.Backend.Account
     Rhyolite.Backend.App
-    Rhyolite.Backend.Email
-    Rhyolite.Backend.EmailWorker
-    Rhyolite.Backend.Sign
     Rhyolite.Backend.WebSocket
 
   other-extensions: TemplateHaskell

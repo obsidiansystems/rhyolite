@@ -15,16 +15,20 @@ let
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
     rhyolite-backend = ./backend;
-    rhyolite-backend-db = ./backend-db;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
     psql-simple-beam = ./psql-extras/psql-simple-beam;
     psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
-    rhyolite-groundhog-legacy = ./groundhog-legacy;
+    psql-serializable = ./psql-extras/psql-serializable;
+    rhyolite-groundhog-legacy = ./groundhog-legacy/groundhog-legacy;
+    rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
+    rhyolite-email = ./email;
     rhyolite-datastructures = ./datastructures;
     rhyolite-frontend = ./frontend;
+    signed-data = ./signed-data/signed-data;
+    signed-data-clientsession = ./signed-data/signed-data-clientsession;
   };
 
   # srcs used for overrides
@@ -109,7 +113,6 @@ in obelisk // {
     overrides = haskellOverrides;
     packages = {
       rhyolite-backend = ./backend;
-      rhyolite-backend-db = ./backend-db;
       rhyolite-common = ./common;
       rhyolite-datastructures = ./datastructures;
       rhyolite-frontend = ./frontend;
@@ -118,7 +121,6 @@ in obelisk // {
     shells = rec {
       ghc = [
         "rhyolite-backend"
-        "rhyolite-backend-db"
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-common"

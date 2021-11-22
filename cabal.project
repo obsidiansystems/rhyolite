@@ -1,13 +1,17 @@
 packages:
-  backend-db/
   backend/
-  notify-listen/notify-listen/
-  notify-listen/notify-listen-beam/
   common/
   datastructures/
+  email/
   frontend/
-  test/
-  groundhog-legacy/
-  psql-extras/psql-simple-class/
+  groundhog-legacy/groundhog-legacy-types/
+  groundhog-legacy/groundhog-legacy/
+  notify-listen/notify-listen-beam/
+  notify-listen/notify-listen/
+  psql-extras/psql-serializable/
   psql-extras/psql-simple-beam/
+  psql-extras/psql-simple-class/
   psql-extras/psql-simple-groundhog/
+  signed-data/signed-data/
+  signed-data/signed-data-clientsession/
+  test/
