@@ -1,28 +1,21 @@
-name: rhyolite-common
-version: 0.1
-license: BSD3
-copyright: Copyright (C) Obsidian Systems LLC 2018
-author: Obsidian Systems
-maintainer: maintainer@obsidian.systems
-stability: Experimental
-build-type: Simple
+name:          rhyolite-common
+version:       0.1
+license:       BSD3
+copyright:     Copyright (C) Obsidian Systems LLC 2018
+author:        Obsidian Systems
+maintainer:    maintainer@obsidian.systems
+stability:     Experimental
+build-type:    Simple
 cabal-version: >=1.2
 description:
   Rhyolite is a staging area of common patterns and implementations that
   Obsidian uses, before they are tested and polished enough to go into obelisk
   or the reflex family of packages.
-
   This package defines some common abstractions and datatypes used by
   rhyolite-backend and rhyolite-frontend.
 
-flag split-these
-  description: Use split these/semialign packages
-  manual:      False
-  default:     True
-
 library
-  hs-source-dirs: .
-
+  hs-source-dirs:     .
   build-depends:
       aeson
     , aeson-gadt-th
@@ -32,57 +25,43 @@ library
     , bytestring
     , constraints
     , constraints-extras
+    , some
     , containers
     , data-default
     , dependent-map
     , dependent-monoidal-map
     , dependent-sum
-    , dependent-sum-template
-    , file-embed
-    , filepath
     , http-types
-    , lens
-    , mime-mail
     , monad-control
     , monoidal-containers
     , mtl
     , network-uri
-    , obelisk-route
     , patch
     , reflex
-    , resource-pool
-    , semialign
-    , template-haskell
+    , semialign  >=1 && <1.2
     , text
-    , time
+    , these      >=1 && <1.1
     , transformers
     , transformers-base
-    , vector
-    , witherable >= 0.2 && < 0.4
     , vessel
-
-  if flag(split-these)
-    build-depends:     these >= 1 && <1.1,
-                       semialign >=1 && <1.2
-  else
-    build-depends:     these >= 0.7 && <0.9
-
+    , witherable              >=0.2 && <0.4
 
   exposed-modules:
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
     Rhyolite.Route
+    Rhyolite.Vessel.AuthenticatedV
+    Rhyolite.Vessel.AuthMapV
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
-    Rhyolite.Vessel.AuthMapV
-    Rhyolite.Vessel.AuthenticatedV
     Rhyolite.WebSocket
 
-  reexported-modules:
-    aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT
+  reexported-modules: aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT
 
-  if !os(ios) && !arch(aarch64) && !arch(arm) && !impl(ghcjs)
+  if (((!os(ios) && !arch(aarch64)) && !arch(arm)) && !impl(ghcjs -any))
     build-depends: monad-logger
 
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
+  ghc-options:
+    -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields
+    -O2 -fprof-auto-calls

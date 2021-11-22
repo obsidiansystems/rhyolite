@@ -1,21 +1,21 @@
 -- | Getting and setting cookies on the frontend.
 
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# Language OverloadedStrings #-}
+{-# Language FlexibleContexts #-}
 module Rhyolite.Frontend.Cookie where
 
 import Control.Monad ((<=<))
 import Data.Aeson as Aeson
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Builder (toLazyByteString)
+import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
 import Data.Text.Encoding
+import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
-import Data.Time.Calendar
-import GHCJS.DOM.Types (MonadJSM)
 import qualified GHCJS.DOM.Document as DOM
+import GHCJS.DOM.Types (MonadJSM)
 import Reflex.Dom.Core
 import Web.Cookie
 

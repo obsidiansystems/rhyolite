@@ -8,35 +8,37 @@ license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Obsidian Systems LLC
 maintainer:         maintainer@obsidian.systems
-copyright: 2021 Obsidian Systems LLC
+copyright:          2021 Obsidian Systems LLC
 category:           Web
-extra-source-files: CHANGELOG.md
-                    email.css
+extra-source-files:
+  CHANGELOG.md
+  email.css
 
 library
-    exposed-modules:  Rhyolite.Email
-    build-depends:    base
-      , HaskellNet
-      , HaskellNet-SSL
-      , aeson
-      , signed-data
-      , data-default
-      , mime-mail
-      , monad-logger
-      , mtl
-      , network
-      , smtp-mail
-      , text
-      , time
-      , timerep
-      , transformers
-      , blaze-html
-      , obelisk-route
-      , reflex-dom-core
-      , reflex
-      , file-embed
+  exposed-modules:  Rhyolite.Email
+  build-depends:
+    , aeson
+    , base
+    , blaze-html
+    , data-default
+    , file-embed
+    , HaskellNet
+    , HaskellNet-SSL
+    , mime-mail
+    , monad-logger
+    , mtl
+    , network
+    , obelisk-route
+    , reflex
+    , reflex-dom-core
+    , rhyolite-common
+    , signed-data
+    , smtp-mail
+    , text
+    , time
+    , timerep
+    , transformers
 
-      , rhyolite-common
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    ghc-options: -Wall
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  ghc-options:      -Wall

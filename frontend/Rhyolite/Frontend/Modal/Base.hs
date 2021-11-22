@@ -1,19 +1,19 @@
 -- | Modal widgets. The important definition here is 'ModalT', the related
 -- class is in "Rhyolite.Frontend.Modal.Class".
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language CPP #-}
+{-# Language DataKinds #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language OverloadedStrings #-}
+{-# Language RankNTypes #-}
+{-# Language RecursiveDo #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.Frontend.Modal.Base where
 
@@ -29,7 +29,7 @@ import Data.Coerce (coerce)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import Data.Semigroup (First (..))
+import Data.Semigroup (First(..))
 import Data.Text (Text)
 import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.EventM as EventM

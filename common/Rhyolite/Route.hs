@@ -1,34 +1,34 @@
 -- | This module is still here for backward compatibility reasons. You should
 -- use "Obelisk.Route" instead.
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language CPP #-}
+{-# Language FlexibleInstances #-}
+{-# Language FunctionalDependencies #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language OverloadedStrings #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.Route where
 
+import Control.Monad.Base
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Trans.Except (ExceptT)
-import Control.Monad.Base
+import Control.Monad.Trans.Maybe (MaybeT)
 #if defined(VERSION_monad_logger)
 import Control.Monad.Logger
 #endif
 import Data.Aeson
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Data.Default
-import qualified Data.Text as T
-import Data.Text.Encoding
-import Network.URI
-import Network.HTTP.Types.URI (renderQuery, parseQuery)
 import qualified Data.Map as Map
 import Data.Map (Map)
+import qualified Data.Text as T
+import Data.Text.Encoding
+import Network.HTTP.Types.URI (parseQuery, renderQuery)
+import Network.URI
 
 class Monad m => MonadRoute r m | m -> r where
   routeToUrl :: r -> m URI

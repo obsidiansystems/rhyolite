@@ -1,28 +1,20 @@
 -- | Definition, utilities and instances for 'SemiMap' and 'SemiSet'.
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveFoldable #-}
+{-# Language DeriveFunctor #-}
+{-# Language DeriveGeneric #-}
+{-# Language LambdaCase #-}
 
 module Rhyolite.SemiMap where
 
-import Data.Aeson
-import Data.Coerce
-import Data.Either
+import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Data.Coerce (coerce)
 import Data.Map.Monoidal as Map
-import Data.Maybe
-import Data.Monoid hiding (First (..), (<>))
-import Data.Semigroup
+import Data.Maybe (isJust)
+import Data.Semigroup (First(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import GHC.Generics (Generic)
-
-import ByteString.Aeson.Orphans ()
-import Data.Orphans () -- for Foldable (Alt f)
 
 -- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
 -- distinguish two semantic meanings of the monoidal map:
@@ -66,17 +58,10 @@ instance (Ord k) => Semigroup (SemiMap k v) where
       where
         applyMap :: Ord k => MonoidalMap k (Maybe v) -> MonoidalMap k v -> MonoidalMap k v
         applyMap patch old' = Map.unionWith const insertions (old' `Map.difference` deletions)
-          where (deletions, insertions) = mapPartitionEithers $ maybeToEither <$> patch
+          where (deletions, insertions) = Map.mapEither maybeToEither patch
                 maybeToEither = \case
                   Nothing -> Left ()
                   Just r -> Right r
-        mapPartitionEithers :: MonoidalMap k (Either a b) -> (MonoidalMap k a, MonoidalMap k b)
-        mapPartitionEithers m = (unsafeFromLeft <$> ls, unsafeFromRight <$> rs)
-          where (ls, rs) = Map.partition isLeft m
-                unsafeFromLeft (Left l) = l
-                unsafeFromLeft _ = error "mapPartitionEithers: fromLeft received a Right value; this should be impossible"
-                unsafeFromRight (Right r) = r
-                unsafeFromRight _ = error "mapPartitionEithers: fromRight received a Left value; this should be impossible"
 
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)

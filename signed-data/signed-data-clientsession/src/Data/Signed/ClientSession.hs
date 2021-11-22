@@ -1,15 +1,15 @@
 -- | Functions to encrypt data using "Web.ClientSession"
 
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeApplications #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -25,7 +25,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
-import Data.Aeson (FromJSON, ToJSON, encode, decode')
+import Data.Aeson (FromJSON, ToJSON, encode, decodeStrict')
 import qualified Data.ByteString.Lazy as LBS
 import Data.Proxy (Proxy(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -40,7 +40,7 @@ signWithKey k (v :: a) =
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
   tvJson <- CS.decrypt k $ encodeUtf8 $ unSigned s
-  (t, v :: b) <- decode' $ LBS.fromStrict tvJson
+  (t, v :: b) <- decodeStrict' tvJson
   guard $ t == show (typeRep $ Proxy @b)
   return v
 

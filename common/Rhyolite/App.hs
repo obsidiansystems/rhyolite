@@ -1,52 +1,48 @@
 -- | Miscellaneous utilities related to the 'Query' datatype, and the definition
 -- of 'Single', a view for a single piece of data.
 --
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveFoldable #-}
+{-# Language DeriveGeneric #-}
+{-# Language DeriveTraversable #-}
+{-# Language FlexibleContexts #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language PatternGuards #-}
+{-# Language PolyKinds #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeApplications #-}
+{-# Language UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Rhyolite.App where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Align
 import qualified Data.AppendMap as MonoidalMap
+import Data.Constraint.Extras
+import qualified Data.Dependent.Map as DMap'
+import qualified Data.Dependent.Map.Monoidal as DMap
+import Data.Dependent.Sum
+import Data.Functor.Compose
+import Data.Functor.Const
+import Data.Functor.Identity
+import Data.GADT.Compare
+import Data.Map (Map)
 import Data.Map.Monoidal (MonoidalMap)
+import qualified Data.Map.Monoidal as MMap
+import Data.Proxy
 import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as Semigroup
+import Data.Semigroup (First(..))
+import Data.These
+import Data.These.Combinators
 import Data.Typeable (Typeable)
+import Data.Vessel
+import Data.Vessel.Internal (VSum(..))
 import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
 import Reflex.Query.Class
-import Data.These
-import Data.Align
-import Data.Functor.Identity
-import Data.Functor.Const
-import Data.Semigroup (First(..))
-import Data.Functor.Compose
-import Data.Constraint.Extras
-import Data.Dependent.Sum
-import Data.GADT.Compare
-import qualified Data.Dependent.Map.Monoidal as DMap
-import Data.Map (Map)
-import qualified Data.Map.Monoidal as MMap
-import qualified Data.Dependent.Map as DMap'
-import Data.Proxy
-import Data.These.Combinators
-import Data.Vessel
-import Data.Vessel.Internal (VSum(..))
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where

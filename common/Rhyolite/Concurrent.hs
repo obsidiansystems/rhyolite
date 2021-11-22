@@ -1,16 +1,16 @@
 -- | Create worker threads that are respawned in case of error.
 
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# Language ScopedTypeVariables #-}
 
 module Rhyolite.Concurrent where
 
 import Control.Concurrent (forkIO, killThread, threadDelay)
-import Control.Concurrent.Async (withAsync, waitCatch)
+import Control.Concurrent.Async (waitCatch, withAsync)
 import Control.Exception (SomeException, try)
-import Control.Monad (forever, void, when, (<=<))
+import Control.Monad ((<=<), forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Semigroup ((<>))
 import Data.Either (isLeft)
+import Data.Semigroup ((<>))
 
 
 -- | Perform a supervised operation with delays in between, on a separate thread. Return an IO action for killing the thread.

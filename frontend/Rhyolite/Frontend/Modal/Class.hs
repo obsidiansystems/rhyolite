@@ -1,17 +1,17 @@
 -- | A class for widget that can have modals. A concrete implementation is in
 -- "Rhyolite.Frontend.Modal.Base".
 
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# Language DefaultSignatures #-}
+{-# Language FlexibleInstances #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language TypeFamilies #-}
 
 module Rhyolite.Frontend.Modal.Class where
 
 import Control.Monad.Reader (MonadReader (ask), ReaderT (..))
 import Control.Monad.Trans (MonadTrans (lift))
-import Reflex (Event, Reflex, EventWriterT)
 import Obelisk.Route.Frontend (RoutedT, askRoute, runRoutedT)
+import Reflex (Event, EventWriterT, Reflex)
 
 -- | The class of monads supporting a 'tellModal' operation which will open a modal
 --   that stays on top of all other content.

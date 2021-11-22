@@ -3,14 +3,14 @@
 
 module Rhyolite.Backend.WebSocket where
 
-import Data.Semigroup ((<>))
-import Control.Exception (SomeException (..), handle, throwIO, AssertionFailed (..))
+import Control.Exception (AssertionFailed(..), SomeException(..), handle, throwIO)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (FromJSON, ToJSON, eitherDecode', encode)
+import Data.Semigroup ((<>))
 import qualified Network.WebSockets as WS
 import qualified Network.WebSockets.Connection as WS
-import qualified Network.WebSockets.Stream as WS
 import Network.WebSockets.Snap (runWebSocketsSnap)
+import qualified Network.WebSockets.Stream as WS
 import Snap.Core (MonadSnap)
 
 -- | Accepts a websockets connection and runs the supplied action with it using the given logging function

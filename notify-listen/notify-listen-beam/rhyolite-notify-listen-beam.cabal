@@ -20,16 +20,18 @@ category:           Database
 extra-source-files: CHANGELOG.md
 
 library
-    exposed-modules: Rhyolite.DB.NotifyListen.Beam
-    build-depends:    base
-                    , aeson
-                    , beam-core
-                    , beam-postgres
-                    , constraints
-                    , constraints-extras
-                    , psql-simple-class
-                    , psql-simple-beam
-                    , rhyolite-notify-listen
-                    , these
-    hs-source-dirs:   src
-    default-language: Haskell2010
+  exposed-modules:  Rhyolite.DB.NotifyListen.Beam
+  build-depends:
+    , aeson
+    , base
+    , beam-core
+    , beam-postgres
+    , constraints
+    , constraints-extras
+    , psql-simple-beam
+    , psql-simple-class
+    , rhyolite-notify-listen
+    , these
+
+  hs-source-dirs:   src
+  default-language: Haskell2010

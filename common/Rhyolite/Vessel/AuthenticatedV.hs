@@ -1,14 +1,14 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language GADTs #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language LambdaCase #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language PolyKinds #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
 import Data.Aeson

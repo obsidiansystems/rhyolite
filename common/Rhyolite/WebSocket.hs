@@ -2,11 +2,9 @@
 -- frontend and backend. You can use this manually, for example, when building a
 -- program that pretends to be a user of your app (load-testing comes to mind).
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.WebSocket where
 

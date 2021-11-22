@@ -4,26 +4,26 @@
 -- 'watchViewSelector' function that's used in the frontend module of a typical
 -- app.
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# Language CPP #-}
+{-# Language ConstraintKinds #-}
+{-# Language DeriveGeneric #-}
+{-# Language ExistentialQuantification #-}
+{-# Language FlexibleContexts #-}
+{-# Language FlexibleInstances #-}
+{-# Language FunctionalDependencies #-}
+{-# Language GADTs #-}
+{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language InstanceSigs #-}
+{-# Language LambdaCase #-}
+{-# Language OverloadedStrings #-}
+{-# Language PolyKinds #-}
+{-# Language RankNTypes #-}
+{-# Language RecursiveDo #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
+{-# Language TypeApplications #-}
+{-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
 
 module Rhyolite.Frontend.App where
 
@@ -48,12 +48,12 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
-import GHC.Generics (Generic)
-import Obelisk.Route.Frontend (Routed(..), SetRoute(..), RouteToUrl(..))
-import Network.URI (URI, parseURI)
-import qualified Reflex as R
 import Data.Witherable (Filterable)
+import GHC.Generics (Generic)
+import Network.URI (URI, parseURI)
 import Obelisk.Frontend.Cookie
+import Obelisk.Route.Frontend (RouteToUrl(..), Routed(..), SetRoute(..))
+import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
