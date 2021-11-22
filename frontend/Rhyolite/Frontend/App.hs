@@ -422,7 +422,7 @@ openWebSocket' url request vs = do
       platformDecode = jsonDecode . pFromJSVal
       platformWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
 #else
-      platformDecode = decode' . LBS.fromStrict
+      platformDecode = decodeStrict'
       platformWebSocket = webSocket url
 #endif
     ws <- platformWebSocket $ def

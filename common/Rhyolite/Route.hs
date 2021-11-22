@@ -113,12 +113,12 @@ addSubdomain sub uri = uri { uriAuthority = fmap (\auth -> auth { uriRegName = s
 getDefaultParam :: FromJSON b => Map BS.ByteString (Maybe BS.ByteString) -> Maybe b
 getDefaultParam params = do
   Just v <- Map.lookup (encodeUtf8 "x") params
-  decode' (LBS.fromStrict v)
+  decodeStrict' v
 
 decodeRoute :: (FromJSON r) => T.Text -> Maybe r
 decodeRoute t = do
   Just v <- Map.lookup (encodeUtf8 "x") (Map.fromList (parseQuery (encodeUtf8 t)))
-  decode' (LBS.fromStrict v)
+  decodeStrict' v
 
 uriToRouteEnv
   :: URI
