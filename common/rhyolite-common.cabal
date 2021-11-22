@@ -25,7 +25,6 @@ library
     , bytestring
     , constraints
     , constraints-extras
-    , some
     , containers
     , data-default
     , dependent-map
@@ -38,9 +37,10 @@ library
     , network-uri
     , patch
     , reflex
-    , semialign  >=1 && <1.2
+    , semialign               >=1   && <1.2
+    , some
     , text
-    , these      >=1 && <1.1
+    , these                   >=1   && <1.1
     , transformers
     , transformers-base
     , vessel

@@ -76,7 +76,10 @@ import Rhyolite.Request.Common (decodeValue')
 import Data.Vessel
 import Data.Vessel.ViewMorphism
 
--- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the older Functor style of queries and results.
+-- | This query morphism translates between queries with SelectedCount
+-- annotations used in the frontend to do reference counting, and un-annotated
+-- queries for use over the wire. This version is for use with the older
+-- Functor style of queries and results.
 functorToWire
   :: ( Filterable q
      , Functor v
@@ -91,7 +94,10 @@ functorToWire = QueryMorphism
   , _queryMorphism_mapQueryResult = fmap (const (SelectedCount 1))
   }
 
--- | This query morphism translates between queries with SelectedCount annotations used in the frontend to do reference counting, and un-annotated queries for use over the wire. This version is for use with the newer-style functor-parametric view types (such as Vessel).
+-- | This query morphism translates between queries with SelectedCount
+-- annotations used in the frontend to do reference counting, and un-annotated
+-- queries for use over the wire. This version is for use with the newer-style
+-- functor-parametric view types (such as Vessel).
 vesselToWire
   :: ( View v
      , Monoid (v (Const ()))

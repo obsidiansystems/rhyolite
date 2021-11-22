@@ -121,6 +121,7 @@ in obelisk // {
     shells = rec {
       ghc = [
         "rhyolite-backend"
+        "rhyolite-test-suite"
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-common"
