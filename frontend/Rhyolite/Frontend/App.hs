@@ -70,7 +70,6 @@ import Obelisk.Route.Frontend hiding (Decoder)
 import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
 #else
 import GHCJS.DOM.Types (MonadJSM(..))
-import Rhyolite.Request.Common (decodeValue')
 #endif
 
 import Data.Vessel
@@ -429,7 +428,7 @@ openWebSocket' url request vs = do
       platformDecode = jsonDecode . pFromJSVal
       platformWebSocket cfg = webSocket' url cfg (either (error "webSocket': expected JSVal") return)
 #else
-      platformDecode = decodeValue' . LBS.fromStrict
+      platformDecode = decodeStrict'
       platformWebSocket = webSocket url
 #endif
     ws <- platformWebSocket $ def

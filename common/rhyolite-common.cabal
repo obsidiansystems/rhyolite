@@ -48,7 +48,6 @@ library
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
-    Rhyolite.Request.Common
     Rhyolite.Route
     Rhyolite.Vessel.AuthenticatedV
     Rhyolite.Vessel.AuthMapV
