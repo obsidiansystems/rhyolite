@@ -1,6 +1,11 @@
--- | The low-level implementation of the websocket communication between
--- frontend and backend. You can use this manually, for example, when building a
--- program that pretends to be a user of your app (load-testing comes to mind).
+{-|
+Description:
+  Websocket protocol for requests and queries
+
+The low-level implementation of the websocket communication between
+frontend and backend. You can use this manually, for example, when building a
+program that pretends to be a user of your app (load-testing comes to mind).
+-}
 
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}
@@ -17,6 +22,7 @@ import GHC.Generics
 import Network.URI (URI(..))
 import Reflex.Query.Class
 
+-- | Given an http or file uri, guesses what the websockets uri ought to be
 websocketUri :: URI -> URI
 websocketUri uri = uri
   { uriScheme = case uriScheme uri of
@@ -26,7 +32,8 @@ websocketUri uri = uri
     p -> error $ "Unrecognized protocol: " <> p
   }
 
--- | Represents a WebSocket message from one of two channels: ViewSelector declarations or API requests
+-- | Represents a WebSocket message from one of two channels: ViewSelector
+-- declarations or API requests
 data WebSocketRequest q r = WebSocketRequest_ViewSelector q
                           | WebSocketRequest_Api (TaggedRequest r)
   deriving (Typeable, Generic)

@@ -1,30 +1,33 @@
--- | This commonly used module details the mechanism that we use to bring
--- information from the frontend to the backend of a typical Obelisk app. The
--- important datatype here is 'ApiRequest' which is parametrized on three
--- application-dependent datatypes: one, of kind @*@, for credentials, and two,
--- of kind @k -> *@, respectively for the public and private part of the
--- request. As an example, your app could have datatypes like:
---
--- @
--- data Credentials where
---   ...
---
--- data PublicRequest a where
---   PublicRequest_Login :: Email -> Password -> PublicRequest LoginResult
---   ...
---
--- data PrivateRequest a where
---   PrivateRequest_BuyItem  :: Item -> PrivateRequest ()
---   PrivateRequest_CheckOut :: Item -> PrivateRequest CheckoutResult
---   ...
--- @
---
--- and you'll work with an 'ApiRequest' of type:
---
--- @
--- ApiRequest Credentials PublicRequest PrivateRequest
--- @
+{-|
+Description: Request/response API protocol
 
+This commonly used module details the mechanism that we use to bring
+information from the frontend to the backend of a typical Obelisk app. The
+important datatype here is 'ApiRequest' which is parametrized on three
+application-dependent datatypes: one, of kind @*@, for credentials, and two,
+of kind @k -> *@, respectively for the public and private part of the
+request. As an example, your app could have datatypes like:
+
+@
+data Credentials where
+  ...
+
+data PublicRequest a where
+  PublicRequest_Login :: Email -> Password -> PublicRequest LoginResult
+  ...
+
+data PrivateRequest a where
+  PrivateRequest_BuyItem  :: Item -> PrivateRequest ()
+  PrivateRequest_CheckOut :: Item -> PrivateRequest CheckoutResult
+  ...
+@
+
+and you'll work with an 'ApiRequest' of type:
+
+@
+ApiRequest Credentials PublicRequest PrivateRequest
+@
+-}
 {-# Language ConstraintKinds #-}
 {-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
@@ -41,8 +44,12 @@ import Data.Constraint.Extras
 import Data.Constraint.Forall
 import Data.Some
 
+-- | JSON encoding and decoding constraints on requests
 type Request r = (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSON r)
 
+-- | In most applications, API requests are either authenticated or
+-- unauthenticated. A login request, for example, is usually unauthenticated,
+-- or "public."
 data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Public :: public a -> ApiRequest cred public private a
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a
@@ -54,9 +61,11 @@ instance (ArgDict c public, ArgDict c private) => ArgDict c (ApiRequest cred pub
     ApiRequest_Public x -> argDict x
     ApiRequest_Private _ x -> argDict x
 
+-- | Shorthand constructor for public requests
 public :: public t -> ApiRequest cred public private t
 public = ApiRequest_Public
 
+-- | Shorthand constructor for private requests
 private :: cred -> private t -> ApiRequest cred public private t
 private = ApiRequest_Private
 

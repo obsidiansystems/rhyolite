@@ -128,6 +128,6 @@ in obelisk // {
         "rhyolite-frontend"
       ];
     };
-    tools = ghc: [ pkgs.postgresql ];
+    tools = ghc: [ pkgs.postgresql pkgs.haskellPackages.standalone-haddock ];
   });
 }

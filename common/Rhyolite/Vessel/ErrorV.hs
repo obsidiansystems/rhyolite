@@ -1,3 +1,4 @@
+{-| Description: Either-like container for views and errors -}
 module Rhyolite.Vessel.ErrorV
   ( module X
   ) where

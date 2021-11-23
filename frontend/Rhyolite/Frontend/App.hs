@@ -59,7 +59,6 @@ import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
 
 import Rhyolite.Api
-import Rhyolite.App
 import Rhyolite.WebSocket
 
 import Obelisk.Configs
@@ -388,7 +387,7 @@ fromNotifications
   -> m (Dynamic t (QueryResult q))
 fromNotifications vs ePatch = do
   ePatchThrottled <- throttleBatchWithLag lag ePatch
-  foldDyn (\(vs', p) v -> cropView vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
+  foldDyn (\(vs', p) v -> crop vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
   where
     lag e = performEventAsync $ ffor e $ \a cb -> liftIO $ cb a
 

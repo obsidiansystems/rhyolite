@@ -1,3 +1,4 @@
+{-| Description: Authenticated views -}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}

@@ -1,4 +1,9 @@
--- | Create worker threads that are respawned in case of error.
+{-|
+Description:
+  Respawning workers
+
+Create worker threads that are respawned in case of error.
+-}
 
 {-# Language ScopedTypeVariables #-}
 
@@ -30,6 +35,7 @@ taggedWorker
 taggedWorker tag delay x = return . killThread <=< liftIO . forkIO . supervise tag . void . forever $
   x >> threadDelay delay
 
+-- | Runs an action forever, restarting it if it dies.
 supervise :: Show a => String -> IO a -> IO ()
 supervise tag a = forever $ withAsync a $ \child -> do
   let msgPrefix = if null tag then "supervise: " else "supervise: " <> tag <> ": "

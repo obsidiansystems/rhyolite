@@ -1,3 +1,5 @@
+{-| Description: Authenticated vessel container
+-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
