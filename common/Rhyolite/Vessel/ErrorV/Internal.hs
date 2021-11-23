@@ -1,3 +1,5 @@
+{-| Description: ErrorV implementation
+-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}

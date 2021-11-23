@@ -7,19 +7,15 @@ maintainer:    maintainer@obsidian.systems
 stability:     Experimental
 build-type:    Simple
 cabal-version: >=1.2
+synopsis:      Backend infrastructure to support FRP-based frontends
 description:
-  Rhyolite is a staging area of common patterns and implementations that
-  Obsidian uses, before they are tested and polished enough to go into obelisk
-  or the reflex family of packages.
-  This package defines some common patterns, most of them adapted to use
-  groundhog as the underlying db library.
+  Rhyolite backends are designed to deliver live-updating data to reflex-powered applications.
 
 library
   hs-source-dirs:   .
   build-depends:
       aeson
     , base
-    , some
     , constraints
     , constraints-extras
     , lens
@@ -34,11 +30,12 @@ library
     , signed-data
     , signed-data-clientsession
     , snap-core
+    , some
     , text
     , vessel
     , websockets
     , websockets-snap
-    , witherable                   >=0.2 && <0.4
+    , witherable                 >=0.2 && <0.4
 
   exposed-modules:
     Rhyolite.Backend.App

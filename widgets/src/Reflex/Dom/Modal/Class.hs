@@ -1,12 +1,14 @@
--- | A class for widget that can have modals. A concrete implementation is in
--- "Rhyolite.Frontend.Modal.Base".
+{-| Description: Class for modal creators
+A class for widget that can have modals. A concrete implementation is in
+"Reflex.Dom.Modal.Base".
+-}
 
 {-# Language DefaultSignatures #-}
 {-# Language FlexibleInstances #-}
 {-# Language MultiParamTypeClasses #-}
 {-# Language TypeFamilies #-}
 
-module Rhyolite.Frontend.Modal.Class where
+module Reflex.Dom.Modal.Class where
 
 import Control.Monad.Reader (MonadReader (ask), ReaderT (..))
 import Control.Monad.Trans (MonadTrans (lift))

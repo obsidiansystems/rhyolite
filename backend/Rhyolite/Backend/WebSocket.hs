@@ -1,6 +1,9 @@
--- | Setting up the WebSocket connection using "Snap.Core" and primitives for
--- getting and setting websocket messages.
+{-|
+Description: Websocket connection, send, and receive
 
+Setting up the WebSocket connection using 'Snap.Core' and primitives for
+getting and setting websocket messages.
+-}
 module Rhyolite.Backend.WebSocket where
 
 import Control.Exception (AssertionFailed(..), SomeException(..), handle, throwIO)
@@ -24,6 +27,7 @@ withWebsocketsConnection f = runWebSocketsSnap $ withPendingWebsocketConnection 
   where
     logger str e = putStrLn $ "withWebsocketsConnection: " <> (if null str then "" else str <> ": ") <> show e
 
+-- | Handle a websocket connection that is in a "pending" state (i.e., that hasn't yet been accepted)
 withPendingWebsocketConnection :: (String -> SomeException -> IO ()) -> (WS.Connection -> IO ()) -> WS.PendingConnection -> IO ()
 withPendingWebsocketConnection logger f pc = do
   conn <- WS.acceptRequest pc

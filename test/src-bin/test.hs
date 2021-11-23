@@ -10,6 +10,8 @@ import Rhyolite.Backend.App
 import Rhyolite.Frontend.App
 -- semimap
 import Rhyolite.SemiMap
+-- rhyolite-widgets
+import qualified Reflex.Dom.Widget.ExtensibleList
 
 -- psql-extras
 import qualified Database.PostgreSQL.Simple.Class

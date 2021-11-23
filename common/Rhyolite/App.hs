@@ -1,6 +1,10 @@
--- | Miscellaneous utilities related to the 'Query' datatype, and the definition
--- of 'Single', a view for a single piece of data.
---
+{-|
+Description:
+  'Query' helpers
+
+Miscellaneous utilities related to the 'Query' datatype, and the definition of
+'Single', a view for a single piece of data.
+-}
 {-# Language DeriveFoldable #-}
 {-# Language DeriveGeneric #-}
 {-# Language DeriveTraversable #-}
@@ -46,7 +50,9 @@ import Reflex.Query.Class
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where
-  positivePart :: q -> Maybe q -- ^ Filter a query to only those parts which are selected a positive amount.
+  positivePart :: q -> Maybe q
+  -- ^ Filter a query to only those parts which are selected a positive
+  -- amount.
 
 instance PositivePart SelectedCount where
   positivePart x
@@ -98,26 +104,37 @@ instance PositivePart a => PositivePart (Maybe a) where positivePart = composePo
 instance PositivePart a => PositivePart (Map k a) where positivePart = composePositivePart
 deriving instance PositivePart a => PositivePart (MMap.MonoidalMap k a)
 
--- | This can be used to implement an instance of PositivePart for Functor-style queries/views, in terms of the other instances already required for those.
+-- | This can be used to implement an instance of PositivePart for
+-- Functor-style queries/views, in terms of the other instances already
+-- required for those.
 standardPositivePart :: (Eq (q a), Monoid (q a), Num a, Ord a, Filterable q) => q a -> Maybe (q a)
 standardPositivePart x =
   let u = mapMaybe (\n -> if n > 0 then Just n else Nothing) x
   in if u == mempty then Nothing else Just u
 
+-- | Map 'positivePart' over a structure. If the resulting structure is empty,
+-- 'Nothing' is returned
 composePositivePart :: (Foldable q, PositivePart a, Filterable q) => q a -> Maybe (q a)
 composePositivePart x =
   let u = mapMaybe positivePart x
   in if null u then Nothing else Just u
 {-# INLINE composePositivePart #-}
 
+-- | Converts between a query and a map of queries with at most one element
+-- (at the provided key)
 singletonQuery :: (Monoid (QueryResult q), Ord k) => k -> QueryMorphism q (MonoidalMap k q)
-singletonQuery k = QueryMorphism { _queryMorphism_mapQuery = MonoidalMap.singleton k
-                                 , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
-                                 }
+singletonQuery k = QueryMorphism
+  { _queryMorphism_mapQuery = MonoidalMap.singleton k
+  , _queryMorphism_mapQueryResult = MonoidalMap.findWithDefault mempty k
+  }
 
+{-# Deprecated cropView "Use 'crop' instead" #-}
+-- | See 'crop'
 cropView :: (Query q) => q -> QueryResult q -> QueryResult q
 cropView = crop
 
+-- | Specialized 'mapMaybe' for working with pairs where we only want to filter
+-- based on some property of the first element
 fmapMaybeFst :: Filterable f => (a -> Maybe b) -> f (a, c) -> f (b, c)
 fmapMaybeFst f = mapMaybe $ \(a, c) -> case f a of
   Nothing -> Nothing
@@ -143,9 +160,11 @@ instance Filterable (Single t) where
 instance (FromJSON t, FromJSON a) => FromJSON (Single t a)
 instance (ToJSON t, ToJSON a) => ToJSON (Single t a)
 
+-- | Get the data out of a 'Single'
 getSingle :: Single t a -> Maybe t
 getSingle (Single (Just (Semigroup.First (Just t), _))) = Just t
 getSingle _ = Nothing
 
+-- | Wrap data in a 'Single'
 single :: Maybe t -> a -> Single t a
 single t a = Single $ Just (Semigroup.First t, a)

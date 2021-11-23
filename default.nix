@@ -29,6 +29,7 @@ let
     rhyolite-frontend = ./frontend;
     signed-data = ./signed-data/signed-data;
     signed-data-clientsession = ./signed-data/signed-data-clientsession;
+    rhyolite-widgets = ./widgets;
   };
 
   # srcs used for overrides
@@ -90,6 +91,7 @@ let
         ver = "1.1";
         sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
       } {};
+      standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
 
     })
   ];
@@ -121,12 +123,13 @@ in obelisk // {
     shells = rec {
       ghc = [
         "rhyolite-backend"
+        "rhyolite-test-suite"
       ] ++ ghcjs;
       ghcjs = [
         "rhyolite-common"
         "rhyolite-frontend"
       ];
     };
-    tools = ghc: [ pkgs.postgresql ];
+    tools = ghc: [ pkgs.postgresql pkgs.haskellPackages.standalone-haddock ];
   });
 }

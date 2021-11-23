@@ -1,11 +1,17 @@
--- | Modal widgets. The important definition here is 'ModalT', the related
--- class is in "Rhyolite.Frontend.Modal.Class".
+{-|
+Description:
+  Modal widgets
+
+The important definition here is 'ModalT', the related class is
+in "Reflex.Dom.Modal.Class".
+-}
 
 {-# Language CPP #-}
 {-# Language DataKinds #-}
 {-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
+{-# Language LambdaCase #-}
 {-# Language MultiParamTypeClasses #-}
 {-# Language OverloadedStrings #-}
 {-# Language RankNTypes #-}
@@ -15,7 +21,7 @@
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
 
-module Rhyolite.Frontend.Modal.Base where
+module Reflex.Dom.Modal.Base where
 
 import Control.Applicative (liftA2)
 import Control.Lens (Rewrapped, Wrapped (Unwrapped, _Wrapped'), iso)
@@ -26,6 +32,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.Ref (MonadAtomicRef, MonadRef)
 import Control.Monad.Trans (MonadTrans (lift))
 import Data.Coerce (coerce)
+import Data.Either.Combinators (rightToMaybe)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -40,12 +47,13 @@ import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Reflex.Host.Class (MonadReflexCreateTrigger)
 
-import Rhyolite.Frontend.Modal.Class (HasModal (ModalM, tellModal))
+import Reflex.Dom.Modal.Class (HasModal (ModalM, tellModal))
 
 instance (Reflex t, Monad m) => HasModal t (ModalT t modalM m) where
   type ModalM (ModalT t modalM m) = modalM
   tellModal = ModalT . tellEvent . fmap First
 
+-- | Modal monad transformer
 newtype ModalT t modalM m a
   = ModalT { unModalT :: EventWriterT t (First (Event t () -> modalM (Event t ()))) m a }
   deriving
@@ -200,3 +208,29 @@ modalDom backdropCfg open = do
   where
     existingBackdropStyle = fromMaybe "" $ Map.lookup "style" $ _modalBackdropConfig_attrs backdropCfg
     isVisibleStyle isVis = "display:" <> (if isVis then "block" else "none")
+
+-- | Widget used as a modal div for widgets that want to take some action when
+-- clicked anywhere but itself, such as dropdown widgets or the like.  The
+-- first argument is a CSS class name, the suggested CSS class styling for use
+-- of this widget is as follows:
+--
+-- > position: fixed;
+-- > top: 0;
+-- > bottom: 0;
+-- > right: 0;
+-- > left: 0;
+-- > z-index: 100;
+--
+{-# Deprecated withBackdrop "Use ModalT instead" #-}
+withBackdrop :: forall m t a. (DomBuilder t m, MonadFix m, MonadHold t m) => Text -> Event t (m (Event t a)) -> m (Event t a)
+withBackdrop cls openBackdropWithChild = mdo
+  sth <- widgetHold (return never) $ ffor (leftmost [close, open]) $ \case
+    Nothing -> return never
+    Just child -> do
+      (backgroundEl, _) <- elClass' "div" cls blank
+      childResult <- child
+      let backgroundEvent = domEvent Click backgroundEl
+      return $ leftmost [Left <$> backgroundEvent, Right <$> childResult]
+  let close :: Event t (Maybe (m (Event t a))) = Nothing <$ (switch . current $ sth)
+      open :: Event t (Maybe (m (Event t a))) = Just <$> openBackdropWithChild
+  return $ fmapMaybe rightToMaybe $ switch . current $ sth
