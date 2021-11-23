@@ -71,16 +71,20 @@ with this Rhyolite thunk:
 
 ## Hacking
 
+### Entering a shell
 
-### On backend
+You can use `nix-shell -A proj.shells.ghc` to enter a shell from which you can build any of the subprojects in this repository. From that shell you can:
+
+* Enter a shell using `cabal repl /path/to/package`
+* Use ghcid by invoking `ghcid -c "cabal repl /path/to/package`
+* Build a package using `cabal build /path/to/package`
+* Generate haddock documentation using `cabal haddock /path/to/package` (e.g., `cabal haddock notify-listen/notify-listen-beam`)
+* Generate a standalone haddock page for all the packages in this repo by running `./gen-docs.sh`
+
+### Testing that things build
+
+Because of the inter-related nature of these packages, `rhyolite-test-suite` tests that all of them can be built against one another. To test, run:
 
 ```bash
-nix-shell -A proj.shells.ghc --run 'cabal new-repl lib:rhyolite-backend'
-```
-
-
-### On frontend
-
-```bash
-nix-shell -A proj.shells.ghc --run 'cabal new-repl lib:rhyolite-frontend'
+nix-shell -A proj.shells.ghc --run cabal build test
 ```
