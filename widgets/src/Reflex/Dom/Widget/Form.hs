@@ -13,7 +13,7 @@
 {-# Language UndecidableInstances #-}
 {-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
-module Rhyolite.Frontend.Form where
+module Reflex.Dom.Widget.Form where
 
 import Control.Lens ((%~), makeLenses, preview)
 import Control.Monad

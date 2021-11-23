@@ -47,6 +47,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Move `Account` to `groundhog-legacy-types`. Move backend code for accounts, e.g., `ensureAccountExists` to `Rhyolite.Account.Groundhog` in `groundhog-legacy`.
   * Move `Rhyolite.Schema` to `groundhog-legacy-types`.
   * Rename `datastructures` to `semimap` since it only contains SemiMap.
+  * Move `Rhyolite.Frontend.Widget`, `Rhyolite.Frontend.Form`, and `Rhyolite.Frontend.Modal.*` to `rhyolite-widgets`.
 * New:
   * Add a `Psql` instance for beam's `Pg`
 * Version bumps:

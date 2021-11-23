@@ -6,7 +6,7 @@
 {-# Language OverloadedStrings #-}
 {-# Language RecursiveDo #-}
 {-# Language ScopedTypeVariables #-}
-module Rhyolite.Frontend.Widget where
+module Reflex.Dom.Widget.ExtensibleList where
 
 import Control.Monad.Fix
 import Data.Either.Combinators (rightToMaybe)
