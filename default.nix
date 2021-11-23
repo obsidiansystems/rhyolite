@@ -91,6 +91,7 @@ let
         ver = "1.1";
         sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
       } {};
+      standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
 
     })
   ];
