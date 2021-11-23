@@ -312,7 +312,7 @@ runObeliskRhyoliteWidget ::
   -- ^ Wire format morphism
   -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
-  -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
+  -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'Rhyolite.Backend.App.serveDbOverWebsockets'
   -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
   -> RoutedT t (R frontendRoute) m (Dynamic t (AppWebSocket t qWire), a)
 runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
