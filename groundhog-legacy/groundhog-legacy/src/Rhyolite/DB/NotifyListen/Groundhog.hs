@@ -1,7 +1,8 @@
 {-|
-Description:
-  Legacy adapter for postgres NOTIFY/LISTEN functionality in groundhog-based
-  rhyolite projects.
+Description: Notifications in groundhog
+
+Legacy adapter for postgres NOTIFY/LISTEN functionality in groundhog-based
+rhyolite projects.
 -}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}

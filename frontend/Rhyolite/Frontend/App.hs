@@ -266,34 +266,6 @@ instance
   , MonadQuery t q m
   ) => MonadRhyoliteWidget q r t m
 
--- | Issue a query and produce a dynamic result. Note that the dynamic will
--- only update when the value changes to a new value (updates to the same value
--- will not fire an 'updated' event)
-queryDynUniq ::
-  ( Monad m
-  , Reflex t
-  , MonadQuery t q m
-  , MonadHold t m
-  , MonadFix m
-  , Eq (QueryResult q)
-  )
-  => Dynamic t q
-  -> m (Dynamic t (QueryResult q))
-queryDynUniq = holdUniqDyn <=< queryDyn
-
--- | Synonym for 'queryDynUniq`
-watchViewSelector ::
-  ( Monad m
-  , Reflex t
-  , MonadQuery t q m
-  , MonadHold t m
-  , MonadFix m
-  , Eq (QueryResult q)
-  )
-  => Dynamic t q
-  -> m (Dynamic t (QueryResult q))
-watchViewSelector = queryDynUniq
-
 -- | A collection of common widget constraints
 type MonadWidget' t m =
   ( DomBuilder t m
@@ -499,6 +471,54 @@ openWebSocket url request vs = do
     , _appWebSocket_connected = connected
     }
 
+-- ** Issue queries
+
+-- | Issue a query and produce a dynamic result. Note that the dynamic will
+-- only update when the value changes to a new value (updates to the same value
+-- will not fire an 'updated' event)
+queryDynUniq ::
+  ( Monad m
+  , Reflex t
+  , MonadQuery t q m
+  , MonadHold t m
+  , MonadFix m
+  , Eq (QueryResult q)
+  )
+  => Dynamic t q
+  -> m (Dynamic t (QueryResult q))
+queryDynUniq = holdUniqDyn <=< queryDyn
+
+-- | Synonym for 'queryDynUniq`
+watchViewSelector ::
+  ( Monad m
+  , Reflex t
+  , MonadQuery t q m
+  , MonadHold t m
+  , MonadFix m
+  , Eq (QueryResult q)
+  )
+  => Dynamic t q
+  -> m (Dynamic t (QueryResult q))
+watchViewSelector = queryDynUniq
+
+-- | watch a viewselector defined with a ViewMorphism
+watchView
+  :: forall q partial (a :: *) m t.
+  ( QueryResult q ~ ViewQueryResult q
+  , MonadQuery t q m
+  , Reflex t
+  , MonadHold t m
+  , Alternative partial
+  )
+  => Dynamic t (ViewMorphism Identity partial (Const SelectedCount a) q)
+  -> m (Dynamic t (partial a))
+watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
+-- Reminder to self, this ^^^^^^^^^^^ identity is the QueryResult for the Const g
+-- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
+-- parameter.
+
+
+
 -- * iOS and Android capabilities
 
 -- | Device identifiers
@@ -562,19 +582,3 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
-
--- | watch a viewselector defined with a ViewMorphism
-watchView
-  :: forall q partial (a :: *) m t.
-  ( QueryResult q ~ ViewQueryResult q
-  , MonadQuery t q m
-  , Reflex t
-  , MonadHold t m
-  , Alternative partial
-  )
-  => Dynamic t (ViewMorphism Identity partial (Const SelectedCount a) q)
-  -> m (Dynamic t (partial a))
-watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
--- Reminder to self, this ^^^^^^^^^^^ identity is the QueryResult for the Const g
--- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
--- parameter.

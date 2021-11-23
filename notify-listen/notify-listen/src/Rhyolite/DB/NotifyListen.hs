@@ -1,7 +1,8 @@
 {-|
-Description:
-  Use the postgres NOTIFY/LISTEN commands to distribute information about
-  updates to the database.
+Description: DB notifications
+
+Use the postgres NOTIFY/LISTEN commands to distribute information about updates
+to the database.
 -}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}

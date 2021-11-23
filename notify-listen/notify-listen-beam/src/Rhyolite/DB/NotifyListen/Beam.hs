@@ -1,6 +1,7 @@
 {-|
-Description:
-  Notifications about database changes in beam
+Description: Notifications in beam
+
+Notifications about database changes in beam
 -}
 {-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
