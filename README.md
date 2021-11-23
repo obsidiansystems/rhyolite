@@ -44,11 +44,7 @@ Rhyolite provides:
    ```
 
 1. You can now add any of Rhyolite’s packages as dependencies to your
-   Obelisk project. Here is the full list of packages provided:
-
-   - rhyolite-backend
-   - rhyolite-common
-   - rhyolite-frontend
+   Obelisk project. The packages Rhyolite provides are listed in [cabal.project](cabal.project).
 
 ### Alternative method
 
