@@ -1,4 +1,7 @@
--- | Utilities and templates to send emails from the backend.
+{-| Description: Build and send emails
+
+Utilities and templates to send emails from the backend.
+-}
 
 {-# Language DeriveGeneric #-}
 {-# Language GeneralizedNewtypeDeriving #-}
@@ -26,6 +29,7 @@ import Data.Foldable
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (maybeToList)
+import Data.Signed
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text.Encoding
@@ -41,18 +45,17 @@ import Network.Mail.Mime (Mail)
 import Network.Mail.Mime (Address(..), Mail(..), htmlPart, plainPart)
 import Network.Mail.SMTP (simpleMail)
 import Network.Socket (HostName, PortNumber)
+import Obelisk.Route.Frontend
+import Reflex
+import Reflex.Dom.Builder.Static
+import Rhyolite.Route
 import Text.Blaze.Html.Renderer.Text
 import Text.Blaze.Html5 ((!), Html)
 import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Obelisk.Route.Frontend
-import Reflex
-import Reflex.Dom.Builder.Static
-import Rhyolite.Route
-import Data.Signed
-
+-- | A monad that can send emails
 class Monad m => MonadEmail m where
   sendMail :: Mail -> m ()
 
@@ -65,19 +68,25 @@ instance MonadEmail m => MonadEmail (MaybeT m) where
 instance MonadEmail m => MonadEmail (ExceptT e m) where
   sendMail = lift . sendMail
 
-data SMTPProtocol = SMTPProtocol_Plain
-                  | SMTPProtocol_SSL
-                  | SMTPProtocol_STARTTLS
+-- | SMTP connection protocols
+data SMTPProtocol
+  = SMTPProtocol_Plain
+  | SMTPProtocol_SSL
+  | SMTPProtocol_STARTTLS
   deriving (Show, Read, Eq, Ord, Generic)
 
 instance FromJSON SMTPProtocol
 instance ToJSON SMTPProtocol
 
+-- | Mailserver connection and authentication information
 type EmailEnv = (HostName, SMTPProtocol, PortNumber, UserName, Password)
 
+-- | Send an email using the provided connection info. This function ignores
+-- send errors.
 sendEmail :: EmailEnv -> Mail -> IO ()
 sendEmail ee m = void $ withSMTP ee $ sendMimeMail2 m
 
+-- | Perform an action with a connection to a mailserver (over smtp). E.g., send email.
 withSMTP :: EmailEnv -> (SMTPConnection -> IO a) -> IO (Either Text a)
 withSMTP  (hostname, protocol, port, un, pw) a = let
   go c = do
@@ -101,17 +110,35 @@ instance FromJSON PortNumber where
 instance ToJSON PortNumber where
   toJSON n = toJSON (fromIntegral n :: Word16)
 
-newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailEnv m a } deriving (Functor, Applicative, Monad, MonadIO, MonadRoute r, MonadSign, MonadTrans, MonadLogger)
+-- | A monad transformer that can send emails
+newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailEnv m a }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadRoute r
+    , MonadSign
+    , MonadTrans
+    , MonadLogger
+    )
 
 instance MonadIO m => MonadEmail (EmailT m) where
   sendMail mail = do
     env <- EmailT ask
-    liftIO $ putStrLn $ "Sending email " <> show (map snd $ filter ((=="Subject") . fst) $ mailHeaders mail) <> " to " <> show (map addressEmail $ mailTo mail)
+    liftIO $ putStrLn $ mconcat
+      [ "Sending email "
+      , show (map snd $ filter ((=="Subject") . fst) $ mailHeaders mail)
+      , " to "
+      , show (map addressEmail $ mailTo mail)
+      ]
     liftIO $ sendEmail env mail
 
+-- | Run an 'EmailT' action
 runEmailT :: EmailT m a -> EmailEnv -> m a
 runEmailT = runReaderT . unEmailT
 
+-- | Send an email, specifiying the "from" fields
 sendEmailFrom :: MonadEmail m
               => Text -- ^ Sender name
               -> Text -- ^ Sender email
@@ -127,6 +154,7 @@ sendEmailFrom name' email recipients sub body =
                         sub
                         [htmlPart $ renderHtml body]
 
+-- | Configuration for app-specific emails
 data WidgetEmailCfg br fr = WidgetEmailCfg
   { _widgetEmailName :: Text
   -- ^ Name to use in the "from:" field.
@@ -194,6 +222,7 @@ widgetMail cfg recipients sub plainText bodyWidget = do
     [("Subject", sub), ("Date", formattedTime)]
     [maybeToList (plainPart <$> bodyText) <> [htmlPart body]]
 
+-- | A basic email template
 emailTemplate :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> Html -> m Html
 emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml =
   emailTemplateSimple productName mStyleHtml titleHtml $ H.table $ do
@@ -203,6 +232,7 @@ emailTemplate productName mStyleHtml titleHtml leadHtml contentHtml =
     H.hr
     H.tr $ H.td $ contentHtml
 
+-- | An email template with a predefined layout
 emailTemplateSimple :: (MonadRoute r m, Default r) => Text -> Maybe Html -> Html -> Html -> m Html
 emailTemplateSimple productName mStyleHtml titleHtml contentHtml = do
   indexLink <- routeToUrl def

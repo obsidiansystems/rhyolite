@@ -2,6 +2,7 @@ cabal-version:      2.4
 name:               rhyolite-email
 version:            0.1.0.0
 synopsis:           Send emails from rhyolite applications
+description:        Send emails over SMTP and build emails using blaze or reflex-dom
 homepage:           https://github.com/obsidiansystems/rhyolite
 bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
 license:            BSD-3-Clause
