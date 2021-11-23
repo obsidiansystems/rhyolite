@@ -1,5 +1,7 @@
--- | A class for widget that can have modals. A concrete implementation is in
--- "Rhyolite.Frontend.Modal.Base".
+{-| Description: Class for modal creators
+A class for widget that can have modals. A concrete implementation is in
+"Rhyolite.Frontend.Modal.Base".
+-}
 
 {-# Language DefaultSignatures #-}
 {-# Language FlexibleInstances #-}

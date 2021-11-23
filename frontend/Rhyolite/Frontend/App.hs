@@ -1,8 +1,10 @@
--- | Frontend part of the view/viewselector implementation. Here we have the
--- definition of 'RhyoliteWidget' and the functions to run it,
--- 'runRhyoliteWidget' and 'runObeliskRhyoliteWidget'. We also have the
--- 'watchViewSelector' function that's used in the frontend module of a typical
--- app.
+{-| Description: Connect clients to a rhyolite backend
+
+Frontend part of the view/viewselector implementation. Here we have the
+definition of 'RhyoliteWidget' and the functions to run it, 'runRhyoliteWidget'
+and 'runObeliskRhyoliteWidget'. We also have the 'watchViewSelector' function
+that's used in the frontend module of a typical app.
+-}
 
 {-# Language CPP #-}
 {-# Language ConstraintKinds #-}
@@ -62,8 +64,8 @@ import Rhyolite.Api
 import Rhyolite.WebSocket
 
 import Obelisk.Configs
-import Obelisk.Route hiding (Decoder)
-import Obelisk.Route.Frontend hiding (Decoder)
+import Obelisk.Route
+import Obelisk.Route.Frontend
 
 #if defined(ghcjs_HOST_OS)
 import GHCJS.DOM.Types (MonadJSM, pFromJSVal)
@@ -73,6 +75,10 @@ import GHCJS.DOM.Types (MonadJSM(..))
 
 import Data.Vessel
 import Data.Vessel.ViewMorphism
+
+-- * Viewselectors / Queries
+
+-- ** Convert to wire format
 
 -- | This query morphism translates between queries with SelectedCount
 -- annotations used in the frontend to do reference counting, and un-annotated
@@ -110,17 +116,22 @@ vesselToWire = QueryMorphism
   , _queryMorphism_mapQueryResult = id
   }
 
+-- * Widgets that can make requests/queries
+
+-- | Encapsulates the widget's ability to make requests and issue queries
 type RhyoliteWidgetInternal q r t m = QueryT t q (RequesterT t r Identity m)
 
+-- | A widget that can make requests and issue view selectors
 newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: RhyoliteWidgetInternal q r t m a }
   deriving (Functor, Applicative, Monad, MonadIO, MonadFix, MonadException, HasCookies)
 
-deriving instance ( Group q
-                  , Additive q
-                  , Query q
-                  , Reflex t
-                  , Monad m)
-                  => MonadQuery t q (RhyoliteWidget q r t m)
+deriving instance
+  ( Group q
+  , Additive q
+  , Query q
+  , Reflex t
+  , Monad m
+  ) => MonadQuery t q (RhyoliteWidget q r t m)
 
 #if !defined(ghcjs_HOST_OS)
 instance MonadJSM m => MonadJSM (RhyoliteWidget q r t m) where
@@ -209,14 +220,15 @@ instance (Monad m, SetRoute t route m) => SetRoute t route (RhyoliteWidget q r t
 instance (Monad m, RouteToUrl route m) => RouteToUrl route (RhyoliteWidget q r t m) where
   askRouteToUrl = lift askRouteToUrl
 
-deriving instance ( Reflex t
-                  , Prerender js t m
-                  , MonadFix m
-                  , Eq q
-                  , Group q
-                  , Additive q
-                  , Query q
-                  ) => Prerender js t (RhyoliteWidget q r t m)
+deriving instance
+  ( Reflex t
+    , Prerender js t m
+    , MonadFix m
+    , Eq q
+    , Group q
+    , Additive q
+    , Query q
+  ) => Prerender js t (RhyoliteWidget q r t m)
 
 instance PrimMonad m => PrimMonad (RhyoliteWidget q r t m) where
   type PrimState (RhyoliteWidget q r t m) = PrimState m
@@ -224,7 +236,8 @@ instance PrimMonad m => PrimMonad (RhyoliteWidget q r t m) where
 
 deriving instance DomRenderHook t m => DomRenderHook t (RhyoliteWidget q r t m)
 
--- | This synonym adds constraints to MonadRhyoliteWidget that are only available on the frontend, and not via backend rendering.
+-- | This synonym adds constraints to MonadRhyoliteWidget that are only
+-- available on the frontend, and not via backend rendering.
 type MonadRhyoliteFrontendWidget q r t m =
     ( MonadRhyoliteWidget q r t m
     , DomBuilderSpace m ~ GhcjsDomSpace
@@ -232,47 +245,56 @@ type MonadRhyoliteFrontendWidget q r t m =
     , MonadIO (Performable m)
     )
 
-class ( MonadWidget' t m
-      , Requester t m
-      , R.Request m ~ r
-      , Response m ~ Identity
-      , Group q
-      , Additive q
-      , MonadQuery t q m
-      ) => MonadRhyoliteWidget q r t m | m -> q r where
+-- | Just a collection of constraints
+class
+  ( MonadWidget' t m
+  , Requester t m
+  , R.Request m ~ r
+  , Response m ~ Identity
+  , Group q
+  , Additive q
+  , MonadQuery t q m
+  ) => MonadRhyoliteWidget q r t m | m -> q r where
 
-instance ( MonadWidget' t m
-         , Requester t m
-         , R.Request m ~ r
-         , Response m ~ Identity
-         , Group q
-         , Additive q
-         , MonadQuery t q m
-         ) => MonadRhyoliteWidget q r t m
+instance
+  ( MonadWidget' t m
+  , Requester t m
+  , R.Request m ~ r
+  , Response m ~ Identity
+  , Group q
+  , Additive q
+  , MonadQuery t q m
+  ) => MonadRhyoliteWidget q r t m
 
-queryDynUniq :: ( Monad m
-                , Reflex t
-                , MonadQuery t q m
-                , MonadHold t m
-                , MonadFix m
-                , Eq (QueryResult q)
-                )
-             => Dynamic t q
-             -> m (Dynamic t (QueryResult q))
+-- | Issue a query and produce a dynamic result. Note that the dynamic will
+-- only update when the value changes to a new value (updates to the same value
+-- will not fire an 'updated' event)
+queryDynUniq ::
+  ( Monad m
+  , Reflex t
+  , MonadQuery t q m
+  , MonadHold t m
+  , MonadFix m
+  , Eq (QueryResult q)
+  )
+  => Dynamic t q
+  -> m (Dynamic t (QueryResult q))
 queryDynUniq = holdUniqDyn <=< queryDyn
 
-watchViewSelector :: ( Monad m
-                     , Reflex t
-                     , MonadQuery t q m
-                     , MonadHold t m
-                     , MonadFix m
-                     , Eq (QueryResult q)
-                     )
-                  => Dynamic t q
-                  -> m (Dynamic t (QueryResult q))
+-- | Synonym for 'queryDynUniq`
+watchViewSelector ::
+  ( Monad m
+  , Reflex t
+  , MonadQuery t q m
+  , MonadHold t m
+  , MonadFix m
+  , Eq (QueryResult q)
+  )
+  => Dynamic t q
+  -> m (Dynamic t (QueryResult q))
 watchViewSelector = queryDynUniq
 
---TODO: HasDocument is still not accounted for
+-- | A collection of common widget constraints
 type MonadWidget' t m =
   ( DomBuilder t m
   , MonadFix m
@@ -294,6 +316,9 @@ type MonadWidget' t m =
   , Ref (Performable m) ~ Ref IO
   )
 
+-- ** Run a rhyolite frontend
+
+-- | Runs a rhyolite frontend widget that uses obelisk routing. See 'runRhyoliteWidget'.
 runObeliskRhyoliteWidget ::
   ( PerformEvent t m
   , TriggerEvent t m
@@ -312,6 +337,7 @@ runObeliskRhyoliteWidget ::
   , ToJSON qWire
   )
   => QueryMorphism qFrontend qWire
+  -- ^ Wire format morphism
   -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'serveDbOverWebsockets'
@@ -327,6 +353,8 @@ runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
   let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
   lift $ runRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
 
+-- | Runs a rhyolite frontend widget that opens a websocket connection and can
+-- issue requests and queries over that connection.
 runRhyoliteWidget
    :: forall qFrontend qWire req m t b x.
       ( PerformEvent t m
@@ -345,8 +373,11 @@ runRhyoliteWidget
       , ToJSON qWire
       )
   => QueryMorphism qFrontend qWire
+  -- ^ Wire format morphism for queries
   -> Text
+  -- ^ Websocket url
   -> RhyoliteWidget qFrontend req t m b
+  -- ^ The widget to run. This widget can make requests/queries
   -> m (Dynamic t (AppWebSocket t qWire), b)
 runRhyoliteWidget toWire url child = do
   let defAppWebSocket = AppWebSocket
@@ -356,7 +387,7 @@ runRhyoliteWidget toWire url child = do
           , _appWebSocket_connected = constDyn False
           }
   rec (dAppWebSocket :: Dynamic t (AppWebSocket t qWire)) <- prerender (return defAppWebSocket) $ do
-          openWebSocket' url request'' nubbedVs
+          openWebSocket url request'' nubbedVs
       let (notification :: Event t (QueryResult qWire), response) = (bimap (switch . current) (switch . current) . splitDynPure) $
             ffor dAppWebSocket $ \appWebSocket ->
             ( _appWebSocket_notification appWebSocket
@@ -380,8 +411,18 @@ runRhyoliteWidget toWire url child = do
         _ -> Nothing
       )
 
-fromNotifications
-  :: forall m (t :: *) q. (Query q, MonadHold t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), Reflex t, MonadFix m, Monoid (QueryResult q))
+-- | Receive the results of a 'Query' as a stream of 'Event's and combine them
+-- into a 'Dynamic' 'QueryResult'
+fromNotifications :: forall m (t :: *) q.
+  ( Query q
+  , MonadHold t m
+  , PerformEvent t m
+  , TriggerEvent t m
+  , MonadIO (Performable m)
+  , Reflex t
+  , MonadFix m
+  , Monoid (QueryResult q)
+  )
   => Dynamic t q
   -> Event t (QueryResult q)
   -> m (Dynamic t (QueryResult q))
@@ -391,8 +432,8 @@ fromNotifications vs ePatch = do
   where
     lag e = performEventAsync $ ffor e $ \a cb -> liftIO $ cb a
 
-data Decoder f = forall a. FromJSON a => Decoder (f a)
-
+-- | Information pertaining to a websocket connection, including received
+-- messages and connection state
 data AppWebSocket t q = AppWebSocket
   { _appWebSocket_notification :: Event t (QueryResult q)
   , _appWebSocket_response :: Event t TaggedResponse
@@ -400,8 +441,9 @@ data AppWebSocket t q = AppWebSocket
   , _appWebSocket_connected :: Dynamic t Bool
   }
 
--- | Open a websocket connection and split resulting incoming traffic into listen notification and api response channels
-openWebSocket'
+-- | Open a websocket connection and split resulting incoming traffic into
+-- listen notification and api response channels
+openWebSocket
   :: forall r q t x m.
      ( MonadJSM m
      , MonadJSM (Performable m)
@@ -420,7 +462,7 @@ openWebSocket'
   -> Event t [TaggedRequest r] -- ^ Outbound requests
   -> Dynamic t q -- ^ Authenticated listen requests (e.g., ViewSelector updates)
   -> m (AppWebSocket t q)
-openWebSocket' url request vs = do
+openWebSocket url request vs = do
   rec
     let
 #if defined(ghcjs_HOST_OS)
@@ -457,31 +499,9 @@ openWebSocket' url request vs = do
     , _appWebSocket_connected = connected
     }
 
-openWebSocket
-  :: forall t x m r q.
-     ( MonadJSM m
-     , MonadJSM (Performable m)
-     , PostBuild t m
-     , TriggerEvent t m
-     , PerformEvent t m
-     , HasJSContext m
-     , HasJS x m
-     , MonadFix m
-     , MonadHold t m
-     , Request r
-     , FromJSON (QueryResult q)
-     , ToJSON q
-     )
-  => Text -- ^ A complete URL
-  -> Event t [TaggedRequest r] -- ^ Outbound requests
-  -> Dynamic t q -- ^ current ViewSelector
-  -> m ( Event t (QueryResult q)
-       , Event t TaggedResponse
-       )
-openWebSocket murl request vs = do
-  aws <- openWebSocket' murl request vs
-  return (_appWebSocket_notification aws, _appWebSocket_response aws)
+-- * iOS and Android capabilities
 
+-- | Device identifiers
 data DeviceToken = DeviceToken_Android Text
                  | DeviceToken_iOS Text
   deriving (Show, Read, Eq, Ord, Generic)
@@ -489,6 +509,7 @@ data DeviceToken = DeviceToken_Android Text
 instance FromJSON DeviceToken
 instance ToJSON DeviceToken
 
+-- | Configuration for mobile-specific capabilities
 data FrontendConfig = FrontendConfig
   { _frontendConfig_registerDeviceForNotifications :: Maybe (DeviceToken -> IO ())
   , _frontendConfig_uriCallback :: Maybe (URI -> IO ())
@@ -501,6 +522,8 @@ instance Default FrontendConfig where
     , _frontendConfig_uriCallback = Nothing
     , _frontendConfig_warpPort = 3911
     }
+
+-- * Credential management
 
 -- | Map application credentials into an "authenticated" subwidget
 -- This relieves us of having to carry around application credentials in parts of the application

@@ -6,6 +6,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Removed `Rhyolite.Request.Common`, now using functions from Aeson directly. Use `decode'` instead of `decodeValue'`.
 
 * Breaking changes:
+  * Rename `Rhyolite.Frontend.App.openWebSocket'` to `openWebSocket` and remove the previous definition of `openWebSocket`. To get the same output as before: `(_appWebSocket_notification x, _appWebSocket_response x)`.
   * Remove the `rhyolite-backend-snap` package. It has been released as [snap-stream](https://hackage.haskell.org/package/snap-stream). Use that package instead.
   * Remove the `backend-db` package. See the [groundhog-legacy migration guide](groundhog-legacy/README.md) and the notes below:
     * Remove `Rhyolite.Backend.DB.PsqlSimple.Orphans`. Changes have been moved our fork of [postgresql-simple](https://github.com/obsidiansystems/postgresql-simple).

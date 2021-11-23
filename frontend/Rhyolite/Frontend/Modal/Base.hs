@@ -1,5 +1,10 @@
--- | Modal widgets. The important definition here is 'ModalT', the related
--- class is in "Rhyolite.Frontend.Modal.Class".
+{-|
+Description:
+  Modal widgets
+
+The important definition here is 'ModalT', the related class is
+in "Rhyolite.Frontend.Modal.Class".
+-}
 
 {-# Language CPP #-}
 {-# Language DataKinds #-}
@@ -46,6 +51,7 @@ instance (Reflex t, Monad m) => HasModal t (ModalT t modalM m) where
   type ModalM (ModalT t modalM m) = modalM
   tellModal = ModalT . tellEvent . fmap First
 
+-- | Modal monad transformer
 newtype ModalT t modalM m a
   = ModalT { unModalT :: EventWriterT t (First (Event t () -> modalM (Event t ()))) m a }
   deriving
