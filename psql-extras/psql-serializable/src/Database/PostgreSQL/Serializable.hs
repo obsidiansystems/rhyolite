@@ -9,6 +9,7 @@ module Database.PostgreSQL.Serializable
   , unsafeMkSerializable
   , unSerializable
   , runSerializable
+  , runSerializableInsideTransaction
   , unsafeHoistCoerceFromReaderT
   ) where
 
@@ -51,6 +52,9 @@ runSerializable :: forall a m. (MonadIO m) => Pool Pg.Connection -> Logger -> Se
 runSerializable pool logger (Serializable act) = liftIO $ withResource pool $ \c ->
   Pg.withTransactionSerializable c $
     runLoggerLoggingT (runReaderT act c) logger
+
+runSerializableInsideTransaction :: forall a m. (MonadIO m) => Pg.Connection -> Logger -> Serializable a -> m a
+runSerializableInsideTransaction conn logger (Serializable act) = liftIO $ runLoggerLoggingT (runReaderT act conn) logger
 
 unsafeHoistCoerceFromReaderT :: forall f. (forall a b. Coercible a b => Coercible (f a) (f b)) => f (ReaderT Pg.Connection (LoggingT IO)) -> f Serializable 
 unsafeHoistCoerceFromReaderT = coerce
