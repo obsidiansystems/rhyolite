@@ -9,7 +9,6 @@
 module Rhyolite.Task.Beam where
 
 import Control.Lens.TH
-import Control.Lens.Type
 import Data.Text (Text)
 
 import Database.Beam
@@ -29,20 +28,4 @@ data Task i o f = Task
   , _taskCheckedOutBy :: C f (Maybe Text)
   } deriving (Generic, Beamable)
 
-makeLensesWith (lensRulesFor
-  [ ("_taskPayload", "taskPayload'")
-  , ("_taskResult", "taskResult'")
-  , ("_taskCheckedOutBy", "taskCheckoutBy'")
-  ]) ''Task
-
-class HasTask t i o | t -> i o where
-  task :: forall f. Lens' (t f) (Task i o f)
-  taskCheckedOutBy :: forall f. Lens' (t f) (C f (Maybe Text))
-  taskCheckedOutBy = task . taskCheckoutBy'
-  taskPayload :: forall f. Lens' (t f) (C f i)
-  taskPayload = task . taskPayload'
-  taskResult :: forall f. Lens' (t f) (C f (Maybe o))
-  taskResult = task . taskResult'
-
-instance HasTask (Task i o) i o where
-  task = id
+makeLenses ''Task
