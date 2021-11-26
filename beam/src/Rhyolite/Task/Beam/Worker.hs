@@ -1,6 +1,8 @@
 {-# Language FlexibleContexts #-}
-{-# Language TypeFamilies #-}
 {-# Language RankNTypes #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeApplications #-}
+{-# Language TypeFamilies #-}
 -- | Utility functions for creating worker threads, and Beam specific task workers for running SQL.
 module Rhyolite.Task.Beam.Worker where
 
@@ -34,8 +36,9 @@ import Rhyolite.Task.Beam
 -- Once it has the output of that action, it sets the output as the result of the task,
 -- thereby marking it as completed.
 taskWorker ::
+  forall m be db f table a b.
   ( MonadIO m, MonadLoggerIO m, Database be db
-  , Beamable table, Table table, HasTask (table f) a b f
+  , Beamable table, Table table, HasTask table a b
   , FromBackendRow be (PrimaryKey table Identity)
   , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
   , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
@@ -60,14 +63,14 @@ taskWorker dbConn table ready go workerName = do
       primaryKeyAndInput <- runSelectReturningOne $ select $
         -- Only lock one row (limit_ 1)
         lockingAllTablesFor_ PgSelectLockingStrengthUpdate Nothing $ limit_ 1 $ do
-          task <- all_ table
+          task' <- all_ table
 
           -- Both task fields should be empty for an unclaimed task
           -- Also apply any other filters that may have been passed, using ready
-          guard_ $ isNothing_ (task ^. taskResult) &&. isNothing_ (task ^. taskCheckedOutBy) &&. ready
+          guard_ $ isNothing_ (task' ^. taskResult @_ @_ @_ @f) &&. isNothing_ (task' ^. taskCheckedOutBy) &&. ready
 
           -- Return the primary key (task id) along with a custom field that the user asked for.
-          pure (primaryKey task, task ^. taskPayload)
+          pure (primaryKey task', task' ^. taskPayload)
 
       -- In case we did not find any rows, no update SQL will be run
       -- The row lock that we acquired above will be reset when the transaction ends.
@@ -75,8 +78,8 @@ taskWorker dbConn table ready go workerName = do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
           update table
-            (\task -> task ^. taskCheckedOutBy <-. val_ (Just workerName))
-            (\task -> primaryKey task ==. val_ taskId)
+            (\task' -> (task' ^. taskCheckedOutBy) <-. val_ (Just workerName))
+            (\task' -> primaryKey task' ==. val_ taskId)
 
         runSerializableInsideTransaction dbConn (Logger logger) $ (,) taskId <$> go input
     -- END Transaction, release row lock
@@ -94,10 +97,10 @@ taskWorker dbConn table ready go workerName = do
 
         -- Update the task's result field, set checked out field to null
         runUpdate $ update table
-          (\task -> mconcat
-            [ task ^. taskResult <-. val_ (Just b)
-            , task ^. taskCheckedOutBy <-. val_ Nothing])
-          (\task -> primaryKey task ==. val_ taskId)
+          (\task' -> mconcat
+            [ task' ^. taskResult <-. val_ (Just b)
+            , task' ^. taskCheckedOutBy <-. val_ Nothing])
+          (\task' -> primaryKey task' ==. val_ taskId)
       -- END Transaction
 
       pure True
