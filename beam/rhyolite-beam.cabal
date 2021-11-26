@@ -23,6 +23,7 @@ library
     , base
     , beam-core
     , beam-postgres
+    , lens
     , lifted-base
     , monad-logger
     , monad-logger-extras
