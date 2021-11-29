@@ -1,6 +1,8 @@
 {-# Language FlexibleContexts #-}
 {-# Language TypeFamilies #-}
--- | Utility functions for using Beam with Postgres
+{-|
+Description : Utility functions for using Beam with Postgres Transactions.
+-}
 module Rhyolite.DB.Beam where
 
 import Database.Beam

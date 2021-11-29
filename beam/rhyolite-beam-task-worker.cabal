@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               rhyolite-beam
+name:               rhyolite-beam-task-worker
 version:            0.1.0.0
 synopsis:           Beam based task workers.
 homepage:           https://github.com/obsidiansystems/rhyolite
@@ -38,3 +38,20 @@ library
   hs-source-dirs:   src
   default-language: Haskell2010
   ghc-options:      -Wall
+
+test-suite test
+  type:           exitcode-stdio-1.0
+  main-is:        Test.hs
+  hs-source-dirs: test
+  build-depends:
+      base
+    , beam-core
+    , beam-postgres
+    , hspec
+    , lens
+    , monad-logger
+    , postgresql-simple
+    , psql-serializable
+    , rhyolite-beam-task-worker
+    , text
+    , transformers

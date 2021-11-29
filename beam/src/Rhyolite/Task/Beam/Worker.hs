@@ -1,9 +1,10 @@
 {-# Language FlexibleContexts #-}
 {-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
-{-# Language TypeApplications #-}
 {-# Language TypeFamilies #-}
--- | Utility functions for creating worker threads, and Beam specific task workers for running SQL.
+{-|
+Description : Utility functions for creating worker threads, and Beam specific task workers for running SQL.
+-}
 module Rhyolite.Task.Beam.Worker where
 
 import Control.Concurrent
@@ -22,7 +23,6 @@ import Data.Text (Text)
 import Database.Beam
 import Database.Beam.Backend.SQL
 import Database.Beam.Postgres
-import Database.Beam.Postgres.Full
 import Database.Beam.Postgres.Syntax
 import Database.Beam.Query.Internal (QNested)
 import Database.Beam.Schema.Tables
@@ -43,11 +43,11 @@ taskWorker ::
   , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
   , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
   , FromBackendRow be a, HasSqlValueSyntax PgValueSyntax b
-  , be ~ Postgres, f ~ QExpr be (QNested (QNested QBaseScope)))
+  , be ~ Postgres, f ~ QExpr be (QNested QBaseScope))
   => Connection -- ^ Connection to the database
   -> DatabaseEntity be db (TableEntity table) -- ^ A table containing embedded tasks.
   -> f Bool -- ^ A filter for selecting tasks from the table.
-  -> (forall x. Lens' (table x) (Task a b x))
+  -> (forall x. Lens' (table x) (Task a b x)) -- ^ Lens for retrieving a task from the table.
   -> (a -> Serializable (m (Serializable b))) -- ^ The action, whose output is set as the result of the task.
   -> Text -- ^ Name of the worker
   -> m Bool
@@ -61,9 +61,7 @@ taskWorker dbConn table ready field go workerName = do
     -- 2. Update this task to reflect that it has been checked out by current worker
     -- 3. Perform the serializable task
     withTransactionSerializableRunBeamPostgres dbConn $ do
-      primaryKeyAndInput <- runSelectReturningOne $ select $
-        -- Only lock one row (limit_ 1)
-        lockingAllTablesFor_ PgSelectLockingStrengthUpdate Nothing $ limit_ 1 $ do
+      primaryKeyAndInput <- runSelectReturningOne $ select $ limit_ 1 $ do
           task <- all_ table
 
           -- Both task fields should be empty for an unclaimed task

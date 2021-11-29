@@ -53,6 +53,8 @@ runSerializable pool logger (Serializable act) = liftIO $ withResource pool $ \c
   Pg.withTransactionSerializable c $
     runLoggerLoggingT (runReaderT act c) logger
 
+-- | Run a @Serializable@ inside a Postgres Transaction. Note that this function does not create a transaction on
+-- its own, that responsibility lies with the function that invokes it.
 runSerializableInsideTransaction :: forall a m. (MonadIO m) => Pg.Connection -> Logger -> Serializable a -> m a
 runSerializableInsideTransaction conn logger (Serializable act) = liftIO $ runLoggerLoggingT (runReaderT act conn) logger
 
