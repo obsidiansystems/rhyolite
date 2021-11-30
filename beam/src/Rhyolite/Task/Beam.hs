@@ -4,6 +4,7 @@
 {-# Language FunctionalDependencies #-}
 {-# Language KindSignatures #-}
 {-# Language RankNTypes #-}
+{-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
 {-|
 Description : Contains definitions for tasks, and tables that have tasks.
@@ -34,5 +35,7 @@ data Task i o f = Task
   , _taskResult :: C f (Maybe o) -- ^ Will contain the output of the task worker, once it is available. Till then, it will be Nothing.
   , _taskCheckedOutBy :: C f (Maybe Text) -- ^ Will contain the task worker name. It is equal to Nothing till it gets assigned.
   } deriving (Generic, Beamable)
+
+deriving instance (Eq i, Eq o) => Eq (Task i o Identity)
 
 makeLenses ''Task

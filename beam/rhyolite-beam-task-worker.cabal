@@ -44,14 +44,18 @@ test-suite test
   main-is:        Test.hs
   hs-source-dirs: test
   build-depends:
-      base
+    -- Base version 4.7 required to make readMVar multiple blocking
+      base >= 4.7
     , beam-core
     , beam-postgres
+    , gargoyle-postgresql-connect
     , hspec
     , lens
     , monad-logger
     , postgresql-simple
     , psql-serializable
+    , resource-pool
     , rhyolite-beam-task-worker
     , text
     , transformers
+  ghc-options:    -threaded
