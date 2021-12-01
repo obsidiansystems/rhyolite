@@ -1,71 +1,34 @@
-{-# Language DeriveAnyClass #-}
-{-# Language DeriveGeneric #-}
-{-# Language FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# Language StandaloneDeriving #-}
-{-# Language TemplateHaskell #-}
-{-# Language TypeFamilies #-}
-
 module Main where
 
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO, threadDelay, ThreadId)
 import Control.Concurrent.MVar
 import Control.Exception
-import Control.Lens.TH
-import Control.Monad (void)
-import Control.Monad.Logger
-import Control.Monad.Trans.Reader
-import Data.IORef
+import Control.Monad (forM_, void, zipWithM_)
 import Data.Int (Int32)
+import Data.IORef
 import Data.List (sort)
+import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Pool (withResource)
-import Data.String (fromString)
-import Data.Text (Text)
-
+import Data.Text (Text, pack)
 import Database.Beam
 import Database.Beam.Postgres
 import Database.PostgreSQL.Simple
+import Database.PostgreSQL.Serializable
 import Gargoyle.PostgreSQL.Connect
-
 import Test.Hspec
 
-import Database.PostgreSQL.Serializable
 import Rhyolite.Task.Beam
 import Rhyolite.Task.Beam.Worker
 
-data TestTaskT f = TestTask
-  { _taskDetails :: Task Text Bool f
-  , _taskId :: C f Int32
-  } deriving (Generic, Beamable)
-
-makeLenses ''TestTaskT
-
-type TestTask = TestTaskT Identity
-type TestTaskId = PrimaryKey TestTaskT Identity
-
-deriving instance Eq TestTask
-
-instance Table TestTaskT where
-   data PrimaryKey TestTaskT f = TestTaskId (Columnar f Int32) deriving (Generic, Beamable)
-   primaryKey = TestTaskId . _taskId
-
-newtype TestTasksDb f = TestTasksDb
-  { _tasks :: f (TableEntity TestTaskT) }
-    deriving (Generic, Database be)
-
-tasksDb :: DatabaseSettings be TestTasksDb
-tasksDb = defaultDbSettings `withDbModification`
-  dbModification {
-    _tasks =
-      modifyTableFields (TestTask taskFields "id")
-  }
-  where
-    taskFields = Task (fromString "payload") (fromString "result") (fromString "checked_out_by")
+import Types
+import Utils
 
 setupDB :: IO Connection
 setupDB = do
   dbConn <- connect defaultConnectInfo
-  execute dbConn "create table tasks (payload varchar(30) NOT NULL, result boolean, checked_out_by varchar(30), id integer PRIMARY KEY);" ()
+  execute dbConn "create table tasks (payload integer NOT NULL, result boolean, checked_out_by varchar(30), id integer PRIMARY KEY);" ()
   pure dbConn
 
 closeDB :: Connection -> IO ()
@@ -73,178 +36,205 @@ closeDB dbConn = do
   execute dbConn "drop table tasks;" ()
   close dbConn
 
--- withDB :: (Connection -> IO ()) -> IO ()
--- withDB = bracket setupDB closeDB
-
 withDB :: (Connection -> IO ()) -> IO ()
-withDB f = withDb "db" $ \pool -> withResource pool f
+withDB = bracket setupDB closeDB
 
-instance MonadLogger IO where
-  monadLoggerLog _ _ _ msg = print $ toLogStr msg
+-- withDB :: (Connection -> IO ()) -> IO ()
+-- withDB f = withDb "db" $ \pool -> withResource pool f
 
-instance MonadLoggerIO IO where
-  askLoggerIO = pure (\_ _ _ logStr -> print logStr)
-
-data TestException = TestException
-   deriving (Show, Typeable)
-
-instance Exception TestException
+-- Time taken to process one task - 100ms
+timeForOneTask :: Int
+timeForOneTask = 100 * 1000
 
 main :: IO ()
-main = hspec $ around withDB $ do
-  describe "taskWorker" $ do
-    it "works functionally, bare minimum test" $ \c -> do
-      boolRef <- newIORef False
+main = do
+  hspec $ around withDB $ do
+    describe "taskWorker" $ do
+      -- TEST 1
+      --   Creates a task that toggles a boolean. Tests functionally that everything works.
+      it "works functionally, bare minimum test" $ \c -> do
+        -- SETUP
+        -- Create an IORef which will be toggled by the worker
+        -- Add a task to the table
+        let
+          initBool = False
+        boolRef <- newIORef initBool
+        insertTestTasks c [ createTask 1 ]
 
-      runBeamPostgres c $ runInsert $
-        insert (_tasks tasksDb) $
-        insertValues
-          [ TestTask (Task "Toggle an IORef Bool" Nothing Nothing) 1 ]
+        -- ACT
+        -- Create a task worker which toggles the boolean IORef
+        ret <- createTaskWorker c (toggleBoolIORef boolRef False) "Test-Worker"
 
-      -- The worker should not have failed
-      taskWorker c (_tasks tasksDb) (val_ True) taskDetails (\_ -> do
-        pure $ do
-          atomicModifyIORef boolRef (const (True, ()))
-          pure $ pure True
-        ) "Test-Worker" `shouldReturn` True
+        -- ASSERT
+        -- The worker should have updated the database with its task result
+        -- The worker should not have failed
+        -- The worker should have completed its task
+        maybeTask <- justOneTestTask c
+        case maybeTask of
+          Nothing -> do
+            fail "There should have been 1 row in the tasks table"
+            pure ()
+          Just (TestTask (Task _ result checkedOutBy) _) -> do
+            result `shouldBe` Just True
+            checkedOutBy `shouldBe` Nothing
+        ret `shouldBe` True
+        readIORef boolRef `shouldReturn` not initBool
 
-      maybeTask <- runBeamPostgres c $ runSelectReturningOne $
-        select $ all_ (_tasks tasksDb)
+      -- TEST 2
+      --   Creates a task that fails. Tests that even on failure, the task is checked out by the worker.
+      it "fails, keeps row in database" $ \c -> do
+        -- SETUP
+        -- Create an IORef bool that should be toggled by the worker task.
+        -- Insert a single task into the table
+        let
+          initBool = False
+          workerName = "Test-Worker"
+        boolRef <- newIORef initBool
+        insertTestTasks c [ createTask 1 ]
 
-      -- The worker should have updated the database with its task result
-      case maybeTask of
-        Nothing -> do
-          fail "There should have been 1 row in the tasks table"
-          pure ()
-        Just (TestTask (Task _ result checkedOutBy) _) -> do
-          result `shouldBe` Just True
-          checkedOutBy `shouldBe` Nothing
+        -- ACT
+        -- Create a task worker which fails (throws an exception)
+        e <- try $ createTaskWorker c (toggleBoolIORef boolRef True) workerName
 
-      -- The worker should have completed its task
-      readIORef boolRef `shouldReturn` True
-    
-    it "fails, keeps row in database" $ \c -> do
-      boolRef <- newIORef False
+        -- ASSERT
+        -- The task should have failed with a `TestException`
+        -- The worker should have updated the database with its task result
+        -- The worker failed its task, so the ioref should still be false
+        e `shouldBe` Left TestException
+        maybeTask <- justOneTestTask c
+        case maybeTask of
+          Nothing -> do
+            fail "There should have been 1 row in the tasks table"
+            pure ()
+          Just (TestTask (Task _ _ checkedOutBy) _) -> checkedOutBy `shouldBe` Just workerName
+        readIORef boolRef `shouldReturn` initBool
 
-      runBeamPostgres c $ runInsert $
-        insert (_tasks tasksDb) $
-        insertValues
-          [ TestTask (Task "Toggle an IORef Bool" Nothing Nothing) 1 ]
+      -- TEST 3
+      --   Adds two tasks to the table, then creates two workers. Both these workers will be blocked from
+      --   finishing their task by reading an MVar. By this time they should have checked out one task each.
+      --   Once this has been verified, we unblock both tasks, and let them finish.
+      --   NOTE: We will require two connections for this test,
+      --         since Postgresql shows a warning when we run 2 transactions from the same connection
+      it "works concurrently, 2 workers" $ \c1 -> do
+        -- SETUP
+        -- Create an MVar which will be used to block both the workers once they have retrieved tasks from the table.
+        -- Create an IORef Int which will be used inside worker task as an increment action
+        -- Add two separate tasks to the table
+        -- Create the second connection
+        let
+          initCount = 0
+          workerNames = ["Test-Worker 1", "Test-Worker 2"]
+        awakenMVar <- newEmptyMVar :: IO (MVar ())
+        countRef <- newIORef initCount
+        insertTestTasks c1 $ map createTask [1, 2]
+        c2 <- connect defaultConnectInfo
 
-      -- The worker should not have failed
-      taskWorker c (_tasks tasksDb) (val_ True) taskDetails (\_ -> do
-        pure $ do
-          -- Throw an exception to signal failure
-          throw TestException
-          atomicModifyIORef boolRef (const (True, ()))
-          pure $ pure True
-        ) "Test-Worker" `shouldThrow` anyException
+        -- ACT
+        -- Spawn two workers in separate threads
+        let
+          work = const $ pure $ do
+            -- Block on awakenMVar
+            () <- readMVar awakenMVar
+            atomicModifyIORef countRef (\i -> (i+1, ()))
+            pure $ pure True
+        zipWithM_ (spawnTaskWorker work) [c1, c2] workerNames
 
-      maybeTask <- runBeamPostgres c $ runSelectReturningOne $
-        select $ all_ (_tasks tasksDb)
+        -- ASSERT
+        -- Wait for both workers to block
+        -- Both workers should have retrieved tasks from the table and blocked by now
+        -- Both tasks should have been checkedout
+        threadDelay $ 3 * timeForOneTask
+        tasks <- allTestTasks c1
+        sort (map (_taskCheckedOutBy . _taskDetails) tasks) `shouldBe` map Just workerNames
 
-      -- The worker should have updated the database with its task result
-      case maybeTask of
-        Nothing -> do
-          fail "There should have been 1 row in the tasks table"
-          pure ()
-        Just (TestTask (Task _ _ checkedOutBy) _) -> checkedOutBy `shouldBe` Just "Test-Worker"
+        -- ACT
+        -- Unblock both workers
+        -- Wait for both workers to finish
+        putMVar awakenMVar ()
+        threadDelay $ 3 * timeForOneTask
 
-      -- The worker failed its task, so the ioref should still be false
-      readIORef boolRef `shouldReturn` False
+        -- ASSERT
+        -- Both tasks should have been completed by now, and updated in the table
+        -- Both tasks should have `checked_out_by` set to null
+        -- Both tasks' result should be Just True
+        -- The increment task should also have been completed
+        tasks <- allTestTasks c1
+        map (_taskCheckedOutBy . _taskDetails) tasks `shouldBe` replicate 2 Nothing
+        map (_taskResult . _taskDetails) tasks `shouldBe` replicate 2 (Just True)
+        readIORef countRef `shouldReturn` (initCount + 2)
+        close c2
 
-    it "works concurrently, 2 workers" $ \c1 -> do
-      -- MVar which will be used to block both the workers once they have retrieved tasks from the table.
-      awakenMVar <- newEmptyMVar :: IO (MVar ())
+      -- TEST 4
+      --   Create a worker with a task that will never run, since the table only has
+      --   completed or already checked-out tasks.
+      it "never picks up a checked out or completed task" $ \c -> do
+        -- SETUP
+        -- Create a boolean IORef that will be modified by the worker
+        -- Add two separate tasks to the table
+        let
+          initBool = False
+          tasks =
+            [ TestTask (Task 1 (Just True) Nothing) 1 -- Completed Task
+            , TestTask (Task 2 Nothing (Just "Test-Worker 1")) 2 -- Task already checked out
+            ]
+        boolRef <- newIORef initBool
+        insertTestTasks c tasks
 
-      -- Will be used inside worker task as an increment action
-      countRef <- newIORef 0
+        -- ACT
+        -- Spawn a worker in a separate thread
+        spawnTaskWorker (toggleBoolIORef boolRef False) c "Test-Worker 2"
 
-      -- Add two separate tasks to the table
-      runBeamPostgres c1 $ runInsert $
-        insert (_tasks tasksDb) $
-        insertValues
-          [ TestTask (Task "Toggle an IORef Bool" Nothing Nothing) 1
-          , TestTask (Task "Toggle an IORef Bool" Nothing Nothing) 2
-          ]
+        -- ASSERT
+        -- Wait for some time
+        -- Our IORef should still contain its initial value
+        -- Both the tasks should not have been modified
+        threadDelay $ 3 * timeForOneTask
+        readIORef boolRef `shouldReturn` initBool
+        tasksInDb <- allTestTasks c
+        tasksInDb == tasks `shouldBe` True
 
-      -- Spawn two workers in separate threads
-      void $ forkIO $ void $ taskWorker c1 (_tasks tasksDb) (val_ True) taskDetails (\_ -> do
-        pure $ do
-          -- Block on awakenMVar
-          () <- readMVar awakenMVar
-          atomicModifyIORef countRef (\i -> (i+1, ()))
-          pure $ pure True
-        ) "Test-Worker 1"
+      -- TEST 5
+      it "" $ \c -> do
+        -- SETUP
+        -- Create a limited number of tasks
+        -- Create an IORef that stores a map, from Task IDs (Int32) -> Set of worker names that processed the task (Set Text)
+        let
+          taskCount = 1000
+          threadCount = 8
+          tasks = map createTask [1..fromIntegral taskCount]
+        mapRef <- newIORef (M.empty :: M.Map Int32 (S.Set Text))
 
-      c2 <- connect defaultConnectInfo
+        -- ACT
+        -- Insert all the tasks into the table
+        -- Wait for some time
+        -- Spawn 8 threads, each thread repeatedly runs a taskWorker, which updates the map with an entry for the task along with the worker name.
+        let
+          work workerName testTaskId = pure $ do
+            atomicModifyIORef mapRef (\old -> (M.insertWith S.union testTaskId (S.singleton workerName) old, ()))
+            pure $ pure True
+          repeatWork conn threadId = do
+            let workerName = "Task-Worker " <> pack (show threadId)
+            void $ forkIO $ do
+              b <- createTaskWorker conn (work workerName) workerName
+              if b
+                then repeatWork conn threadId
+                else close conn
+        insertTestTasks c tasks
+        threadDelay $ 3 * timeForOneTask
+        forM_ [1..threadCount] $ \tid -> do
+          conn <- connect defaultConnectInfo
+          repeatWork conn tid
 
-      void $ forkIO $ void $ taskWorker c2 (_tasks tasksDb) (val_ True) taskDetails (\_ -> do
-        pure $ do
-          -- Block on awakenMVar
-          () <- readMVar awakenMVar
-          atomicModifyIORef countRef (\i -> (i+1, ()))
-          pure $ pure True
-        ) "Test-Worker 2"
-
-      -- Wait for 500ms
-      threadDelay $ 500 * 1000
-
-      -- Both workers should have retrieved tasks from the table and blocked by now
-      tasks <- runBeamPostgres c1 $ runSelectReturningList $
-        select $ all_ (_tasks tasksDb)
-
-      -- Both tasks should have been checkedout
-      sort (map (_taskCheckedOutBy . _taskDetails) tasks) `shouldBe` [Just "Test-Worker 1", Just "Test-Worker 2"]
-
-      -- Unblock both workers
-      putMVar awakenMVar ()
-
-      -- Wait for 500ms
-      threadDelay $ 500 * 1000
-
-      -- Both tasks should have been completed by now, and updated in the table
-      tasks <- runBeamPostgres c1 $ runSelectReturningList $
-        select $ all_ (_tasks tasksDb)
-
-      -- Both tasks should have checked out by set to null
-      map (_taskCheckedOutBy . _taskDetails) tasks `shouldBe` replicate 2 Nothing
-      -- Both tasks' result should be Just True
-      map (_taskResult . _taskDetails) tasks `shouldBe` replicate 2 (Just True)
-
-      -- The increment task should also have been completed
-      readIORef countRef `shouldReturn` 2
-
-    it "never picks up a checked out or completed task" $ \c -> do
-      -- Will be used later in the worker's task
-      boolRef <- newIORef False
-
-      let
-        tasks =
-          [ TestTask (Task "Toggle an IORef Bool" (Just True) Nothing) 1 -- Completed Task
-          , TestTask (Task "Toggle an IORef Bool" Nothing (Just "Test-Worker 1")) 2 -- Task already checked out
-          ]
-
-      -- Add two separate tasks to the table
-      runBeamPostgres c $ runInsert $
-        insert (_tasks tasksDb) $
-        insertValues tasks
-
-      -- Spawn a worker in a separate threads
-      void $ forkIO $ void $ taskWorker c (_tasks tasksDb) (val_ True) taskDetails (\_ -> do
-        pure $ do
-          atomicModifyIORef boolRef (const (True, ()))
-          pure $ pure True
-        ) "Test-Worker 2"
-
-      -- Wait for 3 whole seconds
-      threadDelay $ 3 * 1000 * 1000
-
-      -- Our IORef should still contain False
-      readIORef boolRef `shouldReturn` False
-
-      -- Both the tasks should not have been modified
-      tasksInDb <- runBeamPostgres c $ runSelectReturningList $
-        select $ all_ (_tasks tasksDb)
-
-      tasksInDb == tasks `shouldBe` True
+        -- ASSERT
+        -- Wait for 5 seconds
+        -- All tasks' `checked out by` should have been set to null
+        -- All tasks should have the result of the work set, as Just True
+        -- Each task should have been checked out at some time, with an entry in the map
+        -- Each task should have been checked out only once.
+        threadDelay $ (taskCount * timeForOneTask) `div` threadCount
+        taskMap <- readIORef mapRef
+        tasks <- allTestTasks c
+        map (_taskCheckedOutBy . _taskDetails) tasks `shouldBe` replicate taskCount Nothing
+        map (_taskResult . _taskDetails) tasks `shouldBe` replicate taskCount (Just True)
+        M.keys taskMap `shouldBe` [1..fromIntegral taskCount]
+        all (\set -> S.size set == 1) (M.elems taskMap) `shouldBe` True
