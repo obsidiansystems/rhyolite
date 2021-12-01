@@ -17,6 +17,8 @@ import Database.Beam.Postgres
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Serializable
 import Gargoyle.PostgreSQL.Connect
+import System.FilePath
+import System.Posix.Temp
 import Test.Hspec
 
 import Rhyolite.Task.Beam
@@ -36,11 +38,13 @@ closeDB dbConn = do
   execute dbConn "drop table tasks;" ()
   close dbConn
 
-withDB :: (Connection -> IO ()) -> IO ()
-withDB = bracket setupDB closeDB
-
 -- withDB :: (Connection -> IO ()) -> IO ()
--- withDB f = withDb "db" $ \pool -> withResource pool f
+-- withDB = bracket setupDB closeDB
+
+withDB :: (Connection -> IO ()) -> IO ()
+withDB f = do
+  tmp <- mkdtemp "psql-test"
+  withDb (tmp </> "db") $ \pool -> withResource pool f
 
 -- Time taken to process one task - 100ms
 timeForOneTask :: Int
@@ -194,6 +198,8 @@ main = do
         tasksInDb == tasks `shouldBe` True
 
       -- TEST 5
+      -- Creates some workers, and a bigger number of tasks. Workers run repeatedly until they run out of tasks.
+      -- All tasks should be processed, and each task should only be processed once.
       it "" $ \c -> do
         -- SETUP
         -- Create a limited number of tasks
