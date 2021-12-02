@@ -21,6 +21,7 @@ library
   build-depends:
       async
     , base
+    , beam-automigrate
     , beam-core
     , beam-postgres
     , containers
@@ -56,6 +57,7 @@ test-suite test
   default-language: Haskell2010
   build-depends:
       base
+    , beam-automigrate
     , beam-core
     , beam-postgres
     , containers

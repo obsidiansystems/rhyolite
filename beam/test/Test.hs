@@ -13,6 +13,7 @@ import qualified Data.Set as S
 import Data.Pool (Pool, withResource)
 import Data.Text (Text, pack)
 import Database.Beam
+import qualified Database.Beam.AutoMigrate as BA
 import Database.Beam.Postgres
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Serializable
@@ -30,11 +31,12 @@ import Utils
 setupTable :: Pool Connection -> IO (Pool Connection)
 setupTable pool = do
   withResource pool $ \dbConn ->
-    execute dbConn "create table tasks (payload integer NOT NULL, result boolean, checked_out_by varchar(30), id integer PRIMARY KEY);" ()
+    BA.tryRunMigrationsWithEditUpdate tasksDbPostgres dbConn
   pure pool
 
 deleteTable :: Pool Connection -> IO ()
-deleteTable pool = void $ withResource pool $ \dbConn -> execute dbConn "drop table tasks;" ()
+deleteTable pool = void $ withResource pool $ \dbConn ->
+  runBeamPostgres dbConn $ runDelete $ delete (_tasks tasksDb) (const $ val_ True)
 
 withTables :: Pool Connection -> (Connection -> IO ()) -> IO ()
 withTables pool = bracket (setupTable pool) deleteTable . const . withResource pool

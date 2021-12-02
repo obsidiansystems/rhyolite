@@ -1,9 +1,11 @@
+{-# Language DataKinds #-}
 {-# Language DeriveAnyClass #-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# Language TypeFamilies #-}
 
 module Types where
@@ -12,9 +14,12 @@ import Control.Exception
 import Control.Lens
 import Control.Monad.Logger
 import Data.Int (Int32)
+import Data.Proxy
 import Data.String (fromString)
 import Data.Text (Text)
 import Database.Beam
+import qualified Database.Beam.AutoMigrate as BA
+import Database.Beam.Postgres
 
 import Rhyolite.Task.Beam
 
@@ -49,6 +54,12 @@ tasksDb = defaultDbSettings `withDbModification`
   }
   where
     taskFields = Task (fromString "payload") (fromString "result") (fromString "checked_out_by")
+
+tasksDbPostgres :: BA.AnnotatedDatabaseSettings Postgres TestTasksDb
+tasksDbPostgres = BA.defaultAnnotatedDbSettings tasksDb
+
+taskSchema :: BA.Schema
+taskSchema = BA.fromAnnotatedDbSettings tasksDbPostgres (Proxy @'[])
 
 data TestException = TestException
    deriving (Eq, Show, Typeable)
