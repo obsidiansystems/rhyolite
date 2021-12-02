@@ -10,7 +10,7 @@ import Data.IORef
 import Data.List (sort)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Pool (withResource)
+import Data.Pool (Pool, withResource)
 import Data.Text (Text, pack)
 import Database.Beam
 import Database.Beam.Postgres
@@ -30,20 +30,17 @@ import Utils
 -- TODO : Use beam-automigrate
 -- TODO : Check how we can achieve complete haddock coverage even with lens
 
-setupTable :: Connection -> IO Connection
-setupTable dbConn = do
-  execute dbConn "create table tasks (payload integer NOT NULL, result boolean, checked_out_by varchar(30), id integer PRIMARY KEY);" ()
-  pure dbConn
+setupTable :: Pool Connection -> IO (Pool Connection)
+setupTable pool = do
+  withResource pool $ \dbConn ->
+    execute dbConn "create table tasks (payload integer NOT NULL, result boolean, checked_out_by varchar(30), id integer PRIMARY KEY);" ()
+  pure pool
 
-deleteTable :: Connection -> IO ()
-deleteTable dbConn = void $ execute dbConn "drop table tasks;" ()
+deleteTable :: Pool Connection -> IO ()
+deleteTable pool = void $ withResource pool $ \dbConn -> execute dbConn "drop table tasks;" ()
 
-withTables :: Connection -> IO () -> IO ()
-withTables dbConn = bracket (setupTable dbConn) deleteTable . const
-
-withDB :: FilePath -> (Connection -> IO ()) -> IO ()
-withDB dbPath f = do
-  withDb dbPath $ \pool -> withResource pool f
+withTables :: Pool Connection -> (Connection -> IO ()) -> IO ()
+withTables pool = bracket (setupTable pool) deleteTable . const . withResource pool
 
 -- Time taken to process one task - 100ms
 timeForOneTask :: Int
@@ -54,12 +51,12 @@ main = do
   tmp <- mkdtemp "psql-test"
   let dbPath = tmp </> "db"
 
-  withDB dbPath $ \c ->
-    hspec $ around_ (withTables c) $ do
+  withDb dbPath $ \pool ->
+    hspec $ around (withTables pool) $ do
       describe "taskWorker" $ do
         -- TEST 1
         --   Creates a task that toggles a boolean. Tests functionally that everything works.
-        it "works functionally, bare minimum test" $ do
+        it "works functionally, bare minimum test" $ \c -> do
           -- SETUP
           -- Create an IORef which will be toggled by the worker
           -- Add a task to the table
@@ -89,7 +86,7 @@ main = do
 
         -- TEST 2
         --   Creates a task that fails. Tests that even on failure, the task is checked out by the worker.
-        it "fails, keeps row in database" $ do
+        it "fails, keeps row in database" $ \c -> do
           -- SETUP
           -- Create an IORef bool that should be toggled by the worker task.
           -- Insert a single task into the table
@@ -122,7 +119,7 @@ main = do
         --   Once this has been verified, we unblock both tasks, and let them finish.
         --   NOTE: We will require two connections for this test,
         --         since Postgresql shows a warning when we run 2 transactions from the same connection
-        it "works concurrently, 2 workers" $ do
+        it "works concurrently, 2 workers" $ \c -> do
           -- SETUP
           -- Create an MVar which will be used to block both the workers once they have retrieved tasks from the table.
           -- Create an IORef Int which will be used inside worker task as an increment action
@@ -134,7 +131,7 @@ main = do
           awakenMVar <- newEmptyMVar :: IO (MVar ())
           countRef <- newIORef initCount
           insertTestTasks c $ map createTask [1, 2]
-          withDB dbPath $ \c2 -> do
+          withResource pool $ \c2 -> do
 
             -- ACT
             -- Spawn two workers in separate threads
@@ -173,7 +170,7 @@ main = do
         -- TEST 4
         --   Create a worker with a task that will never run, since the table only has
         --   completed or already checked-out tasks.
-        it "never picks up a checked out or completed task" $ do
+        it "never picks up a checked out or completed task" $ \c -> do
           -- SETUP
           -- Create a boolean IORef that will be modified by the worker
           -- Add two separate tasks to the table
@@ -202,7 +199,7 @@ main = do
         -- TEST 5
         -- Creates some workers, and a bigger number of tasks. Workers run repeatedly until they run out of tasks.
         -- All tasks should be processed, and each task should only be processed once.
-        it "runs parallel taskWorkers on a number of tasks" $ do
+        it "runs parallel taskWorkers on a number of tasks" $ \c -> do
           -- SETUP
           -- Create a limited number of tasks
           -- Create an IORef that stores a map, from Task IDs (Int32) -> Set of worker names that processed the task (Set Text)
@@ -231,7 +228,7 @@ main = do
           threadDelay $ 3 * timeForOneTask
           forM_ [1..threadCount] $ \tid ->
             void $ forkIO $
-              withDB dbPath $ \conn ->
+              withResource pool $ \conn ->
                 repeatWork conn tid
 
           -- ASSERT
