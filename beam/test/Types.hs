@@ -19,7 +19,7 @@ import Database.Beam
 import Rhyolite.Task.Beam
 
 data TestTaskT f = TestTask
-  { _taskDetails :: Task Int32 Bool f
+  { _taskDetails :: Task Int32 Bool Text f
   , _taskId :: C f Int32
   } deriving (Generic, Beamable)
 

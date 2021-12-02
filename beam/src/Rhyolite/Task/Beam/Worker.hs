@@ -18,7 +18,6 @@ import Control.Monad.Logger (askLoggerIO, MonadLoggerIO)
 import Control.Monad.Logger.Extras (Logger(..))
 import Control.Monad.Trans.Control
 import Data.Time
-import Data.Text (Text)
 
 import Database.Beam
 import Database.Beam.Backend.SQL
@@ -36,22 +35,22 @@ import Rhyolite.Task.Beam
 -- Once it has the output of that action, it sets the output as the result of the task,
 -- thereby marking it as completed.
 taskWorker ::
-  forall m be db f table a b.
+  forall m be db f table a b c.
   ( MonadIO m, MonadLoggerIO m, Database be db
   , Beamable table, Table table
   , FromBackendRow be (PrimaryKey table Identity)
   , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
   , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
-  , FromBackendRow be a, HasSqlValueSyntax PgValueSyntax b
+  , FromBackendRow be a, HasSqlValueSyntax PgValueSyntax b, HasSqlValueSyntax PgValueSyntax c
   , be ~ Postgres, f ~ QExpr be (QNested QBaseScope))
   => Connection -- ^ Connection to the database
   -> DatabaseEntity be db (TableEntity table) -- ^ A table containing embedded tasks.
   -> f Bool -- ^ A filter for selecting tasks from the table.
-  -> (forall x. Lens' (table x) (Task a b x)) -- ^ Lens for retrieving a task from the table.
+  -> (forall x. Lens' (table x) (Task a b c x)) -- ^ Lens for retrieving a task from the table.
   -> (a -> Serializable (m (Serializable b))) -- ^ The action, whose output is set as the result of the task.
-  -> Text -- ^ Name of the worker
+  -> c -- ^ Id of the worker
   -> m Bool
-taskWorker dbConn table ready field go workerName = do
+taskWorker dbConn table ready field go workerId = do
   logger <- askLoggerIO
   checkedOutValue <-
     -- BEGIN Transaction
@@ -77,7 +76,7 @@ taskWorker dbConn table ready field go workerName = do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
           update table
-            (\task -> (task ^. field . taskCheckedOutBy) <-. val_ (Just workerName))
+            (\task -> (task ^. field . taskCheckedOutBy) <-. val_ (Just workerId))
             (\task -> primaryKey task ==. val_ taskId)
 
         runSerializableInsideTransaction dbConn (Logger logger) $ (,) taskId <$> go input
