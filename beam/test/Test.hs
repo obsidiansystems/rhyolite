@@ -27,9 +27,6 @@ import Rhyolite.Task.Beam.Worker
 import Types
 import Utils
 
--- TODO : Use beam-automigrate
--- TODO : Check how we can achieve complete haddock coverage even with lens
-
 setupTable :: Pool Connection -> IO (Pool Connection)
 setupTable pool = do
   withResource pool $ \dbConn ->
