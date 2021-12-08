@@ -24,6 +24,7 @@ import Data.Vessel.Vessel
 import GHC.Generics
 import Reflex.Query.Class
 
+import Rhyolite.App
 import Rhyolite.Vessel.AuthMapV
 
 -- | An internal key type used to glue together parts of a view selector
@@ -75,7 +76,7 @@ instance ArgDict c (AuthenticatedVKey public private personal) where
 -- | A functor-parametric container that has a public part and a private part.
 newtype AuthenticatedV public private personal g = AuthenticatedV
   { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
-  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive)
+  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart)
 
 instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 
