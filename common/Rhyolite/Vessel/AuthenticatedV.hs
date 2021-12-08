@@ -28,110 +28,134 @@ import Rhyolite.Vessel.AuthMapV
 
 -- | An internal key type used to glue together parts of a view selector
 -- that have different authentication contexts.
-data AuthenticatedVKey public private (x :: (* -> *) -> *) where
-  AuthenticatedVKey_Public :: AuthenticatedVKey public private public
-  AuthenticatedVKey_Private :: AuthenticatedVKey public private private
+data AuthenticatedVKey public private personal (ix :: (* -> *) -> *) where
+  AuthenticatedVKey_Public :: AuthenticatedVKey public private personal public
+  AuthenticatedVKey_Private :: AuthenticatedVKey public private personal private
+  AuthenticatedVKey_Personal :: AuthenticatedVKey public private personal personal
 
 deriveJSONGADT ''AuthenticatedVKey
 
-instance GEq (AuthenticatedVKey public private) where
+instance GEq (AuthenticatedVKey public private personal) where
   geq = \case
     AuthenticatedVKey_Public -> \case
       AuthenticatedVKey_Public -> Just Refl
       AuthenticatedVKey_Private -> Nothing
+      AuthenticatedVKey_Personal -> Nothing
     AuthenticatedVKey_Private -> \case
       AuthenticatedVKey_Public -> Nothing
       AuthenticatedVKey_Private -> Just Refl
+      AuthenticatedVKey_Personal -> Nothing
+    AuthenticatedVKey_Personal -> \case
+      AuthenticatedVKey_Public -> Nothing
+      AuthenticatedVKey_Private -> Nothing
+      AuthenticatedVKey_Personal -> Just Refl
 
-instance GCompare (AuthenticatedVKey public private) where
+instance GCompare (AuthenticatedVKey public private personal) where
   gcompare = \case
     AuthenticatedVKey_Public -> \case
       AuthenticatedVKey_Public -> GEQ
       AuthenticatedVKey_Private -> GLT
+      AuthenticatedVKey_Personal -> GLT
     AuthenticatedVKey_Private -> \case
       AuthenticatedVKey_Public -> GGT
       AuthenticatedVKey_Private -> GEQ
+      AuthenticatedVKey_Personal -> GLT
+    AuthenticatedVKey_Personal -> \case
+      AuthenticatedVKey_Public -> GGT
+      AuthenticatedVKey_Private -> GGT
+      AuthenticatedVKey_Personal -> GEQ
 
-instance ArgDict c (AuthenticatedVKey public private) where
-  type ConstraintsFor (AuthenticatedVKey public private) c = (c public, c private)
+instance ArgDict c (AuthenticatedVKey public private personal) where
+  type ConstraintsFor (AuthenticatedVKey public private personal) c = (c public, c private, c personal)
   argDict = \case
     AuthenticatedVKey_Public -> Dict
     AuthenticatedVKey_Private -> Dict
+    AuthenticatedVKey_Personal -> Dict
 
 -- | A functor-parametric container that has a public part and a private part.
-newtype AuthenticatedV public private g = AuthenticatedV
-  { unAuthenticatedV :: Vessel (AuthenticatedVKey public private) g
+newtype AuthenticatedV public private personal g = AuthenticatedV
+  { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
   } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive)
 
-instance (View public, View private) => View (AuthenticatedV public private)
+instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 
-instance (View public, View private) => EmptyView (AuthenticatedV public private) where
+instance (View public, View private, View personal) => EmptyView (AuthenticatedV public private personal) where
   emptyV = AuthenticatedV emptyV
 
 instance
   ( Semigroup (public Identity)
   , Semigroup (private Identity)
-  , View public, View private
-  , QueryResult (private Proxy) ~ private Identity
-  ) => Query (AuthenticatedV public private Proxy) where
-  type QueryResult (AuthenticatedV public private Proxy) = AuthenticatedV public private Identity
+  , Semigroup (personal Identity)
+  , View public, View private, View personal
+  ) => Query (AuthenticatedV public private personal Proxy) where
+  type QueryResult (AuthenticatedV public private personal Proxy) = AuthenticatedV public private personal Identity
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 instance
   ( Semigroup (public Identity)
   , Semigroup (private Identity)
-  , View public, View private
-  , QueryResult (private (Const ())) ~ private Identity
-  ) => Query (AuthenticatedV public private (Const ())) where
-  type QueryResult (AuthenticatedV public private (Const ())) = AuthenticatedV public private Identity
+  , Semigroup (personal Identity)
+  , View public, View private, View personal
+  ) => Query (AuthenticatedV public private personal (Const ())) where
+  type QueryResult (AuthenticatedV public private personal (Const ())) = AuthenticatedV public private personal Identity
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 instance
   ( Semigroup (public Identity)
   , Semigroup (private Identity)
-  , View public, View private
-  , QueryResult (private (Const SelectedCount)) ~ private Identity
-  ) => Query (AuthenticatedV public private (Const SelectedCount)) where
-  type QueryResult (AuthenticatedV public private (Const SelectedCount)) = AuthenticatedV public private Identity
+  , Semigroup (personal Identity)
+  , View public, View private, View personal
+  ) => Query (AuthenticatedV public private personal (Const SelectedCount)) where
+  type QueryResult (AuthenticatedV public private personal (Const SelectedCount)) = AuthenticatedV public private personal Identity
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 instance
-  ( View public, View private
-  , Semigroup (private (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private) g)))))
-  , Semigroup (public (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private) g)))))
-  , Query (Vessel (AuthenticatedVKey public private) g)
-  ) => Query (AuthenticatedV public private (Compose c (g :: * -> *))) where
-  type QueryResult (AuthenticatedV public private (Compose c g)) = AuthenticatedV public private
-         (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private) g))))
+  ( View public, View private, View personal
+  , Semigroup (private (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private personal) g)))))
+  , Semigroup (public (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private personal) g)))))
+  , Semigroup (personal (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private personal) g)))))
+  , Query (Vessel (AuthenticatedVKey public private personal) g)
+  ) => Query (AuthenticatedV public private personal (Compose c (g :: * -> *))) where
+  type QueryResult (AuthenticatedV public private personal (Compose c g)) = AuthenticatedV public private personal
+         (Compose c (VesselLeafWrapper (QueryResult (Vessel (AuthenticatedVKey public private personal) g))))
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 -- | Given a handler for each partial view container, produces
 -- a handler for the total view container.
 handleAuthenticatedQuery'
-  :: (Monad m, View public, View private)
+  :: (Monad m, View public, View private, View personal)
   => (public Proxy -> m (public Identity))
   -- ^ Handle the aggregate public query
   -> (private Proxy -> m (private Identity))
   -- ^ Handle the aggregate private query for all identities
-  -> AuthenticatedV public private Proxy
+  -> (personal Proxy -> m (personal Identity))
+  -> AuthenticatedV public private personal Proxy
   -- ^ Private views parameterized by tokens
-  -> m (AuthenticatedV public private Identity)
-handleAuthenticatedQuery' public private (AuthenticatedV q) = fmap AuthenticatedV $ buildV q $ \case
+  -> m (AuthenticatedV public private personal Identity)
+handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap AuthenticatedV $ buildV q $ \case
   AuthenticatedVKey_Public -> public
   AuthenticatedVKey_Private -> private
+  AuthenticatedVKey_Personal -> personal
 
 -- | Very frequently the private part of a total view container is
 -- a map from authentication identities to private views. This
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
-  :: (Monad m, Ord token, View public, View private)
+  :: (Monad m, Ord token, View public, View private, View personal)
   => (token -> m (Maybe user))
   -> (public Proxy -> m (public Identity))
   -> (private Proxy -> m (private Identity))
-  -> AuthenticatedV public (AuthMapV token private) Proxy
-  -> m (AuthenticatedV public (AuthMapV token private) Identity)
-handleAuthenticatedQuery readToken public private =
-  handleAuthenticatedQuery' public (handleAuthMapQuery readToken private)
+  -- ^ The result of private queries is only available to authenticated identities
+  -- but the result is the same for all of them.
+  -> (user -> personal Proxy -> m (personal Identity))
+  -- ^ The result of personal queries depends on the identity making the query
+  -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Proxy
+  -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Identity)
+handleAuthenticatedQuery readToken public private personal =
+  handleAuthenticatedQuery'
+    public
+    (handleAuthMapQuery readToken private)
+    (handlePersonalAuthMapQuery readToken personal)
 
 -- | Ignore the public part of a total view container.
 privateQueryMorphism
@@ -139,10 +163,22 @@ privateQueryMorphism
      )
   => QueryMorphism
        (private (Const SelectedCount))
-       (AuthenticatedV public private (Const SelectedCount))
+       (AuthenticatedV public private personal (Const SelectedCount))
 privateQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = AuthenticatedV . singletonV AuthenticatedVKey_Private
   , _queryMorphism_mapQueryResult = maybe emptyV id . lookupV AuthenticatedVKey_Private . unAuthenticatedV
+  }
+
+-- | Ignore the public part of a total view container.
+personalQueryMorphism
+  :: ( EmptyView personal, QueryResult (personal (Const SelectedCount)) ~ personal Identity
+     )
+  => QueryMorphism
+       (personal (Const SelectedCount))
+       (AuthenticatedV public private personal (Const SelectedCount))
+personalQueryMorphism = QueryMorphism
+  { _queryMorphism_mapQuery = AuthenticatedV . singletonV AuthenticatedVKey_Personal
+  , _queryMorphism_mapQueryResult = maybe emptyV id . lookupV AuthenticatedVKey_Personal . unAuthenticatedV
   }
 
 -- | Ignore the private part of a total view container.
@@ -151,7 +187,7 @@ publicQueryMorphism
      )
   => QueryMorphism
        (public (Const SelectedCount))
-       (AuthenticatedV public private (Const SelectedCount))
+       (AuthenticatedV public private personal (Const SelectedCount))
 publicQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = AuthenticatedV . singletonV AuthenticatedVKey_Public
   , _queryMorphism_mapQueryResult = maybe emptyV id . lookupV AuthenticatedVKey_Public . unAuthenticatedV
