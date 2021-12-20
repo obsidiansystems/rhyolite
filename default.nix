@@ -47,45 +47,46 @@ let
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
   };
 
+  mkOverridesFromSrc = srcs: (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) srcs);
+  otherOverrides = self: super: {
+    bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
+    dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
+    gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
+    postgresql-simple = haskellLib.dontCheck (
+        haskellLib.overrideCabal super.postgresql-simple {
+          revision = null;
+          editedCabalFile = null;
+        }
+      );
+    validation = haskellLib.dontCheck super.validation;
+
+    postgresql-lo-stream = self.callHackageDirect {
+      pkg = "postgresql-lo-stream";
+      ver = "0.1.1.1";
+      sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
+    } {};
+
+    monad-logger-extras = self.callHackageDirect {
+      pkg = "monad-logger-extras";
+      ver = "0.1.1.1";
+      sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
+    } {};
+    monoid-subclasses = self.callHackageDirect {
+      pkg = "monoid-subclasses";
+      ver = "1.1";
+      sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
+    } {};
+  };
+
   # You can use these manually if you don’t want to use rhyolite.project.
   # It will be needed if you need to combine with multiple overrides.
-  haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
-    (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
-    (self: super: {
-      bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
-      dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
-      postgresql-simple = haskellLib.dontCheck (
-          haskellLib.overrideCabal super.postgresql-simple {
-            revision = null;
-            editedCabalFile = null;
-          }
-        );
-      validation = haskellLib.dontCheck super.validation;
-
-      postgresql-lo-stream = self.callHackageDirect {
-        pkg = "postgresql-lo-stream";
-        ver = "0.1.1.1";
-        sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
-      } {};
-
-      monad-logger-extras = self.callHackageDirect {
-        pkg = "monad-logger-extras";
-        ver = "0.1.1.1";
-        sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
-      } {};
-      monoid-subclasses = self.callHackageDirect {
-        pkg = "monoid-subclasses";
-        ver = "1.1";
-        sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
-      } {};
-
-    })
-  ];
+  haskellOverrides = lib.composeExtensions
+    (mkOverridesFromSrc overrideSrcs)
+    (self: super: otherOverrides);
 
 in obelisk // {
 
-  inherit haskellOverrides;
+  inherit haskellOverrides overrideSrcs otherOverrides mkOverridesFromSrc;
 
   rhyolitePackages = haskellPackages: builtins.intersectAttrs rhyolitePackages (haskellPackages.extend haskellOverrides);
 
