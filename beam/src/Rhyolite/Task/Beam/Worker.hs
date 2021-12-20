@@ -107,7 +107,15 @@ taskWorker dbConn table ready field go workerId = do
 -- The worker will wake up whenever the timer expires or the wakeup action is called
 -- Once woken up, the worker will be run repeatedly until it reports that it was not able to find any work to do; then it will start sleeping for the given duration.
 -- If the wakeup action is called while the worker is running, the worker will run again as soon as it finishes, even if it returns False.  This is necessary because otherwise, since checking for work isn't generally atomic, there would be a race condition: worker starts (e.g. enters looking-for-work transaction), work is created, wakeup called, worker finishes with no work found, sleep.
-withWorker :: (MonadIO m, MonadBaseControl IO m) => NominalDiffTime -> IO Bool -> (IO () -> m a) -> m a
+withWorker
+  :: (MonadIO m, MonadBaseControl IO m)
+  => NominalDiffTime
+  -- ^ Sleep interval
+  -> IO Bool
+  -- ^ The worker action, which reports whether it found work to do or not.
+  -> (IO () -> m a)
+  -- ^ Program that is given the option to prompt the worker thread to look for work.
+  -> m a
 withWorker d work child = do
   initialStartVar <- liftIO $ newMVar ()
   startVarVar <- liftIO $ newMVar initialStartVar
@@ -131,15 +139,21 @@ withWorker d work child = do
 
 -- | Run multiple workers in parallel on the same task
 withConcurrentWorkers
-  :: forall r a. Int
+  :: forall m r a. (MonadIO m, MonadBaseControl IO m)
+  => Int
+     -- ^ Number of workers
   -> NominalDiffTime
+     -- ^ Sleep interval for each worker
   -> (a -> IO Bool)
+     -- ^ Parameterized worker action
   -> (Int -> a)
-  -> (IO () -> IO r)
-  -> IO r
+     -- ^ How to derive the worker's action parameter from its index
+  -> (IO () -> m r)
+     -- ^ Program that is given the option to prompt all the worker threads to look for work.
+  -> m r
 withConcurrentWorkers n0 d work argFn = runContT $ go n0
   where
-    go :: Int -> ContT r IO (IO ())
+    go :: Int -> ContT r m (IO ())
     go n = do
       wakeup <- ContT $ withWorker d (work $ argFn n)
       wakeupRest <- if n > 1
