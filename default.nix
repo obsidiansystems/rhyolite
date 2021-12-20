@@ -15,6 +15,7 @@ let
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
     rhyolite-backend = ./backend;
+    rhyolite-beam-task-worker = ./beam;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
@@ -64,9 +65,12 @@ let
   haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
+      beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
+      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
+        librarySystemDepends = [ pkgs.postgresql ];
+      };
       postgresql-simple = haskellLib.dontCheck (
           haskellLib.overrideCabal super.postgresql-simple {
             revision = null;
@@ -93,6 +97,12 @@ let
       } {};
       standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
 
+      # 'locale' is broken on nix darwin which is required by postgres 'initdb'
+      rhyolite-beam-task-worker = if pkgs.stdenv.hostPlatform.isDarwin
+      then
+        haskellLib.dontCheck super.rhyolite-beam-task-worker
+      else
+        super.rhyolite-beam-task-worker;
     })
   ];
 

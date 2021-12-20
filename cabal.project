@@ -1,5 +1,6 @@
 packages:
   backend/
+  beam/
   common/
   semimap/
   email/
