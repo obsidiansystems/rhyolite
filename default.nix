@@ -97,13 +97,12 @@ let
       } {};
       standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
 
-      # On darwin we need to ensure that 'locale' is available for 'initdb'.
-      rhyolite-beam-task-worker = haskellLib.overrideCabal super.rhyolite-beam-task-worker (drv: {
-        testSystemDepends = (drv.testSystemDepends or []) ++
-        [ (lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.darwin.locale)
-          (lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.unixtools.locale)
-        ];
-      });
+      # 'locale' is broken on nix darwin which is required by postgres 'initdb'
+      rhyolite-beam-task-worker = if pkgs.stdenv.hostPlatform.isDarwin
+      then
+        haskellLib.dontCheck super.rhyolite-beam-task-worker
+      else
+        super.rhyolite-beam-task-worker;
     })
   ];
 
