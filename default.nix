@@ -68,7 +68,9 @@ let
       beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix { librarySystemDepends = [ pkgs.postgresql ]; };
+      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
+        librarySystemDepends = [ pkgs.postgresql ];
+      };
       postgresql-simple = haskellLib.dontCheck (
           haskellLib.overrideCabal super.postgresql-simple {
             revision = null;
@@ -95,6 +97,13 @@ let
       } {};
       standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
 
+      # On darwin we need to ensure that 'locale' is available for 'initdb'.
+      rhyolite-beam-task-worker = haskellLib.overrideCabal super.rhyolite-beam-task-worker (drv: {
+        testSystemDepends = (drv.testSystemDepends or []) ++
+        [ (lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.darwin.locale)
+          (lib.optional pkgs.stdenv.hostPlatform.isDarwin pkgs.unixtools.locale)
+        ];
+      });
     })
   ];
 
