@@ -10,6 +10,9 @@
 {-# Language TemplateHaskell #-}
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
+-- TODO Upstream for DMap
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
 import Data.Aeson
@@ -23,6 +26,13 @@ import Data.Vessel
 import Data.Vessel.Vessel
 import GHC.Generics
 import Reflex.Query.Class
+
+-- TODO Upstream a function that lets you change DMap keys monotonically
+-- while mutating the value so we don't have to do it here.
+import Data.Dependent.Map.Monoidal (MonoidalDMap(..))
+import Data.Dependent.Map.Internal (DMap)
+import qualified Data.Dependent.Map.Internal as DMap
+import Data.Dependent.Sum
 
 import Rhyolite.App
 import Rhyolite.Vessel.AuthMapV
@@ -193,3 +203,63 @@ publicQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = AuthenticatedV . singletonV AuthenticatedVKey_Public
   , _queryMorphism_mapQueryResult = maybe emptyV id . lookupV AuthenticatedVKey_Public . unAuthenticatedV
   }
+
+-- | Apply query morphisms to the constituents of an 'AuthenticatedV'
+mapAuthenticatedV
+  :: forall public public' private private' personal personal'.
+     ( QueryResult (public (Const SelectedCount)) ~ public Identity
+     , QueryResult (public' (Const SelectedCount)) ~ public' Identity
+     , QueryResult (private (Const SelectedCount)) ~ private Identity
+     , QueryResult (private' (Const SelectedCount)) ~ private' Identity
+     , QueryResult (personal (Const SelectedCount)) ~ personal Identity
+     , QueryResult (personal' (Const SelectedCount)) ~ personal' Identity
+     )
+  => QueryMorphism (public (Const SelectedCount)) (public' (Const SelectedCount))
+  -> QueryMorphism (private (Const SelectedCount)) (private' (Const SelectedCount))
+  -> QueryMorphism (personal (Const SelectedCount)) (personal' (Const SelectedCount))
+  -> QueryMorphism
+       (AuthenticatedV public private personal (Const SelectedCount))
+       (AuthenticatedV public' private' personal' (Const SelectedCount))
+mapAuthenticatedV publicMorphism privateMorphism personalMorphism = QueryMorphism
+  { _queryMorphism_mapQuery = \(AuthenticatedV (Vessel (MonoidalDMap rawDMap))) ->
+    AuthenticatedV $ Vessel $ MonoidalDMap $ mapKeysMonotonic' queryMap rawDMap
+  , _queryMorphism_mapQueryResult = \(AuthenticatedV (Vessel (MonoidalDMap rawDMap))) ->
+    AuthenticatedV $ Vessel $ MonoidalDMap $ mapKeysMonotonic' resultMap rawDMap
+  }
+ where
+  queryMap
+    :: forall ix.
+       AuthenticatedVKey public private personal ix
+    -> FlipAp (Const SelectedCount) ix
+    -> DSum (AuthenticatedVKey public' private' personal') (FlipAp (Const SelectedCount))
+  queryMap k v = case k of
+    AuthenticatedVKey_Public ->
+      AuthenticatedVKey_Public :=> FlipAp (mapQuery publicMorphism (unFlipAp v))
+    AuthenticatedVKey_Private ->
+      AuthenticatedVKey_Private :=> FlipAp (mapQuery privateMorphism (unFlipAp v))
+    AuthenticatedVKey_Personal ->
+      AuthenticatedVKey_Personal :=> FlipAp (mapQuery personalMorphism (unFlipAp v))
+  resultMap
+    :: forall ix.
+       AuthenticatedVKey public' private' personal' ix
+    -> FlipAp Identity ix
+    -> DSum (AuthenticatedVKey public private personal) (FlipAp Identity)
+  resultMap k v = case k of
+    AuthenticatedVKey_Public ->
+      AuthenticatedVKey_Public :=> FlipAp (mapQueryResult publicMorphism (unFlipAp v))
+    AuthenticatedVKey_Private ->
+      AuthenticatedVKey_Private :=> FlipAp (mapQueryResult privateMorphism (unFlipAp v))
+    AuthenticatedVKey_Personal ->
+      AuthenticatedVKey_Personal :=> FlipAp (mapQueryResult personalMorphism (unFlipAp v))
+
+mapKeysMonotonic'
+  :: (forall v. k1 v -> f v -> (DSum k2 g))
+  -> DMap k1 f
+  -> DMap k2 g
+mapKeysMonotonic' f = \case
+  DMap.Tip -> DMap.Tip
+  DMap.Bin n k v bl br ->
+    case f k v of
+      (k' :=> v') -> DMap.Bin n k' v'
+        (mapKeysMonotonic' f bl)
+        (mapKeysMonotonic' f br)
