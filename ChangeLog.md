@@ -5,6 +5,7 @@ This project's release branch is `master`. This log is written from the perspect
 ## Unreleased
 * Added Beam versions of `Rhyolite.Task.Groundhog.Worker.taskWorker` and `Rhyolite.Task.Groundhog.Task`, in `Rhyolite.Task.Groundhog.Worker` and `Rhyolite.Task.Beam` respectively.
 * Removed `Rhyolite.Request.Common`, now using functions from Aeson directly. Use `decode'` instead of `decodeValue'`.
+* Bump vessel to 0.2.1.0 (pre-release)
 
 * Breaking changes:
   * Rename `Rhyolite.Frontend.App.openWebSocket'` to `openWebSocket` and remove the previous definition of `openWebSocket`. To get the same output as before: `(_appWebSocket_notification x, _appWebSocket_response x)`.
