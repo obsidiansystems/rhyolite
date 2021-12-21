@@ -93,6 +93,18 @@ traceExecute p q = do
 traceExecute_ :: (Psql m, MonadIO m, ToRow q) => Query -> q -> m ()
 traceExecute_ p q = void $ traceExecute p q
 
+-- | Invokes 'query' with arguments provided by 'isql'
+iquery :: QuasiQuoter
+iquery = isql { quoteExp = appE [| uncurry query |] . quoteInterpolatedSql }
+
+-- | Invokes 'execute' with arguments provided by 'isql'
+iexecute :: QuasiQuoter
+iexecute = isql { quoteExp = appE [| uncurry execute |] . quoteInterpolatedSql }
+
+-- | Invokes 'execute_' with arguments provided by 'isql'
+iexecute_ :: QuasiQuoter
+iexecute_ = isql { quoteExp = appE [| uncurry execute_ |] . quoteInterpolatedSql }
+
 -- | Invokes 'traceQuery' with arguments provided by 'isql'
 itraceQuery :: QuasiQuoter
 itraceQuery = isql { quoteExp = appE [| uncurry traceQuery |] . quoteInterpolatedSql }
