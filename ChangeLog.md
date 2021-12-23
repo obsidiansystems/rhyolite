@@ -6,6 +6,10 @@ This project's release branch is `master`. This log is written from the perspect
 * Added Beam versions of `Rhyolite.Task.Groundhog.Worker.taskWorker` and `Rhyolite.Task.Groundhog.Task`, in `Rhyolite.Task.Groundhog.Worker` and `Rhyolite.Task.Beam` respectively.
 * Removed `Rhyolite.Request.Common`, now using functions from Aeson directly. Use `decode'` instead of `decodeValue'`.
 * Bump vessel to 0.2.1.0 (pre-release)
+* Add mapAuthenticatedV
+* Extend AuthenticatedV to have a personal view component in addition to private and public ones. Personal views are similar to private ones
+  in that they require a token to access, but are computed separately per-user.
+  They're specifically for the case that we expect different users' views to have nothing in common with one another.
 
 * Breaking changes:
   * Rename `Rhyolite.Frontend.App.openWebSocket'` to `openWebSocket` and remove the previous definition of `openWebSocket`. To get the same output as before: `(_appWebSocket_notification x, _appWebSocket_response x)`.
