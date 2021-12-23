@@ -15,6 +15,7 @@ import qualified Data.Map.Monoidal as MMap
 import Data.Patch
 import Data.Semigroup
 import qualified Data.Set as Set
+import Data.Traversable
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
@@ -128,6 +129,27 @@ handleAuthMapQuery readToken handler (AuthMapV vt) = do
   v' <- disperseV . fromMaybe emptyV <$> mapDecomposedV (buildErrorV (fmap Right . handler)) v
   -- The use of mapDecomposedV guarantees that the valid and invalid token sets are disjoint
   pure $ AuthMapV $ mkSubVessel $ MMap.unionWith const invalidTokens v'
+
+-- | Like 'handleAuthMapQuery' but the result can depend on the specific identity.
+-- This is implemented naively so that the query is done separately for each valid identity.
+handlePersonalAuthMapQuery
+  :: (Monad m, Ord token, View v)
+  => (token -> m (Maybe user))
+  -- ^ How to figure out the identity corresponding to a token
+  -> (user -> v Proxy -> m (v Identity))
+  -- ^ Handle the query for each individual identity
+  -> AuthMapV token v Proxy
+  -- ^ Personal views parameterized by tokens
+  -> m (AuthMapV token v Identity)
+handlePersonalAuthMapQuery readToken handler (AuthMapV vt) = do
+  let unfilteredVt = getSubVessel vt
+      unvalidatedTokens = MMap.keys unfilteredVt
+  validTokens <- MMap.fromList <$> witherM (\t -> ((,) t <$>) <$> readToken t) unvalidatedTokens
+  let filteredVt = MMap.intersectionWith (,) unfilteredVt validTokens
+      invalidTokens = MMap.fromSet (\_ -> failureErrorV ()) $
+        Set.difference (Set.fromList unvalidatedTokens) (MMap.keysSet validTokens)
+  vt' <- forM filteredVt $ \(v, user) -> buildErrorV (fmap Right . handler user) v
+  pure $ AuthMapV $ mkSubVessel $ MMap.unionWith const invalidTokens vt'
 
 -- | A query morphism that takes a view for a single identity and lifts it to
 -- a map of identities to views.
