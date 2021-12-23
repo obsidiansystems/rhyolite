@@ -36,6 +36,7 @@ library
     , patch
     , reflex
     , semialign               >=1   && <1.2
+    , semimap
     , some
     , text
     , these                   >=1   && <1.1
@@ -53,6 +54,7 @@ library
     Rhyolite.Vessel.AuthMapV
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
+    Rhyolite.Vessel.Path
     Rhyolite.WebSocket
 
   reexported-modules: aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT

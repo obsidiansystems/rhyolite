@@ -517,6 +517,24 @@ watchView q = (fmap.fmap) runIdentity <$> queryViewMorphism 1 q
 -- in the ViewMorphism and is unrelated to the fixed Identity in the fourth
 -- parameter.
 
+-- | The type of 'Path' required to do a 'watch'.
+type FullPath a v b = Path (Const SelectedCount a) (v (Const SelectedCount)) (v Identity) (Identity b)
+
+-- | Use a dynamic 'Path' to construct and query a view selector,
+-- and to process the resulting view.
+watch :: forall t v a b m.
+  ( Reflex t
+  , MonadQuery t (v (Const SelectedCount)) m
+  , QueryResult (v (Const SelectedCount)) ~ v Identity
+  , MonadHold t m
+  , MonadFix m
+  , Eq (v Identity)
+  )
+  => Dynamic t (FullPath a v b)
+  -> m (Dynamic t (Maybe b))
+watch pathDyn = do
+  r <- watchViewSelector . ffor pathDyn $ \path -> _path_to path (Const 1)
+  return $ fmap (fmap runIdentity) . _path_from <$> pathDyn <*> r
 
 
 -- * iOS and Android capabilities
