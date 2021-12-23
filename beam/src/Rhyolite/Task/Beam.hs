@@ -16,25 +16,24 @@ to process those tasks. The workers will pick off tasks one by one, and store th
 -}
 module Rhyolite.Task.Beam where
 
-import Control.Lens.TH
+import Control.Lens
 
 import Database.Beam
 
--- | Data type for tables that have tasks embedded in them.
--- Specifically, this means tables that have the following 3 fields (columns)
--- 1. A task payload, which will be used an an input to the task worker.
--- 2. A result field, containg an optional value.
--- 3. A checked out by field, containing an id of the worker that checked out this task.
--- For unclaimed tasks, both fields 2 and 3 are null (Nothing).
--- When a task is checked out by a worker, the checkout out field is set to the worker's id. Result is still null.
--- When a task is completed, the result field is filled with the result, and the checked out field is set to null.
--- The type of result is dependent upon the task, hence the functional dependency between the table and the result type.
-data Task i o t f = Task
-  { _taskPayload :: C f i -- ^ Used as an input to the worker to which this task will be assigned.
-  , _taskResult :: C f (Maybe o) -- ^ Will contain the output of the task worker, once it is available. Till then, it will be Nothing.
-  , _taskCheckedOutBy :: C f (Maybe t) -- ^ Will contain the task worker id. It is equal to Nothing till it gets assigned.
-  } deriving (Generic, Beamable)
-
-deriving instance (Eq i, Eq o, Eq t) => Eq (Task i o t Identity)
-
-makeLenses ''Task
+-- | The 'Task' type describes how to use a database table to check out tasks
+-- and report the results back.
+data Task be table payload checkout result = Task
+  { _task_filter :: forall s. table (QExpr be s) -> QExpr be s Bool
+  -- ^ How to filter unclaimed task rows
+  , _task_payload :: forall s. table (QExpr be s) -> QExpr be s payload
+  -- ^ How to extract the payload from the row
+  , _task_checkedOutBy :: forall x. Lens' (table x) (C x (Maybe checkout))
+  -- ^ How the field which records a checkout is embedded within a row;
+  -- this allows both reading and writing.
+  , _task_hasRun :: forall x. Lens' (table x) (C x Bool)
+  -- ^ Which field indicates that the task result has been checked in.
+  , _task_result :: forall x. Lens' (table x) (result x)
+  -- ^ How the result data is embedded within a row.
+  -- Note that it has to be a Beamable type in its own right, so if the
+  -- result is a mere Columnar type it should be wrapped in a newtype.
+  }
