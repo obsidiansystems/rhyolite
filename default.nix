@@ -31,6 +31,8 @@ let
     signed-data = ./signed-data/signed-data;
     signed-data-clientsession = ./signed-data/signed-data-clientsession;
     rhyolite-widgets = ./widgets;
+    rhyolite-account-backend = ./account/backend;
+    rhyolite-account-types = ./account/types;
   };
 
   # srcs used for overrides

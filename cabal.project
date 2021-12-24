@@ -1,4 +1,6 @@
 packages:
+  account/backend/
+  account/types/
   backend/
   beam/
   common/

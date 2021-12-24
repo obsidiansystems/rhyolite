@@ -24,7 +24,9 @@ standalone-haddock \
   semimap/ \
   signed-data/signed-data/ \
   signed-data/signed-data-clientsession/ \
-  widgets/
+  widgets/ \
+  account/types \
+  account/backend
   # groundhog-legacy/groundhog-legacy \
   # groundhog-legacy/groundhog-legacy-types/ \
   # psql-extras/psql-simple-groundhog/ \
