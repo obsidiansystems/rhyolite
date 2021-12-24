@@ -14,7 +14,7 @@ extra-source-files: CHANGELOG.md
 
 library
   exposed-modules:
-    Rhyolite.Account
+    Rhyolite.Account.Groundhog.Types
     Rhyolite.Schema
 
   build-depends:

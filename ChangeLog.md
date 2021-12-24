@@ -4,6 +4,7 @@ This project's release branch is `master`. This log is written from the perspect
 
 ## Unreleased
 * Add rhyolite-account-types and rhyolite-account-backend for use with beam-based rhyolite projects
+  * Moved groundhog-legacy's `Rhyolite.Account` module to `Rhyolite.Account.Groundhog.Types`
 * Added Beam versions of `Rhyolite.Task.Groundhog.Worker.taskWorker` and `Rhyolite.Task.Groundhog.Task`, in `Rhyolite.Task.Groundhog.Worker` and `Rhyolite.Task.Beam` respectively.
 * Removed `Rhyolite.Request.Common`, now using functions from Aeson directly. Use `decode'` instead of `decodeValue'`.
 * Bump vessel to 0.2.1.0 (pre-release)
