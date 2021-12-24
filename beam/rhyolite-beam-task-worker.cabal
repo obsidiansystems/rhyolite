@@ -14,7 +14,7 @@ extra-source-files: README.md
 
 library
   exposed-modules:
-    Rhyolite.Db.Beam
+    Rhyolite.DB.Beam
     Rhyolite.Task.Beam
     Rhyolite.Task.Beam.Worker
 

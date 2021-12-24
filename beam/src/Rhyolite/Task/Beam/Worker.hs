@@ -24,7 +24,7 @@ import Database.Beam.Postgres.Syntax
 import Database.Beam.Query.Internal (QNested)
 import Database.Beam.Schema.Tables
 
-import Rhyolite.Db.Beam
+import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
 
 taskWorker

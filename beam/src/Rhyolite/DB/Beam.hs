@@ -3,7 +3,7 @@
 {-|
 Description : Utility functions for using Beam with Postgres Transactions.
 -}
-module Rhyolite.Db.Beam where
+module Rhyolite.DB.Beam where
 
 import Database.Beam
 import Database.Beam.Postgres
