@@ -1,3 +1,7 @@
+{-|
+Description:
+  Check or modify credentials
+-}
 {-# Language FlexibleContexts #-}
 {-# Language MonoLocalBinds #-}
 {-# Language OverloadedStrings #-}

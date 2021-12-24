@@ -36,5 +36,9 @@ import qualified Data.Signed
 -- signed-data-clientsession
 import qualified Data.Signed.ClientSession
 
+-- accounts
+import qualified "rhyolite-account-types" Rhyolite.Account
+import qualified "rhyolite-account-backend" Rhyolite.Backend.Account
+
 main :: IO ()
 main = putStrLn "rhyolite submodules were successfully built"

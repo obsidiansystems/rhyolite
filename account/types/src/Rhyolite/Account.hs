@@ -1,3 +1,7 @@
+{-|
+Description:
+  Default email-based account type
+-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
 {-# Language StandaloneDeriving #-}
