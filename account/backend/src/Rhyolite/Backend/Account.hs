@@ -63,7 +63,7 @@ createAccount accountTable noticeWrapper email pass = do
   accountIds <- runPgInsertReturningList $ flip returning _account_id $ insert accountTable $ insertExpressions
     [ Account
         { _account_id = default_
-        , _account_email = val_ email
+        , _account_email = lower_ (val_ email)
         , _account_password = val_ (Just hash)
         , _account_passwordResetNonce = just_ current_timestamp_
         }
@@ -84,7 +84,7 @@ login
 login accountTable email pass = runMaybeT $ do
   (aid, mPwHash) <- MaybeT $ fmap listToMaybe $ runSelectReturningList $ select $ do
     acc <- all_ accountTable
-    guard_ $ _account_email acc ==. val_ email
+    guard_ $ lower_ (_account_email acc) ==. lower_ (val_ email)
     pure (_account_id acc, _account_password acc)
   pwHash <- MaybeT $ pure mPwHash
   guard $ verifyPasswordWith pbkdf2 (2^) (T.encodeUtf8 pass) pwHash
