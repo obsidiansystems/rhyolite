@@ -18,6 +18,8 @@ executable rhyolite-test-suite
     , psql-simple-beam
     , psql-simple-class
     , psql-simple-groundhog
+    , rhyolite-account-backend
+    , rhyolite-account-types
     , rhyolite-backend
     , rhyolite-beam-task-worker
     , rhyolite-common

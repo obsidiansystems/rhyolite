@@ -26,7 +26,7 @@ import qualified Rhyolite.DB.NotifyListen.Beam
 import qualified Rhyolite.DB.Groundhog
 
 -- groundhog-legacy-types
-import qualified "rhyolite-groundhog-legacy-types" Rhyolite.Account as RGLTAccount
+import qualified "rhyolite-groundhog-legacy-types" Rhyolite.Account.Groundhog.Types
 
 -- email
 import qualified Rhyolite.Email
@@ -35,6 +35,10 @@ import qualified Rhyolite.Email
 import qualified Data.Signed
 -- signed-data-clientsession
 import qualified Data.Signed.ClientSession
+
+-- accounts
+import qualified "rhyolite-account-types" Rhyolite.Account
+import qualified "rhyolite-account-backend" Rhyolite.Backend.Account
 
 main :: IO ()
 main = putStrLn "rhyolite submodules were successfully built"

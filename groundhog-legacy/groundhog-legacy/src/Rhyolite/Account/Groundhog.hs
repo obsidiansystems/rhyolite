@@ -58,7 +58,7 @@ import Rhyolite.DB.Groundhog.Serializable (Serializable)
 import qualified Rhyolite.DB.Groundhog.Serializable as Serializable
 import Rhyolite.DB.NotifyListen.Groundhog
 
-import Rhyolite.Account
+import Rhyolite.Account.Groundhog.Types
 import Rhyolite.Email
 import Rhyolite.Route
 import Rhyolite.Schema

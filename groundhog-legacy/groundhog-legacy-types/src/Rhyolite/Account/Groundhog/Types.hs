@@ -12,7 +12,7 @@
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
 
-module Rhyolite.Account where
+module Rhyolite.Account.Groundhog.Types where
 
 import Control.Lens(Iso, iso)
 import Data.Aeson (FromJSON, ToJSON)

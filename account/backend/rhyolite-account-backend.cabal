@@ -1,0 +1,35 @@
+cabal-version:      2.4
+name:               rhyolite-account-backend
+version:            0.1.0.0
+synopsis:           Functions for creating and authenticating accounts
+homepage:           https://github.com/obsidiansystems/rhyolite
+bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+copyright: Obsidian Systems LLC
+category:           Web
+
+library
+    exposed-modules:  Rhyolite.Backend.Account
+    build-depends:    base
+                    , aeson
+                    , beam-core
+                    , bytestring
+                    , text
+                    , time
+                    , beam-postgres
+                    , rhyolite-account-types
+                    , constraints
+                    , constraints-extras
+                    , pwstore-fast
+                    , transformers
+                    , rhyolite-notify-listen
+                    , rhyolite-notify-listen-beam
+                    , psql-simple-beam
+                    , clientsession
+                    , signed-data
+                    , signed-data-clientsession
+    hs-source-dirs:   src
+    default-language: Haskell2010
