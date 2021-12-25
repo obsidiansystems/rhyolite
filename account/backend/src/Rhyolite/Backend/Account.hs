@@ -2,36 +2,47 @@
 Description:
   Check or modify credentials
 -}
+{-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}
 {-# Language MonoLocalBinds #-}
 {-# Language OverloadedStrings #-}
 module Rhyolite.Backend.Account
   ( createAccount
   , login
+  , ensureAccountExists
+  , setAccountPasswordHash
+  , makePasswordHash
+  , PasswordResetToken (..)
+  , passwordResetToken
+  , newNonce
+  , resetPassword
   ) where
 
 import Control.Monad (guard)
 import Control.Monad.Trans.Maybe
 import Crypto.PasswordStore
 import Data.Aeson
+import Data.ByteString
 import Data.Constraint.Extras
 import Data.Constraint.Forall
 import Data.Functor.Identity
 import Data.Maybe
 import Data.Text
+import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Encoding as T
 import Data.Time
 import Database.Beam
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
-import Database.Beam.Postgres
+import Data.Signed
+import Data.Signed.ClientSession
 import Database.Beam.Postgres.Full hiding (insert)
 import Database.Beam.Postgres.Syntax
-import Database.Beam.Postgres.Syntax
-import Database.Beam.Schema
-import Database.PostgreSQL.Simple.Beam
+import Database.PostgreSQL.Simple.Beam ()
 import Rhyolite.Account
 import Rhyolite.DB.NotifyListen
+import Rhyolite.DB.NotifyListen.Beam
+import Web.ClientSession as CS
 
 -- | Postgres @current_timestamp()@ function. Returns the server's timestamp
 current_timestamp_ :: QExpr Postgres s UTCTime
@@ -77,3 +88,96 @@ login accountTable email pass = runMaybeT $ do
   pwHash <- MaybeT $ pure mPwHash
   guard $ verifyPasswordWith pbkdf2 (2^) (T.encodeUtf8 pass) pwHash
   pure (AccountId aid)
+
+ensureAccountExists
+  :: (Database Postgres db, HasNotification n Account, Has' ToJSON n Identity, ForallF ToJSON n)
+  => DatabaseEntity Postgres db (TableEntity Account)
+  -> Text
+  -> Pg (Bool, PrimaryKey Account Identity)
+ensureAccountExists accountTable email = do
+  existingAccountId <- runSelectReturningOne $ select $ fmap primaryKey $ filter_ (\x ->
+    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ accountTable
+  case existingAccountId of
+    Just existing -> return (False, existing)
+    Nothing -> do
+      results <- runInsertReturningList $ insert accountTable $ insertExpressions
+        [ Account
+            { _account_id = default_
+            , _account_email = lower_ (val_ email)
+            , _account_password = nothing_
+            , _account_passwordResetNonce = nothing_
+            }
+        ]
+      case results of
+        [acc] -> do
+          let aid = primaryKey acc
+          notify NotificationType_Insert (notification accountTable) aid
+          pure (True, aid)
+        _ -> error "ensureAccountExists: Creating account failed"
+
+setAccountPasswordHash
+  :: DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> ByteString
+  -> Pg ()
+setAccountPasswordHash accountTable aid hash = runUpdate $ update accountTable
+  (\x -> mconcat
+    [ _account_password x <-. val_ (Just hash)
+    , _account_passwordResetNonce x <-. nothing_
+    ]
+  )
+  (\x -> primaryKey x ==. val_ aid)
+
+makePasswordHash
+  :: MonadIO m
+  => Text
+  -> m ByteString
+makePasswordHash pw = do
+  salt <- liftIO genSaltIO
+  return $ makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) salt 14
+
+resetPassword
+  :: (Database Postgres db)
+  => DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> UTCTime
+  -> ByteString
+  -> Pg (Maybe (PrimaryKey Account Identity))
+resetPassword accountTable aid nonce pwhash = do
+  macc <- runSelectReturningOne $ lookup_ accountTable aid
+  case macc of
+    Nothing -> return Nothing
+    Just a -> if _account_passwordResetNonce a == Just nonce
+      then do
+        setAccountPasswordHash accountTable aid pwhash
+        return $ Just aid
+      else fail "nonce mismatch"
+
+newtype PasswordResetToken = PasswordResetToken
+  { unPasswordResetToken :: (PrimaryKey Account Identity, UTCTime)
+  }
+  deriving (Generic)
+
+instance ToJSON PasswordResetToken
+instance FromJSON PasswordResetToken
+
+passwordResetToken
+  :: MonadIO m
+  => CS.Key
+  -> PrimaryKey Account Identity
+  -> UTCTime
+  -> m (Signed PasswordResetToken)
+passwordResetToken csk aid nonce = do
+  liftIO $ signWithKey csk $ PasswordResetToken (aid, nonce)
+
+newNonce
+  :: DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> Pg (Maybe UTCTime)
+newNonce accountTable aid = do
+  a <- runUpdateReturningList $ update accountTable
+    (\x -> _account_passwordResetNonce x <-. just_ current_timestamp_)
+    (\x -> primaryKey x ==. val_ aid)
+  pure $ case a of
+    [acc] -> _account_passwordResetNonce acc
+    _ -> Nothing
