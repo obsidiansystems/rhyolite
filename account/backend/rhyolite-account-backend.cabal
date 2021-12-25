@@ -28,5 +28,8 @@ library
                     , rhyolite-notify-listen
                     , rhyolite-notify-listen-beam
                     , psql-simple-beam
+                    , clientsession
+                    , signed-data
+                    , signed-data-clientsession
     hs-source-dirs:   src
     default-language: Haskell2010

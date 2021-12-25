@@ -2,6 +2,7 @@
 Description:
   Check or modify credentials
 -}
+{-# Language DeriveGeneric #-}
 {-# Language FlexibleContexts #-}
 {-# Language MonoLocalBinds #-}
 {-# Language OverloadedStrings #-}
@@ -11,6 +12,9 @@ module Rhyolite.Backend.Account
   , ensureAccountExists
   , setAccountPasswordHash
   , makePasswordHash
+  , PasswordResetToken (..)
+  , passwordResetToken
+  , newNonce
   , resetPassword
   ) where
 
@@ -30,15 +34,15 @@ import Data.Time
 import Database.Beam
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
-import Database.Beam.Postgres
+import Data.Signed
+import Data.Signed.ClientSession
 import Database.Beam.Postgres.Full hiding (insert)
 import Database.Beam.Postgres.Syntax
-import Database.Beam.Postgres.Syntax
-import Database.Beam.Schema
-import Database.PostgreSQL.Simple.Beam
+import Database.PostgreSQL.Simple.Beam ()
 import Rhyolite.Account
 import Rhyolite.DB.NotifyListen
 import Rhyolite.DB.NotifyListen.Beam
+import Web.ClientSession as CS
 
 -- | Postgres @current_timestamp()@ function. Returns the server's timestamp
 current_timestamp_ :: QExpr Postgres s UTCTime
@@ -148,3 +152,32 @@ resetPassword accountTable aid nonce pwhash = do
         setAccountPasswordHash accountTable aid pwhash
         return $ Just aid
       else fail "nonce mismatch"
+
+newtype PasswordResetToken = PasswordResetToken
+  { unPasswordResetToken :: (PrimaryKey Account Identity, UTCTime)
+  }
+  deriving (Generic)
+
+instance ToJSON PasswordResetToken
+instance FromJSON PasswordResetToken
+
+passwordResetToken
+  :: MonadIO m
+  => CS.Key
+  -> PrimaryKey Account Identity
+  -> UTCTime
+  -> m (Signed PasswordResetToken)
+passwordResetToken csk aid nonce = do
+  liftIO $ signWithKey csk $ PasswordResetToken (aid, nonce)
+
+newNonce
+  :: DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> Pg (Maybe UTCTime)
+newNonce accountTable aid = do
+  a <- runUpdateReturningList $ update accountTable
+    (\x -> _account_passwordResetNonce x <-. just_ current_timestamp_)
+    (\x -> primaryKey x ==. val_ aid)
+  pure $ case a of
+    [acc] -> _account_passwordResetNonce acc
+    _ -> Nothing
