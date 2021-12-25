@@ -10,12 +10,14 @@ module Rhyolite.Backend.Account
   ( createAccount
   , login
   , ensureAccountExists
+  , setAccountPassword
   , setAccountPasswordHash
   , makePasswordHash
   , PasswordResetToken (..)
   , passwordResetToken
   , newNonce
   , resetPassword
+  , resetPasswordHash
   ) where
 
 import Control.Monad (guard)
@@ -57,8 +59,7 @@ createAccount
   -> Text
   -> Pg (Either Text (PrimaryKey Account Identity))
 createAccount accountTable noticeWrapper email pass = do
-  salt <- liftIO genSaltIO
-  let hash = makePasswordSaltWith pbkdf2 (2^) (T.encodeUtf8 pass) salt 14
+  hash <- makePasswordHash pass
   accountIds <- runPgInsertReturningList $ flip returning _account_id $ insert accountTable $ insertExpressions
     [ Account
         { _account_id = default_
@@ -115,6 +116,15 @@ ensureAccountExists accountTable email = do
           pure (True, aid)
         _ -> error "ensureAccountExists: Creating account failed"
 
+setAccountPassword
+  :: DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> Text
+  -> Pg ()
+setAccountPassword tbl aid password = do
+  pw <- liftIO $ makePasswordHash password
+  setAccountPasswordHash tbl aid pw
+
 setAccountPasswordHash
   :: DatabaseEntity Postgres db (TableEntity Account)
   -> PrimaryKey Account Identity
@@ -141,9 +151,20 @@ resetPassword
   => DatabaseEntity Postgres db (TableEntity Account)
   -> PrimaryKey Account Identity
   -> UTCTime
+  -> Text
+  -> Pg (Maybe (PrimaryKey Account Identity))
+resetPassword tbl aid t pw = do
+  hash <- makePasswordHash pw
+  resetPasswordHash tbl aid t hash
+
+resetPasswordHash
+  :: (Database Postgres db)
+  => DatabaseEntity Postgres db (TableEntity Account)
+  -> PrimaryKey Account Identity
+  -> UTCTime
   -> ByteString
   -> Pg (Maybe (PrimaryKey Account Identity))
-resetPassword accountTable aid nonce pwhash = do
+resetPasswordHash accountTable aid nonce pwhash = do
   macc <- runSelectReturningOne $ lookup_ accountTable aid
   case macc of
     Nothing -> return Nothing
