@@ -20,6 +20,9 @@ import Control.Lens
 
 import Database.Beam
 
+-- | When a worker has completed a task it returns a value of this type to
+-- indicate whether the completion should be recorded or if the job row
+-- should be deleted entirely.
 data CommitTask
    = CommitTask_Commit
    -- ^ The task is completed and should be recorded as such
@@ -27,7 +30,7 @@ data CommitTask
    -- ^ The task is completed and should be deleted from the table
 
 -- | The 'Task' type describes how to use a database table to check out tasks
--- and report the results back.
+-- and check them in.
 data Task be table checkout = Task
   { _task_filter :: forall s. table (QExpr be s) -> QExpr be s Bool
   -- ^ How to filter unclaimed task rows
