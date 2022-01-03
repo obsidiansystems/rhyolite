@@ -20,20 +20,20 @@ import Control.Lens
 
 import Database.Beam
 
+data CommitTask
+   = CommitTask_Commit
+   -- ^ The task is completed and should be recorded as such
+   | CommitTask_Delete
+   -- ^ The task is completed and should be deleted from the table
+
 -- | The 'Task' type describes how to use a database table to check out tasks
 -- and report the results back.
-data Task be table payload checkout result = Task
+data Task be table checkout = Task
   { _task_filter :: forall s. table (QExpr be s) -> QExpr be s Bool
   -- ^ How to filter unclaimed task rows
-  , _task_payload :: forall s. table (QExpr be s) -> QExpr be s payload
-  -- ^ How to extract the payload from the row
   , _task_checkedOutBy :: forall x. Lens' (table x) (C x (Maybe checkout))
   -- ^ How the field which records a checkout is embedded within a row;
   -- this allows both reading and writing.
   , _task_hasRun :: forall x. Lens' (table x) (C x Bool)
   -- ^ Which field indicates that the task result has been checked in.
-  , _task_result :: forall x. Lens' (table x) (result x)
-  -- ^ How the result data is embedded within a row.
-  -- Note that it has to be a Beamable type in its own right, so if the
-  -- result is a mere Columnar type it should be wrapped in a newtype.
   }

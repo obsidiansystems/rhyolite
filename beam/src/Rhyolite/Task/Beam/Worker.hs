@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
@@ -27,29 +28,32 @@ import Database.Beam.Schema.Tables
 import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
 
+-- | Wrapper function that takes a worker continuation
+-- and handles checking out and checking in a task that
+-- is stored in the database.
+-- The 'Task' type tells 'taskWorker' how to query and update rows
+-- and the worker continuation does the real work.
 taskWorker
-  :: forall m be db table f payload checkout result.
+  :: forall m be db table f checkout.
      ( MonadIO m, Database be db, Beamable table, Table table
-     , Beamable result
      , FromBackendRow be (PrimaryKey table Identity)
-     , FromBackendRow be payload
      , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
      , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
-     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) result
      , HasSqlValueSyntax PgValueSyntax checkout
      , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
      )
   => Connection
   -> DatabaseEntity be db (TableEntity table)
   -- ^ The table whose rows represent tasks to be run
-  -> Task be table payload checkout result
+  -> Task be table checkout
   -- ^ Description of how task data is embedded within the table
   -- TODO: Serializable discipline here instead of 'Pg'
-  -> (PrimaryKey table Identity -> payload -> Pg (m (Pg (result Identity))))
+  -> (PrimaryKey table Identity -> Pg (m (Pg CommitTask)))
   -- ^ The worker continuation is divided into 3 phases:
   -- 1. A checkout action that is transaction safe (it may retry).
   -- 2. A work action that is not transaction safe (it will not retry).
-  -- 3. A commit action that is transaction safe (it may retry).
+  -- 3. A commit action that is transaction safe (it may retry)
+  --    which indicates how the task should be checked in.
   -> checkout
   -- ^ Identifier for the worker checking out the task
   -> m Bool
@@ -61,7 +65,7 @@ taskWorker dbConn table schema k checkoutId = do
     -- 2. Update this task to reflect that it has been checked out by current worker
     -- 3. Run the specified checkout task which returns the work continuation
     withTransactionSerializableRunBeamPostgres dbConn $ do
-      primaryKeyAndInput <- runSelectReturningOne $ select $ limit_ 1 $ do
+      selectTaskForCheckout <- runSelectReturningOne $ select $ limit_ 1 $ do
           task <- all_ table
 
           -- Both task fields should be empty for an unclaimed task
@@ -71,17 +75,17 @@ taskWorker dbConn table schema k checkoutId = do
                &&. (_task_filter schema task)
 
           -- Return the primary key (task id) along with a custom field that the user asked for.
-          pure (primaryKey task, _task_payload schema task)
+          pure (primaryKey task)
       -- In case we did not find any rows, no update SQL will be run
       -- The row lock that we acquired above will be reset when the transaction ends.
-      forM primaryKeyAndInput $ \(taskId, input) -> do
+      forM selectTaskForCheckout $ \taskId -> do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
           update table
             (\task -> (task ^. _task_checkedOutBy schema) <-. val_ (Just checkoutId))
             (\task -> primaryKey task ==. val_ taskId)
 
-        (,) taskId <$> k taskId input
+        (,) taskId <$> k taskId
   case mCheckout of
     Nothing -> pure False
     Just (taskId, workAction) -> do
@@ -90,17 +94,19 @@ taskWorker dbConn table schema k checkoutId = do
 
       -- Commit phase
       withTransactionSerializableRunBeamPostgres dbConn $ do
-        -- Get the result value from the serializable
-        b <- commitAction
-
-        -- Update the task's result field, set checked out field to null
-        runUpdate $ update table
-          (\task -> mconcat
-            [ task ^. _task_result schema <-. val_ b
-            , task ^. _task_hasRun schema <-. val_ True
-            , task ^. _task_checkedOutBy schema <-. val_ Nothing])
-          (\task -> primaryKey task ==. val_ taskId)
-
+        -- Get the result actio from the serializable
+        commitAction >>= \case
+          CommitTask_Commit ->
+            -- Set checked out field to null and hasRun field to True
+            runUpdate $ update table
+              (\task -> mconcat
+                [ task ^. _task_hasRun schema <-. val_ True
+                , task ^. _task_checkedOutBy schema <-. val_ Nothing])
+              (\task -> primaryKey task ==. val_ taskId)
+          CommitTask_Delete ->
+            -- Delete the task row completely
+            runDelete $ delete table
+              (\task -> primaryKey task ==. val_ taskId)
       pure True
 
 -- | Run a worker thread
