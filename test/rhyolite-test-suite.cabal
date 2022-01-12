@@ -21,7 +21,7 @@ executable rhyolite-test-suite
     , rhyolite-account-backend
     , rhyolite-account-types
     , rhyolite-backend
-    , rhyolite-beam-task-worker
+    , rhyolite-beam-task-worker-backend
     , rhyolite-common
     , rhyolite-email
     , rhyolite-frontend

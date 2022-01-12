@@ -2,7 +2,9 @@ packages:
   account/backend/
   account/types/
   backend/
-  beam/
+  beam/db/
+  beam/task/backend/
+  beam/task/types/
   common/
   semimap/
   email/
