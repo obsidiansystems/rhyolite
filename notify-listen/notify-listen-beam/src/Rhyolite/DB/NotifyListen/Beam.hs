@@ -39,6 +39,7 @@ import Database.Beam.Postgres.Syntax
 import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple.Class
 import GHC.Generics
+import Rhyolite.Aeson.Orphans ()
 import Rhyolite.DB.NotifyListen
 
 -- | Type synonym for things that can be used in a postgres query equality
