@@ -5,4 +5,5 @@ let fetch = { private ? false, fetchSubmodules ? false, owner, repo, rev, sha256
   } else (import <nixpkgs> {}).fetchFromGitHub {
     inherit owner repo rev sha256 fetchSubmodules private;
   };
-in import (fetch (builtins.fromJSON (builtins.readFile ./github.json)))
+  json = builtins.fromJSON (builtins.readFile ./github.json);
+in fetch json

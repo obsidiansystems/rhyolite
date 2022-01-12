@@ -30,6 +30,7 @@ library
     , constraints-extras
     , psql-simple-beam
     , psql-simple-class
+    , rhyolite-common
     , rhyolite-notify-listen
     , these
 
