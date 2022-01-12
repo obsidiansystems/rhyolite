@@ -13,7 +13,6 @@ module Rhyolite.Backend.Account
   , setAccountPassword
   , setAccountPasswordHash
   , makePasswordHash
-  , PasswordResetToken (..)
   , passwordResetToken
   , newNonce
   , resetPassword
@@ -173,14 +172,6 @@ resetPasswordHash accountTable aid nonce pwhash = do
         setAccountPasswordHash accountTable aid pwhash
         return $ Just aid
       else fail "nonce mismatch"
-
-newtype PasswordResetToken = PasswordResetToken
-  { unPasswordResetToken :: (PrimaryKey Account Identity, UTCTime)
-  }
-  deriving (Generic)
-
-instance ToJSON PasswordResetToken
-instance FromJSON PasswordResetToken
 
 passwordResetToken
   :: MonadIO m
