@@ -60,7 +60,7 @@ newtype ModalT t modalM m a
     ( Functor, Applicative, Monad
     , MonadFix, MonadIO, MonadRef, MonadAtomicRef, MonadReader r
     , DomBuilder t, NotReady t, MonadHold t, MonadSample t
-    , PerformEvent t, TriggerEvent t, PostBuild t, HasJS x
+    , PerformEvent t, TriggerEvent t, PostBuild t
     , MonadReflexCreateTrigger t, MonadQuery t q, Requester t
     )
 
@@ -74,9 +74,6 @@ instance Wrapped (ModalT t modalM m a) where
 instance ModalT t modalM m a ~ x => Rewrapped (ModalT t modalM m a) x
 
 instance HasDocument m => HasDocument (ModalT t modalM m)
-instance HasJSContext m => HasJSContext (ModalT t modalM m) where
-  type JSContextPhantom (ModalT t modalM m) = JSContextPhantom m
-  askJSContext = ModalT askJSContext
 #if !defined(ghcjs_HOST_OS)
 instance MonadJSM m => MonadJSM (ModalT t modalM m)
 #endif
@@ -104,7 +101,7 @@ instance (Adjustable t m, MonadHold t m, MonadFix m) => Adjustable t (ModalT t m
 
 deriving instance DomRenderHook t m => DomRenderHook t (ModalT t modalM m)
 
-instance (Prerender js t m, Monad m, Reflex t) => Prerender js t (ModalT t modalM m) where
+instance (Prerender t m, Monad m, Reflex t) => Prerender t (ModalT t modalM m) where
   type Client (ModalT t modalM m) = ModalT t modalM (Client m)
   prerender back front = do
     (a, ev) <- fmap splitDynPure $ lift $ prerender
@@ -120,9 +117,9 @@ instance HasConfigs m => HasConfigs (ModalT t modalM m)
 -- NB: This must wrap all other DOM building. This is because DOM for the modal
 -- must occur *after* all other DOM in order for the modal to appear on top of it.
 runModalT
-  :: forall m js t a.
+  :: forall m t a.
    ( MonadFix m
-   , DomBuilder t m, MonadHold t m, PostBuild t m, Prerender js t m
+   , DomBuilder t m, MonadHold t m, PostBuild t m, Prerender t m
    )
   => ModalBackdropConfig -> ModalT t m m a -> m a
 runModalT backdropCfg f = do
@@ -161,9 +158,9 @@ newtype ModalBackdropConfig = ModalBackdropConfig
 -- NB: This must wrap all other DOM building. This is because DOM for the modal
 -- must occur *after* all other DOM in order for the modal to appear on top of it.
 withModals
-  :: forall m a b js t.
+  :: forall m a b t.
    ( MonadFix m
-   , DomBuilder t m, MonadHold t m, PostBuild t m, Prerender js t m
+   , DomBuilder t m, MonadHold t m, PostBuild t m, Prerender t m
    )
   => ModalBackdropConfig
   -> Event t (Event t () -> m (Event t a))
@@ -179,7 +176,7 @@ withModals backdropCfg open body = liftA2 (,) body (modalDom backdropCfg open)
 -- NB: This must run after all other DOM building. This is because DOM for the modal
 -- must occur *after* all other DOM in order for the modal to appear on top of it.
 modalDom
-  :: forall a m js t. (DomBuilder t m, MonadFix m, MonadHold t m, PostBuild t m, Prerender js t m)
+  :: forall a m t. (DomBuilder t m, MonadFix m, MonadHold t m, PostBuild t m, Prerender t m)
   => ModalBackdropConfig
   -> Event t (Event t () -> m (Event t a))
   -- ^ Event to trigger a modal to open.

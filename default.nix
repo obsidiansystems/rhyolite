@@ -43,8 +43,6 @@ let
     groundhog = repos.groundhog + "/groundhog";
     groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
     groundhog-th = repos.groundhog + "/groundhog-th";
-    HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
-    HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
     monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
@@ -97,7 +95,8 @@ let
         ver = "1.1";
         sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
       } {};
-      standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
+      HaskellNet = self.callHackage "HaskellNet" "0.6" {};
+      HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
 
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
       rhyolite-beam-task-worker = if pkgs.stdenv.hostPlatform.isDarwin
@@ -142,6 +141,6 @@ in obelisk // {
         "rhyolite-frontend"
       ];
     };
-    tools = ghc: [ pkgs.postgresql pkgs.haskellPackages.standalone-haddock ];
+    tools = ghc: [ pkgs.postgresql (pkgs.haskell.lib.markUnbroken reflex-platform.ghc.standalone-haddock) ];
   });
 }

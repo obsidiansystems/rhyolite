@@ -35,17 +35,19 @@ library
     , network-uri
     , patch
     , reflex
-    , semialign               >=1   && <1.2
+    , semialign
     , semimap
     , some
     , text
-    , these                   >=1   && <1.1
+    , these
     , transformers
     , transformers-base
+    , unordered-containers
     , vessel
-    , witherable              >=0.2 && <0.4
+    , witherable
 
   exposed-modules:
+    Rhyolite.Aeson.Orphans
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
