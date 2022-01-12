@@ -2,6 +2,7 @@
   "owner": "obsidiansystems",
   "repo": "push-notifications",
   "branch": "develop",
-  "rev": "18ae57d88a17a63389fe2a9aa0d9e421294a8781",
-  "sha256": "1jhhnyfgfjv1x0gb59gyj9nvffp5czgqx8zjr4b4m15p7sx8j714"
+  "private": false,
+  "rev": "7a6f836a5086c3271613fa96eee3f7a05c8e7a23",
+  "sha256": "10kl2vpzjknqmp816rw2zmnnv01zjp2d4s2243skm70z0js0al8w"
 }

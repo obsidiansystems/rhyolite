@@ -40,6 +40,7 @@ import Database.Id.Class (HasId, Id, IdData)
 import Database.Id.Groundhog (DefaultKeyId, fromId, toId)
 import qualified Rhyolite.DB.NotifyListen as NL
 import Rhyolite.DB.NotifyListen (NotificationType(..))
+import Rhyolite.Aeson.Orphans ()
 import Database.PostgreSQL.Simple.Class
 import GHC.Generics
 
