@@ -103,7 +103,7 @@ tagPromptlyDynValidation (DynValidation (Compose b)) = attachPromptlyDynWithMayb
 
 manageValidity
   :: ( DomBuilder t m, MonadHold t m, PerformEvent t m
-     , Prerender js t m, RawInputElement (DomBuilderSpace m) ~ HTMLInputElement
+     , Prerender t m, RawInputElement (DomBuilderSpace m) ~ HTMLInputElement
      )
   => Event t () -- When to validate
   -> (Dynamic t Text -> m (DynValidation t e a)) -- Validation

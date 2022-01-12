@@ -43,3 +43,12 @@ deriving instance Show (PrimaryKey Account Identity)
 
 instance ToJSON (PrimaryKey Account Identity)
 instance FromJSON (PrimaryKey Account Identity)
+
+
+newtype PasswordResetToken = PasswordResetToken
+  { unPasswordResetToken :: (PrimaryKey Account Identity, UTCTime)
+  }
+  deriving (Generic)
+
+instance ToJSON PasswordResetToken
+instance FromJSON PasswordResetToken
