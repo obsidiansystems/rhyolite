@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Rhyolite.Email.Orphans where
@@ -14,3 +15,5 @@ deriveJSON defaultOptions ''Mail.Encoding
 deriveJSON defaultOptions ''Mail.Part
 deriveJSON defaultOptions ''Mail.PartContent
 deriveJSON defaultOptions ''Mail.Mail
+
+deriving instance Read Mail.Address
