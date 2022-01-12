@@ -16,11 +16,14 @@ extra-source-files:
   email.css
 
 library
-  exposed-modules:  Rhyolite.Email
+  exposed-modules:
+      Rhyolite.Email
+    , Rhyolite.Email.Orphans
   build-depends:
+      base
     , aeson
-    , base
     , blaze-html
+    , bytestring-aeson-orphans
     , data-default
     , file-embed
     , HaskellNet
