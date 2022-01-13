@@ -2,7 +2,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Rhyolite.Email.Orphans where
+module Network.Mail.Mime.Orphans where
 
 import ByteString.Aeson.Orphans ()
 import Data.Aeson
