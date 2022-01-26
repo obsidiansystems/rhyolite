@@ -2,6 +2,7 @@
 {-# Language DeriveAnyClass #-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
@@ -13,7 +14,7 @@ module Types where
 import Control.Exception
 import Control.Lens
 import Control.Monad.Logger
-import Data.Int (Int32)
+import Data.Int (Int64)
 import Data.Proxy
 import Data.String (fromString)
 import Data.Text (Text)
@@ -23,10 +24,13 @@ import Database.Beam.Postgres
 
 import Rhyolite.Task.Beam
 
-data TestTaskT f = TestTask
-  { _taskDetails :: Task Int32 Bool Text f
-  , _taskId :: C f Int32
-  } deriving (Generic, Beamable)
+data TestTaskT f = TestTaskT
+  { _testTaskT_id :: Columnar f Int64
+  , _testTaskT_checkedOutBy :: Columnar f (Maybe Text)
+  , _testTaskT_payload :: Columnar f Int64
+  , _testTaskT_result :: Columnar f (Maybe Bool)
+  , _testTaskT_finished :: Columnar f Bool
+  } deriving (Generic)
 
 makeLenses ''TestTaskT
 
@@ -35,25 +39,50 @@ type TestTaskId = PrimaryKey TestTaskT Identity
 
 deriving instance Eq TestTask
 
+instance Beamable TestTaskT
 instance Table TestTaskT where
-   data PrimaryKey TestTaskT f = TestTaskId (Columnar f Int32) deriving (Generic, Beamable)
-   primaryKey = TestTaskId . _taskId
+  newtype PrimaryKey TestTaskT f = TestTaskId { unTestTaskId :: Columnar f Int64 }
+    deriving (Generic)
+  primaryKey = TestTaskId . _testTaskT_id
 
-createTask :: Int32 -> TestTask
-createTask i = TestTask (Task i Nothing Nothing) i
+instance Beamable (PrimaryKey TestTaskT)
+
+newtype WrappedColumnar a f = WrappedColumnar { unWrappedColumnar :: Columnar f a }
+  deriving (Generic)
+
+instance Beamable (WrappedColumnar a)
+
+testTask :: Task Postgres TestTaskT (WrappedColumnar Int64) Text (WrappedColumnar (Maybe Bool))
+testTask = Task
+  { _task_filter = \_ -> val_ True
+  , _task_payload = WrappedColumnar . _testTaskT_payload
+  , _task_checkedOutBy = testTaskT_checkedOutBy
+  , _task_hasRun = testTaskT_finished
+  , _task_result = lens
+    (\t -> WrappedColumnar (_testTaskT_result t))
+    (\t (WrappedColumnar s) -> t
+      { _testTaskT_result = s
+      }
+    )
+  }
+
+createTask :: Int64 -> TestTask
+createTask i = TestTaskT
+  { _testTaskT_id = i
+  , _testTaskT_checkedOutBy = Nothing
+  , _testTaskT_payload = i
+  , _testTaskT_result = Nothing
+  , _testTaskT_finished = False
+  }
 
 newtype TestTasksDb f = TestTasksDb
-  { _tasks :: f (TableEntity TestTaskT) }
-    deriving (Generic, Database be)
+  { _testTasksDb_tasks :: f (TableEntity TestTaskT)
+  } deriving (Generic)
+
+instance Database be TestTasksDb
 
 tasksDb :: DatabaseSettings be TestTasksDb
-tasksDb = defaultDbSettings `withDbModification`
-  dbModification {
-    _tasks =
-      modifyTableFields (TestTask taskFields "id")
-  }
-  where
-    taskFields = Task (fromString "payload") (fromString "result") (fromString "checked_out_by")
+tasksDb = defaultDbSettings
 
 tasksDbPostgres :: BA.AnnotatedDatabaseSettings Postgres TestTasksDb
 tasksDbPostgres = BA.defaultAnnotatedDbSettings tasksDb
@@ -65,9 +94,3 @@ data TestException = TestException
    deriving (Eq, Show, Typeable)
 
 instance Exception TestException
-
-instance MonadLogger IO where
-  monadLoggerLog _ _ _ msg = print $ toLogStr msg
-
-instance MonadLoggerIO IO where
-  askLoggerIO = pure (\_ _ _ logStr -> print logStr)

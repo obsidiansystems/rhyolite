@@ -37,30 +37,31 @@ library
   default-language: Haskell2010
   ghc-options:      -Wall
 
--- test-suite test
---   other-modules:
---       Types
---     , Utils
---
---   type:           exitcode-stdio-1.0
---   main-is:        Test.hs
---   hs-source-dirs: test
---   default-language: Haskell2010
---   build-depends:
---       base
---     , beam-automigrate
---     , beam-core
---     , beam-postgres
---     , containers
---     , filepath
---     , gargoyle-postgresql-connect
---     , hspec
---     , lens
---     , monad-logger
---     , postgresql-simple
---     , psql-serializable
---     , resource-pool
---     , rhyolite-beam-task-worker
---     , text
---     , unix
---   ghc-options:    -threaded
+test-suite test
+  other-modules:
+      Types
+    , Utils
+
+  type:           exitcode-stdio-1.0
+  main-is:        Test.hs
+  hs-source-dirs: test
+  default-language: Haskell2010
+  build-depends:
+      rhyolite-beam-task-worker-backend
+    , rhyolite-beam-task-worker-types
+    , base
+    , beam-automigrate
+    , beam-core
+    , beam-postgres
+    , containers
+    , filepath
+    , gargoyle-postgresql-connect
+    , hspec
+    , lens
+    , monad-logger
+    , postgresql-simple
+    , psql-serializable
+    , resource-pool
+    , text
+    , unix
+  ghc-options:    -threaded
