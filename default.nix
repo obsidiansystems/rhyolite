@@ -15,7 +15,9 @@ let
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
     rhyolite-backend = ./backend;
-    rhyolite-beam-task-worker = ./beam;
+    rhyolite-beam-db = ./beam/db;
+    rhyolite-beam-task-worker-types = ./beam/task/types;
+    rhyolite-beam-task-worker-backend = ./beam/task/backend;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
@@ -99,11 +101,11 @@ let
       HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
 
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
-      rhyolite-beam-task-worker = if pkgs.stdenv.hostPlatform.isDarwin
+      rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
       then
-        haskellLib.dontCheck super.rhyolite-beam-task-worker
+        haskellLib.dontCheck super.rhyolite-beam-task-worker-backend
       else
-        super.rhyolite-beam-task-worker;
+        super.rhyolite-beam-task-worker-backend;
     })
   ];
 
