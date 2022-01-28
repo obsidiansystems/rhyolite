@@ -27,11 +27,17 @@ import Database.Beam.Schema.Tables
 import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
 
--- | Wrapper function that takes a worker continuation and handles checkout out
--- and checking in a task that is stored in a database table.
--- The 'Task' type tells it how to find eligible tasks, how to extract a useful
--- payload from the row, and how to put results back into the row while
--- the continuation does the real work.
+-- | Takes a worker continuation and handles checking out and checking in a task
+-- that is stored in a database table.  The 'Rhyolite.Task.Beam.Task' type tells
+-- it how to find eligible tasks, how to extract a useful payload from the row,
+-- and how to put results back into the row while the continuation does the real
+-- work.
+--
+-- The worker continuation is divided into 3 phases:
+--
+--   1. A checkout action that is transaction safe (it may retry).
+--   2. A work action that is not transaction safe (it will not retry).
+--   3. A commit action that is transaction safe (it may retry).
 --
 -- The continuation can perform its own queries in the checkout transaction but
 -- it is ideal to spend as little time as possible in this phase for the sake
@@ -53,12 +59,8 @@ taskWorker
   -- ^ The table whose rows represent tasks to be run
   -> Task be table payload checkout result
   -- ^ Description of how task data is embedded within the table
-  -- TODO: Serializable discipline here instead of 'Pg'
   -> (PrimaryKey table Identity -> payload Identity -> Pg (m (Pg (result Identity))))
-  -- ^ The worker continuation is divided into 3 phases:
-  -- 1. A checkout action that is transaction safe (it may retry).
-  -- 2. A work action that is not transaction safe (it will not retry).
-  -- 3. A commit action that is transaction safe (it may retry).
+  -- ^ Worker continuation
   -> checkout
   -- ^ Identifier for the worker checking out the task
   -> m Bool
