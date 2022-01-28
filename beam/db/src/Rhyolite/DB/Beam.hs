@@ -13,3 +13,4 @@ import Database.PostgreSQL.Simple.Transaction
 -- | Run beam SQL statements inside a Postgres Serializable Transaction
 withTransactionSerializableRunBeamPostgres :: (MonadIO m) => Connection -> Pg a -> m a
 withTransactionSerializableRunBeamPostgres dbConn = liftIO . withTransactionSerializable dbConn . runBeamPostgres dbConn
+
