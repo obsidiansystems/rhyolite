@@ -41,13 +41,10 @@ import Database.Beam.Postgres.Full hiding (insert)
 import Database.Beam.Postgres.Syntax
 import Database.PostgreSQL.Simple.Beam ()
 import Rhyolite.Account
+import Rhyolite.DB.Beam (current_timestamp_)
 import Rhyolite.DB.NotifyListen
 import Rhyolite.DB.NotifyListen.Beam
 import Web.ClientSession as CS
-
--- | Postgres @current_timestamp()@ function. Returns the server's timestamp
-current_timestamp_ :: QExpr Postgres s UTCTime
-current_timestamp_ = QExpr (\_ -> PgExpressionSyntax (emit "current_timestamp at time zone 'UTC'"))
 
 -- | Creates a new account and emits a db notification about it
 createAccount
