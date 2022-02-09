@@ -21,6 +21,7 @@ library
                     , time
                     , beam-postgres
                     , rhyolite-account-types
+                    , rhyolite-beam-db
                     , constraints
                     , constraints-extras
                     , pwstore-fast
