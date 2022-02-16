@@ -28,6 +28,7 @@ library
     , beam-postgres
     , constraints
     , constraints-extras
+    , dependent-sum
     , psql-simple-beam
     , psql-simple-class
     , rhyolite-common

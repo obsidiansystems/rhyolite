@@ -11,6 +11,7 @@ Notifications about database changes in beam
 {-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language StandaloneDeriving #-}
+{-# Language TypeApplications #-}
 {-# Language UndecidableInstances #-}
 module Rhyolite.DB.NotifyListen.Beam
   ( HasNotification(..)
@@ -29,39 +30,21 @@ module Rhyolite.DB.NotifyListen.Beam
 import Data.Aeson
 import Data.Constraint.Extras
 import Data.Constraint.Forall
+import Data.Dependent.Sum
 import Data.Functor.Identity
 import Data.These
 import Database.Beam
 import Database.Beam.Backend.SQL
 import Database.Beam.Backend.SQL.BeamExtensions
 import Database.Beam.Postgres
+import Database.Beam.Postgres.Full (PgInsertReturning, PgUpdateReturning, PgDeleteReturning)
+import qualified Database.Beam.Postgres.Full as Pg
 import Database.Beam.Postgres.Syntax
 import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple.Class
 import GHC.Generics
 import Rhyolite.Aeson.Orphans ()
 import Rhyolite.DB.NotifyListen
-
--- | Type synonym for things that can be used in a postgres query equality
--- comparison. If @x@ satisfies these constraints, you should be able to use
--- @x@ in a beam query like this:
---
--- > (\t -> t ==. val_ x)
---
-type HasSqlEquality t =
-  ( Generic (t (HasConstraint (HasSqlEqualityCheck Postgres)))
-  , Generic (t Identity)
-  , Generic (t Exposed)
-  , (Generic (t (HasConstraint (HasSqlValueSyntax PgValueSyntax))))
-  , (GFieldsFulfillConstraint
-      (HasSqlValueSyntax PgValueSyntax)
-      (Rep (t Exposed))
-      (Rep (t (HasConstraint (HasSqlValueSyntax PgValueSyntax)))))
-  , (GFieldsFulfillConstraint
-      (HasSqlEqualityCheck Postgres)
-      (Rep (t Exposed))
-      (Rep (t (HasConstraint (HasSqlEqualityCheck Postgres)))))
-  )
 
 -- | Class for relating application-specific db notification types with db
 -- table entities. The example below shows how this can be used. Here's a
@@ -94,91 +77,69 @@ class HasNotification n a | a -> n where
 
 -- | Insert a value into a table and send a db notification with information
 -- about the change.
-insertAndNotify :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeamInsertReturning be m
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  )
+insertAndNotify
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasNotification n t
+     )
   => DatabaseEntity be db (TableEntity t)
-  -- ^ The table into which the new row will be inserted
   -> (forall s. t (QExpr be s))
-  -- ^ The value to be inserted
   -> m (Maybe (PrimaryKey t Identity))
-  -- ^ The primary key of the new row, if the insert was successful
 insertAndNotify tbl g = do
-  xs <- runInsertReturningList $ insert tbl $ insertExpressions [g]
-  case xs of
-    [x] -> do
-      let xid = primaryKey x
-      notify NotificationType_Insert (notification tbl) xid
-      pure $ Just $ primaryKey x
-    _ -> pure Nothing
+  let toNotify = map $ \x -> notification tbl :=> Identity x
+  rs <- runPgInsertReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $ insert tbl $ insertExpressions [g]
+  case rs of
+    [r] -> pure $ Just r
+    [] -> pure Nothing
 
 -- | Update a row in a table and send a db notification with information about
 -- the change. This function only updates the row specified by the primary key
 -- argument.
-updateAndNotify :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeamUpdateReturning be m
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  , HasSqlEquality (PrimaryKey t)
-  )
+updateAndNotify
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasNotification n t
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey t)
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
+     )
   => DatabaseEntity be db (TableEntity t)
-  -- ^ The table being updated
   -> PrimaryKey t Identity
-  -- ^ The primary key of the row to update
   -> (forall s. t (QField s) -> QAssignment be s)
-  -- ^ The actual update to perform
-  -- (e.g., @(\c -> addressCountry (customerAddress c) <-. val_ (Just "USA"))@)
   -> m (Maybe (PrimaryKey t Identity))
-  -- ^ The primary key of the updated row, if the update was successful
 updateAndNotify tbl k g = do
-  xs <- runUpdateReturningList $
+  let toNotify = map $ \x -> notification tbl :=> Identity x
+  rs <- runPgUpdateReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $
     update tbl g (\t -> primaryKey t ==. val_ k)
-  case xs of
-    [x] -> do
-      let xid = primaryKey x
-      notify NotificationType_Update (notification tbl) xid
-      pure $ Just $ primaryKey x
+  case rs of
+    [r] -> pure $ Just r
     _ -> pure Nothing
 
 -- | Delete a row in a table and send a db notification with information about
 -- the change. This function only deletes the row specified by the primary key
 -- argument.
-deleteAndNotify :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeam be m
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  , HasSqlEquality (PrimaryKey t)
-  )
+deleteAndNotify
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasNotification n t
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey t)
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
+     )
   => DatabaseEntity be db (TableEntity t)
   -- ^ The table to delete from
   -> PrimaryKey t Identity
   -- ^ The primary key of the row to delete
-  -> m (PrimaryKey t Identity)
+  -> m (Maybe (PrimaryKey t Identity))
   -- ^ The primary key that was deleted
 deleteAndNotify tbl k = do
-  runDelete $ delete tbl (\t -> primaryKey t ==. val_ k)
-  notify NotificationType_Delete (notification tbl) k
-  pure k
+  let toNotify = map $ \x -> notification tbl :=> Identity x
+  rs <- runPgDeleteReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $
+    delete tbl (\t -> primaryKey t ==. val_ k)
+  case rs of
+    [r] -> pure $ Just r
+    _ -> pure Nothing
 
 -- | Similar to 'HasNotification' except that this class provides more detailed
 -- information about what changed, including the old and new values, where
@@ -212,17 +173,13 @@ instance (FromJSON (PrimaryKey a Identity), FromJSON (a Identity))
   => FromJSON (Change a)
 
 -- | Insert a row into the database and send a 'Change' notification.
-insertAndNotifyChange :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeamInsertReturning be m
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasChangeNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  )
+insertAndNotifyChange
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , MonadBeamInsertReturning be m, FromBackendRow be (t Identity)
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasChangeNotification n t
+     )
   => DatabaseEntity be db (TableEntity t)
   -- ^ The table into which the new row will be inserted
   -> (forall s. t (QExpr be s))
@@ -243,19 +200,16 @@ insertAndNotifyChange tbl g = do
 -- modification. Note that this function retrieves the entire row before the
 -- modification and sends a notification including both the old and new values.
 -- See the size limitation note on 'Rhyolite.DB.NotifyListen.notify'.
-updateAndNotifyChange :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeamUpdateReturning be m
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasChangeNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  , HasSqlEquality (PrimaryKey t)
-  , Database be db
-  )
+updateAndNotifyChange
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , MonadBeamUpdateReturning be m, FromBackendRow be (t Identity)
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasChangeNotification n t
+     , Database be db
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey t)
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
+     )
   => DatabaseEntity be db (TableEntity t)
   -- ^ The table being updated
   -> PrimaryKey t Identity
@@ -284,19 +238,16 @@ updateAndNotifyChange tbl k g = do
 
 -- | Delete a row from the database and send a 'Change' notification. Note that
 -- this retrieves the row before deleting it.
-deleteAndNotifyChange :: forall be db t n m.
-  ( be ~ Postgres
-  , MonadBeam be m
-  , Database Postgres db
-  , BeamSqlBackend be
-  , Table t
-  , Has' ToJSON n Identity
-  , ForallF ToJSON n
-  , HasChangeNotification n t
-  , Psql m
-  , FromBackendRow be (t Identity)
-  , HasSqlEquality (PrimaryKey t)
-  )
+deleteAndNotifyChange
+  :: forall be db m n t.
+     ( BeamSqlBackend be, be ~ Postgres, Psql m, MonadBeam be m
+     , FromBackendRow be (t Identity)
+     , Table t, FromBackendRow be (PrimaryKey t Identity)
+     , Has' ToJSON n Identity, ForallF ToJSON n, HasChangeNotification n t
+     , Database be db
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey t)
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
+     )
   => DatabaseEntity be db (TableEntity t)
   -- ^ The table to delete from
   -> PrimaryKey t Identity
@@ -313,19 +264,79 @@ deleteAndNotifyChange tbl k = do
       notify NotificationType_Delete (changeNotification tbl) change
       pure $ Just k
 
-selectByKey ::
-  ( be ~ Postgres
-  , Database Postgres db
-  , MonadBeam be m
-  , BeamSqlBackend be
-  , FromBackendRow be (t Identity)
-  , HasQBuilder be
-  , Beamable t
-  , Table t
-  , HasSqlEquality (PrimaryKey t)
-  )
+selectByKey
+  :: forall be db t m.
+     ( be ~ Postgres, Database Postgres db, MonadBeam be m
+     , BeamSqlBackend be, HasQBuilder be
+     , FromBackendRow be (t Identity), Table t
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey t)
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
+     )
   => DatabaseEntity be db (TableEntity t)
   -> PrimaryKey t Identity
   -> m (Maybe (t Identity))
 selectByKey tbl k = runSelectReturningOne $
     select $ filter_ (\t -> primaryKey t ==. val_ k) (all_ tbl)
+
+-- | Execute a 'PgInsertReturning' statement and emit notifications
+-- based on the returned results.
+runPgInsertReturningListWithNotify
+  :: forall be m tag a.
+     ( MonadBeam be m, FromBackendRow be a, BeamSqlBackendSyntax be ~ PgCommandSyntax
+     , Has' ToJSON tag Identity, ForallF ToJSON tag, Psql m
+     )
+  => ([a] -> [DSum tag Identity])
+  -- ^ Specifies how to transform the list of results from the executed statement
+  -- into a list of notifications. Frequently it is desirable to emit only one
+  -- notification per statement but there is a size limit on Postgresql notify
+  -- payloads (8kb) which may necessitate multiple notification messages.
+  -> PgInsertReturning a
+  -> m [a]
+runPgInsertReturningListWithNotify toNotification statement = do
+  rs <- Pg.runPgInsertReturningList statement
+  mapM_ (notify' NotificationType_Insert) (toNotification rs)
+  pure rs
+
+-- | Execute a 'PgUpdateReturning' statement and emit notifications
+-- based on the returned results.
+--
+-- Like 'runPgInsertReturningListWithNotify'
+runPgUpdateReturningListWithNotify
+  :: forall be m tag a.
+     ( MonadBeam be m, FromBackendRow be a, BeamSqlBackendSyntax be ~ PgCommandSyntax
+     , Has' ToJSON tag Identity, ForallF ToJSON tag, Psql m
+     )
+  => ([a] -> [DSum tag Identity])
+  -> PgUpdateReturning a
+  -> m [a]
+runPgUpdateReturningListWithNotify toNotification statement = do
+  rs <- Pg.runPgUpdateReturningList statement
+  mapM_ (notify' NotificationType_Update) (toNotification rs)
+  pure rs
+
+-- | Execute a 'PgDeleteReturning' statement and emit notifications
+-- based on the returned results.
+--
+-- Like 'runPgInsertReturningListWithNotify'
+runPgDeleteReturningListWithNotify
+  :: forall be m tag a.
+     ( MonadBeam be m, FromBackendRow be a, BeamSqlBackendSyntax be ~ PgCommandSyntax
+     , Has' ToJSON tag Identity, ForallF ToJSON tag, Psql m
+     )
+  => ([a] -> [DSum tag Identity])
+  -> PgDeleteReturning a
+  -> m [a]
+runPgDeleteReturningListWithNotify toNotification statement = do
+  rs <- Pg.runPgDeleteReturningList statement
+  mapM_ (notify' NotificationType_Delete) (toNotification rs)
+  pure rs
+
+-- | Variation of 'notify' which takes the notification tag and payload already combined
+-- as a 'DSum'
+notify'
+  :: (Has' ToJSON tag Identity, ForallF ToJSON tag, Psql m)
+  => NotificationType
+  -> DSum tag Identity
+  -> m ()
+notify' nType (n :=> Identity a) = notify nType n a
+
