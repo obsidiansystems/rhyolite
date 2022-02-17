@@ -16,6 +16,7 @@ to the database.
 module Rhyolite.DB.NotifyListen
   ( -- * Sending notifications
     notify
+  , notify'
   , NotificationType(..)
   , DbNotification(..)
     -- * Running a notification listener
@@ -175,7 +176,7 @@ notifyCmd (NotificationChannel chan) = fromString $ "NOTIFY " <> chan <> ", ?"
 
 -- | Sends a notification over a given channel. Notification payloads must have
 -- a JSON representation for transmission.
--- 
+--
 -- The notification message itself is wrapped in a 'DSum' to allow messages of
 -- different types. To use this, construct a GADT that defines your
 -- notification protocol:
@@ -200,22 +201,34 @@ notifyCmd (NotificationChannel chan) = fromString $ "NOTIFY " <> chan <> ", ?"
 -- > information need to be communicated, it's best to put it in a database table
 -- > and send the key of the record.)
 -- (Source: https://www.postgresql.org/docs/9.0/sql-notify.html)
-notify ::
-  ( Has' ToJSON notice Identity
-  , ForallF ToJSON notice
-  , Psql m
-  )
+notify
+  :: ( Has' ToJSON notice Identity
+     , ForallF ToJSON notice
+     , Psql m
+     )
   => NotificationType
   -> notice a
   -> a
   -> m ()
-notify nt n a = do
+notify nt n a = notify' nt (n :=> Identity a)
+
+-- | Variation of 'notify' which takes the notification tag and payload already combined
+-- as a 'DSum'
+notify'
+  :: ( Has' ToJSON notice Identity
+     , ForallF ToJSON notice
+     , Psql m
+     )
+  => NotificationType
+  -> DSum notice Identity
+  -> m ()
+notify' nt na = do
   schemaName <- getSchemaName
   let cmd = notifyCmd defaultNotificationChannel
       notifyMsg = DbNotification
         { _dbNotification_schemaName = SchemaName $ T.pack schemaName
         , _dbNotification_notificationType = nt
-        , _dbNotification_message = n :=> Identity a
+        , _dbNotification_message = na
         }
   _ <- execute cmd
     [ T.unpack $ T.decodeUtf8 $ LBS.toStrict $ encode notifyMsg

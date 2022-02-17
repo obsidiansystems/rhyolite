@@ -330,13 +330,3 @@ runPgDeleteReturningListWithNotify toNotification statement = do
   rs <- Pg.runPgDeleteReturningList statement
   mapM_ (notify' NotificationType_Delete) (toNotification rs)
   pure rs
-
--- | Variation of 'notify' which takes the notification tag and payload already combined
--- as a 'DSum'
-notify'
-  :: (Has' ToJSON tag Identity, ForallF ToJSON tag, Psql m)
-  => NotificationType
-  -> DSum tag Identity
-  -> m ()
-notify' nType (n :=> Identity a) = notify nType n a
-
