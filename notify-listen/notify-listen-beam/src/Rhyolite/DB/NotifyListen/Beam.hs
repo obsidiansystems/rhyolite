@@ -25,6 +25,9 @@ module Rhyolite.DB.NotifyListen.Beam
   , insertAndNotifyChange
   , updateAndNotifyChange
   , deleteAndNotifyChange
+  , runPgInsertReturningListWithNotify
+  , runPgUpdateReturningListWithNotify
+  , runPgDeleteReturningListWithNotify
   ) where
 
 import Data.Aeson
@@ -84,8 +87,11 @@ insertAndNotify
      , Has' ToJSON n Identity, ForallF ToJSON n, HasNotification n t
      )
   => DatabaseEntity be db (TableEntity t)
+  -- ^ The table to insert into
   -> (forall s. t (QExpr be s))
+  -- ^ The value to insert
   -> m (Maybe (PrimaryKey t Identity))
+  -- ^ A primary key is returned and notified if the insert was successful.
 insertAndNotify tbl g = do
   let toNotify = map $ \x -> notification tbl :=> Identity x
   rs <- runPgInsertReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $ insert tbl $ insertExpressions [g]
@@ -105,9 +111,14 @@ updateAndNotify
      , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) (PrimaryKey t)
      )
   => DatabaseEntity be db (TableEntity t)
+  -- ^ The table to update
   -> PrimaryKey t Identity
+  -- ^ The row to update
   -> (forall s. t (QField s) -> QAssignment be s)
+  -- ^ The update to be performed
+  -- (e.g., @(\c -> addressCountry (customerAddress c) <-. val_ (Just "USA"))@)
   -> m (Maybe (PrimaryKey t Identity))
+  -- ^ A primary key is returned and notified if the update was successful.
 updateAndNotify tbl k g = do
   let toNotify = map $ \x -> notification tbl :=> Identity x
   rs <- runPgUpdateReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $
@@ -132,7 +143,7 @@ deleteAndNotify
   -> PrimaryKey t Identity
   -- ^ The primary key of the row to delete
   -> m (Maybe (PrimaryKey t Identity))
-  -- ^ The primary key that was deleted
+  -- ^ A primary key is returned and notified if the deletion was succesful
 deleteAndNotify tbl k = do
   let toNotify = map $ \x -> notification tbl :=> Identity x
   rs <- runPgDeleteReturningListWithNotify @be toNotify $ flip Pg.returning primaryKey $
