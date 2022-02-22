@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
@@ -5,7 +6,7 @@ import Control.Concurrent (forkIO, threadDelay, ThreadId)
 import Control.Concurrent.MVar
 import Control.Exception
 import Control.Monad (forM_, void, zipWithM_)
-import Data.Int (Int32)
+import Data.Int (Int64)
 import Data.IORef
 import Data.List (sort)
 import qualified Data.Map as M
@@ -36,7 +37,7 @@ setupTable pool = do
 
 deleteTable :: Pool Connection -> IO ()
 deleteTable pool = void $ withResource pool $ \dbConn ->
-  runBeamPostgres dbConn $ runDelete $ delete (_tasks tasksDb) (const $ val_ True)
+  runBeamPostgres dbConn $ runDelete $ delete (_testTasksDb_tasks tasksDb) (const $ val_ True)
 
 withTables :: Pool Connection -> (Connection -> IO ()) -> IO ()
 withTables pool = bracket (setupTable pool) deleteTable . const . withResource pool
@@ -77,7 +78,9 @@ main = do
             Nothing -> do
               fail "There should have been 1 row in the tasks table"
               pure ()
-            Just (TestTask (Task _ result checkedOutBy) _) -> do
+            Just r -> do
+              let result = _testTaskT_result r
+                  checkedOutBy = _testTaskT_checkedOutBy r
               result `shouldBe` Just True
               checkedOutBy `shouldBe` Nothing
           ret `shouldBe` True
@@ -109,7 +112,7 @@ main = do
             Nothing -> do
               fail "There should have been 1 row in the tasks table"
               pure ()
-            Just (TestTask (Task _ _ checkedOutBy) _) -> checkedOutBy `shouldBe` Just workerName
+            Just r -> _testTaskT_checkedOutBy r `shouldBe` Just workerName
           readIORef boolRef `shouldReturn` initBool
 
         -- TEST 3
@@ -139,7 +142,7 @@ main = do
                 -- Block on awakenMVar
                 () <- readMVar awakenMVar
                 atomicModifyIORef countRef (\i -> (i+1, ()))
-                pure $ pure True
+                pure $ pure (WrappedColumnar (Just True))
             zipWithM_ (spawnTaskWorker work) [c, c2] workerNames
 
             -- ASSERT
@@ -148,7 +151,7 @@ main = do
             -- Both tasks should have been checkedout
             threadDelay $ 3 * timeForOneTask
             tasks <- allTestTasks c
-            sort (map (_taskCheckedOutBy . _taskDetails) tasks) `shouldBe` map Just workerNames
+            sort (map _testTaskT_checkedOutBy tasks) `shouldBe` map Just workerNames
 
             -- ACT
             -- Unblock both workers
@@ -162,8 +165,8 @@ main = do
             -- Both tasks' result should be Just True
             -- The increment task should also have been completed
             tasks <- allTestTasks c
-            map (_taskCheckedOutBy . _taskDetails) tasks `shouldBe` replicate 2 Nothing
-            map (_taskResult . _taskDetails) tasks `shouldBe` replicate 2 (Just True)
+            map _testTaskT_checkedOutBy tasks `shouldBe` replicate 2 Nothing
+            map _testTaskT_result tasks `shouldBe` replicate 2 (Just True)
             readIORef countRef `shouldReturn` (initCount + 2)
 
         -- TEST 4
@@ -176,8 +179,20 @@ main = do
           let
             initBool = False
             tasks =
-              [ TestTask (Task 1 (Just True) Nothing) 1 -- Completed Task
-              , TestTask (Task 2 Nothing (Just "Test-Worker 1")) 2 -- Task already checked out
+              [ TestTaskT
+                  { _testTaskT_id = 1
+                  , _testTaskT_payload = 1
+                  , _testTaskT_result = Just True
+                  , _testTaskT_checkedOutBy = Nothing
+                  , _testTaskT_finished = True
+                  }
+              , TestTaskT
+                  { _testTaskT_id = 2
+                  , _testTaskT_payload = 2
+                  , _testTaskT_result = Nothing
+                  , _testTaskT_checkedOutBy = Just "Test-Worker 1"
+                  , _testTaskT_finished = False
+                  }
               ]
           boolRef <- newIORef initBool
           insertTestTasks c tasks
@@ -201,12 +216,12 @@ main = do
         it "runs parallel taskWorkers on a number of tasks" $ \c -> do
           -- SETUP
           -- Create a limited number of tasks
-          -- Create an IORef that stores a map, from Task IDs (Int32) -> Set of worker names that processed the task (Set Text)
+          -- Create an IORef that stores a map, from Task IDs (Int64) -> Set of worker names that processed the task (Set Text)
           let
             taskCount = 1000
             threadCount = 8
             tasks = map createTask [1..fromIntegral taskCount]
-          mapRef <- newIORef (M.empty :: M.Map Int32 (S.Set Text))
+          mapRef <- newIORef (M.empty :: M.Map Int64 (S.Set Text))
 
           -- ACT
           -- Insert all the tasks into the table
@@ -216,7 +231,7 @@ main = do
           let
             work workerName testTaskId = pure $ do
               atomicModifyIORef mapRef (\old -> (M.insertWith S.union testTaskId (S.singleton workerName) old, ()))
-              pure $ pure True
+              pure $ pure (WrappedColumnar (Just True))
             repeatWork conn threadId = do
               let workerName = "Task-Worker " <> pack (show threadId)
               b <- createTaskWorker conn (work workerName) workerName
@@ -239,7 +254,7 @@ main = do
           threadDelay $ (taskCount * timeForOneTask) `div` threadCount
           taskMap <- readIORef mapRef
           tasks <- allTestTasks c
-          map (_taskCheckedOutBy . _taskDetails) tasks `shouldBe` replicate taskCount Nothing
-          map (_taskResult . _taskDetails) tasks `shouldBe` replicate taskCount (Just True)
+          map _testTaskT_checkedOutBy tasks `shouldBe` replicate taskCount Nothing
+          map _testTaskT_result tasks `shouldBe` replicate taskCount (Just True)
           M.keys taskMap `shouldBe` [1..fromIntegral taskCount]
           all (\set -> S.size set == 1) (M.elems taskMap) `shouldBe` True

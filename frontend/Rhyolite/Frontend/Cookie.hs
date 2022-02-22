@@ -27,7 +27,7 @@ import Web.Cookie
 --
 -- Example:
 -- > setPermanentCookie doc =<< defaultCookie "key" (Just "value")
-setPermanentCookie :: (MonadJSM m, HasJSContext m) => DOM.Document -> SetCookie -> m ()
+setPermanentCookie :: (MonadJSM m) => DOM.Document -> SetCookie -> m ()
 setPermanentCookie doc cookie = do
   DOM.setCookie doc $ decodeUtf8 $ LBS.toStrict $ toLazyByteString $ renderSetCookie cookie
 
@@ -35,13 +35,13 @@ setPermanentCookie doc cookie = do
 --
 -- Example:
 -- > setExpiringCookie time doc =<< defaultCookie "key" (Just "value")
-setExpiringCookie :: (MonadJSM m, HasJSContext m) => UTCTime -> DOM.Document -> SetCookie -> m ()
+setExpiringCookie :: (MonadJSM m) => UTCTime -> DOM.Document -> SetCookie -> m ()
 setExpiringCookie timestamp doc cookie = do
   DOM.setCookie doc $ decodeUtf8 $ LBS.toStrict $ toLazyByteString $ renderSetCookie cookie {setCookieExpires = Just timestamp}
 
 -- | Make a cookie with sensible defaults
 defaultCookie
-  :: (MonadJSM m, HasJSContext m)  -- TODO: verify
+  :: (MonadJSM m)  -- TODO: verify
   => Text  -- ^ Cookie key
   -> Maybe Text  -- ^ Cookie value (Nothing clears it)
   -> m SetCookie
@@ -71,13 +71,13 @@ defaultCookie key mv = do
       }
 
 -- | JSON encode some data and set it as a cookie
-defaultCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => Text -> Maybe v -> m SetCookie
+defaultCookieJson :: (MonadJSM m, ToJSON v) => Text -> Maybe v -> m SetCookie
 defaultCookieJson k = defaultCookie k . fmap (decodeUtf8 . LBS.toStrict . encode)
 
 -- | Set a cookie with the given domain location: see
 -- <https://developer.mozilla.org/en-US/docs/web/api/document/cookie documentation>
 -- for @;domain=domain@
-setPermanentCookieWithLocation :: (MonadJSM m, HasJSContext m) => DOM.Document -> Maybe ByteString -> Text -> Maybe Text -> m ()
+setPermanentCookieWithLocation :: (MonadJSM m) => DOM.Document -> Maybe ByteString -> Text -> Maybe Text -> m ()
 setPermanentCookieWithLocation doc loc key mv = do
   cookie <- defaultCookie key mv
   setPermanentCookie doc $ cookie { setCookieDomain = loc }
@@ -89,7 +89,7 @@ getCookie doc key = do
   return $ lookup key $ parseCookiesText $ encodeUtf8 cookieString
 
 -- | JSON encode some data and set it as a permanent cookie
-setPermanentCookieJson :: (MonadJSM m, HasJSContext m, ToJSON v) => DOM.Document -> Text -> Maybe v -> m ()
+setPermanentCookieJson :: (MonadJSM m, ToJSON v) => DOM.Document -> Text -> Maybe v -> m ()
 setPermanentCookieJson d k = setPermanentCookie d <=< defaultCookieJson k
 
 -- | Read a cookie. You may want to use 'Obelisk.Frontend.Cookie.askCookies'
@@ -103,7 +103,6 @@ getCookieJson d k =
 withPermanentCookieJson ::
   ( MonadJSM m
   , MonadJSM (Performable m)
-  , HasJSContext (Performable m)
   , PerformEvent t m
   , ToJSON v
   , FromJSON v

@@ -1,4 +1,4 @@
-{-# Language FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# Language RankNTypes #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
@@ -11,11 +11,9 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.Thread.Delay
 import Control.Exception.Lifted (bracket)
-import Control.Lens ((^.), Lens')
+import Control.Lens ((^.))
 import Control.Monad (forM)
 import Control.Monad.Cont
-import Control.Monad.Logger (askLoggerIO, MonadLoggerIO)
-import Control.Monad.Logger.Extras (Logger(..))
 import Control.Monad.Trans.Control
 import Data.Time
 
@@ -26,80 +24,93 @@ import Database.Beam.Postgres.Syntax
 import Database.Beam.Query.Internal (QNested)
 import Database.Beam.Schema.Tables
 
-import Database.PostgreSQL.Serializable
 import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
 
--- | This function retrieves the first unclaimed task from the table (passed as an argument).
--- It then assigns this task to itself, and runs the action passed to it.
--- Once it has the output of that action, it sets the output as the result of the task,
--- thereby marking it as completed.
-taskWorker ::
-  forall m be db f table a b c.
-  ( MonadIO m, MonadLoggerIO m, Database be db
-  , Beamable table, Table table
-  , FromBackendRow be (PrimaryKey table Identity)
-  , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
-  , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
-  , FromBackendRow be a, HasSqlValueSyntax PgValueSyntax b, HasSqlValueSyntax PgValueSyntax c
-  , be ~ Postgres, f ~ QExpr be (QNested QBaseScope))
-  => Connection -- ^ Connection to the database
-  -> DatabaseEntity be db (TableEntity table) -- ^ A table containing embedded tasks.
-  -> f Bool -- ^ A filter for selecting tasks from the table.
-  -> (forall x. Lens' (table x) (Task a b c x)) -- ^ Lens for retrieving a task from the table.
-  -> (a -> Serializable (m (Serializable b))) -- ^ The action, whose output is set as the result of the task.
-  -> c -- ^ Id of the worker
+-- | Takes a worker continuation and handles checking out and checking in a task
+-- that is stored in a database table.  The 'Rhyolite.Task.Beam.Task' type tells
+-- it how to find eligible tasks, how to extract a useful payload from the row,
+-- and how to put results back into the row while the continuation does the real
+-- work.
+--
+-- The worker continuation is divided into 3 phases:
+--
+--   1. A checkout action that is transaction safe (it may retry).
+--   2. A work action that is not transaction safe (it will not retry).
+--   3. A commit action that is transaction safe (it may retry).
+--
+-- The continuation can perform its own queries in the checkout transaction but
+-- it is ideal to spend as little time as possible in this phase for the sake
+-- of throughput.
+taskWorker
+  :: forall m be db table f payload checkout result.
+     ( MonadIO m, Database be db, Beamable table, Table table
+     , Beamable payload, Beamable result
+     , FromBackendRow be (PrimaryKey table Identity)
+     , FromBackendRow be (payload Identity)
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
+     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
+     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) result
+     , HasSqlValueSyntax PgValueSyntax checkout
+     , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
+     )
+  => Connection
+  -> DatabaseEntity be db (TableEntity table)
+  -- ^ The table whose rows represent tasks to be run
+  -> Task be table payload checkout result
+  -- ^ Description of how task data is embedded within the table
+  -> (PrimaryKey table Identity -> payload Identity -> Pg (m (Pg (result Identity))))
+  -- ^ Worker continuation
+  -> checkout
+  -- ^ Identifier for the worker checking out the task
   -> m Bool
-taskWorker dbConn table ready field go workerId = do
-  logger <- askLoggerIO
-  checkedOutValue <-
-    -- BEGIN Transaction
-
+taskWorker dbConn table schema k checkoutId = do
+  -- Checkout Phase
+  mCheckout <-
     -- Do the following inside a transaction:
-    -- 1. Get the first task that is not currently checked out by any worker, lock this task
+    -- 1. Get the first task that is not currently checked out by any worker
     -- 2. Update this task to reflect that it has been checked out by current worker
-    -- 3. Perform the serializable task
+    -- 3. Run the specified checkout task which returns the work continuation
     withTransactionSerializableRunBeamPostgres dbConn $ do
       primaryKeyAndInput <- runSelectReturningOne $ select $ limit_ 1 $ do
           task <- all_ table
 
           -- Both task fields should be empty for an unclaimed task
           -- Also apply any other filters that may have been passed, using ready
-          guard_ $ isNothing_ (task ^. field . taskResult) &&. isNothing_ (task ^. field . taskCheckedOutBy) &&. ready
+          guard_ $ not_ (task ^. _task_hasRun schema)
+               &&. isNothing_ (task ^. _task_checkedOutBy schema)
+               &&. (_task_filter schema task)
 
           -- Return the primary key (task id) along with a custom field that the user asked for.
-          pure (primaryKey task, task ^. field . taskPayload)
-
+          pure (primaryKey task, _task_payload schema task)
       -- In case we did not find any rows, no update SQL will be run
       -- The row lock that we acquired above will be reset when the transaction ends.
       forM primaryKeyAndInput $ \(taskId, input) -> do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
           update table
-            (\task -> (task ^. field . taskCheckedOutBy) <-. val_ (Just workerId))
+            (\task -> (task ^. _task_checkedOutBy schema) <-. val_ (Just checkoutId))
             (\task -> primaryKey task ==. val_ taskId)
 
-        runSerializableInsideTransaction dbConn (Logger logger) $ (,) taskId <$> go input
-    -- END Transaction, release row lock
-
-  case checkedOutValue of
+        (,) taskId <$> k taskId input
+  case mCheckout of
     Nothing -> pure False
-    Just (taskId, action) -> do
-      -- Get the followup Serializable
-      followup <- action
+    Just (taskId, workAction) -> do
+      -- Work phase
+      commitAction <- workAction
 
-      -- BEGIN Transaction
+      -- Commit phase
       withTransactionSerializableRunBeamPostgres dbConn $ do
         -- Get the result value from the serializable
-        b <- runSerializableInsideTransaction dbConn (Logger logger) followup
+        b <- commitAction
 
         -- Update the task's result field, set checked out field to null
         runUpdate $ update table
           (\task -> mconcat
-            [ task ^. field . taskResult <-. val_ (Just b)
-            , task ^. field . taskCheckedOutBy <-. val_ Nothing])
+            [ task ^. _task_result schema <-. val_ b
+            , task ^. _task_hasRun schema <-. val_ True
+            , task ^. _task_checkedOutBy schema <-. val_ Nothing])
           (\task -> primaryKey task ==. val_ taskId)
-      -- END Transaction
 
       pure True
 

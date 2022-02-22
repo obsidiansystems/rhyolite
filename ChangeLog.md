@@ -3,6 +3,7 @@
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
 ## Unreleased
+* Bump obelisk 1.0.0.0 and reflex-platform (0.9.2.0)
 * Add rhyolite-account-types and rhyolite-account-backend for use with beam-based rhyolite projects
   * Moved groundhog-legacy's `Rhyolite.Account` module to `Rhyolite.Account.Groundhog.Types`
 * Added Beam versions of `Rhyolite.Task.Groundhog.Worker.taskWorker` and `Rhyolite.Task.Groundhog.Task`, in `Rhyolite.Task.Groundhog.Worker` and `Rhyolite.Task.Beam` respectively.
@@ -49,7 +50,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
   * Move `LargeObjectId` to `psql-simple-class`.
   * Remove the `Rhyolite.TH` module. Use `file-embed` instead.
-  * Move `Rhyolite.Backend.EmailWorker` to `Rhyolite.DB.Groundhog.EmailWorker` in `groundhog-legacy`.
+  * Move `Rhyolite.Backend.EmailWorker` to `Rhyolite.DB.Groundhog.EmailWorker` in `groundhog-legacy`. Change the schema for `QueuedEmail` to contain a JSON blob of the `Mail` object instead of the rendered email bytestring. See the groundhog-legacy migration guide for more information.
   * Move the `Account` type to `groundhog-legacy-types` and move associated backend functionality to `Rhyolite.DB.Groundhog.Account` in `groundhog-legacy`.
   * Move `Signed` and `MonadSign` to `signed-data`. Move `signWithKey`, `readSignedWithKey`, `SignT`, etc to `signed-data-clientsession`. Move groundhog instances for `MonadSign` and `SignT` to `Rhyolite.DB.Groundhog.Orphans`.
   * Move `Account` to `groundhog-legacy-types`. Move backend code for accounts, e.g., `ensureAccountExists` to `Rhyolite.Account.Groundhog` in `groundhog-legacy`.
