@@ -28,6 +28,7 @@ let
     rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
+    mime-mail-orphans = ./email/mime-mail-orphans;
     semimap = ./semimap;
     rhyolite-frontend = ./frontend;
     signed-data = ./signed-data/signed-data;
