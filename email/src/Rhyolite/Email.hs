@@ -60,8 +60,8 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 -- | Errors that can arise while interacting with an SMTP server
 data EmailError
-   = EmailError_Connection Text
-   -- ^ An error occurred while trying to connect to the SMTP server
+   = EmailError_AuthFailed
+   -- ^ The SMTP server refused to authenticate
    | EmailError_Exception SMTPException
    -- ^ An error occurred while interacting with an SMTP server
   deriving (Generic, Show)
@@ -141,7 +141,7 @@ withSMTP cfg send = do
           loginResult <- authenticate authType (T.unpack un) (T.unpack pw) conn
           if loginResult
             then Right <$> send conn
-            else pure $ Left (EmailError_Connection "withSMTP: authenticate command failed")
+            else pure $ Left EmailError_AuthFailed
   er <- try $ case _emailConfig_protocol cfg of
     SMTPProtocol_Plain -> doSMTPPort hostname port go
     SMTPProtocol_STARTTLS -> doSMTPSTARTTLSWithSettings hostname (defaultSettingsSMTPSTARTTLS { sslPort = port }) go
