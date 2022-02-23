@@ -22,6 +22,7 @@
 
 module Rhyolite.Account.Groundhog where
 
+import Control.Exception.Lifted (throwIO)
 import Control.Monad.Base (MonadBase (liftBase))
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer
@@ -280,7 +281,7 @@ newAccountEmail productName productDescription f token = do
                 (H.p $ H.text productDescription)
 
 sendNewAccountEmail
-  :: (MonadRoute r m, Default r, MonadEmail m)
+  :: (MonadIO m, MonadRoute r m, Default r, MonadEmail m)
   => Text
   -> Text
   -> Text
@@ -291,10 +292,11 @@ sendNewAccountEmail
   -> m ()
 sendNewAccountEmail senderName senderEmail productName productDescription f prt email = do
   body <- newAccountEmail productName productDescription f prt
-  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Verification Email") body
+  (either (liftIO . throwIO) pure =<<) $
+    sendEmailFrom senderName senderEmail (email :| []) (productName <> " Verification Email") body
 
 sendPasswordResetEmail
-  :: (MonadEmail m, MonadRoute r m, Default r)
+  :: (MonadIO m, MonadEmail m, MonadRoute r m, Default r)
   => Text
   -> Text
   -> Text
@@ -306,4 +308,5 @@ sendPasswordResetEmail senderName senderEmail productName f prt email = do
   passwordResetLink <- routeToUrl $ f $ AccountRoute_PasswordReset prt
   let lead = "You have received this message because you requested that your " <> productName <> " password be reset. Click the link below to create a new password."
       body = H.a H.! A.href (fromString $ show passwordResetLink) $ "Reset Password"
-  sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body
+  (either (liftIO . throwIO) pure =<<) $
+    sendEmailFrom senderName senderEmail (email :| []) (productName <> " Password Reset") =<< emailTemplate productName Nothing (H.text (productName <> " Password Reset")) (H.toHtml lead) body
