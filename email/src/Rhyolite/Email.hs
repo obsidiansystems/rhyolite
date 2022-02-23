@@ -116,7 +116,7 @@ instance FromJSON EmailAuth
 -- authenticate with it.
 data EmailConfig = EmailConfig
   { _emailConfig_hostname :: HostName -- ^ E.g., "smtp.server.com"
-  , _emailConfig_port :: Word16
+  , _emailConfig_port :: PortNumber
   , _emailConfig_protocol :: SMTPProtocol
   , _emailConfig_emailAuth :: Maybe EmailAuth
   } deriving (Show, Eq, Generic)
@@ -134,7 +134,7 @@ sendEmail ee m = withSMTP ee $ HaskellNet.sendMail m
 withSMTP :: EmailConfig -> (SMTPConnection -> IO a) -> IO (Either EmailError a)
 withSMTP cfg send = do
   let hostname = _emailConfig_hostname cfg
-      port = fromIntegral $ _emailConfig_port cfg
+      port = _emailConfig_port cfg
       go conn = case _emailConfig_emailAuth cfg of
         Nothing -> Right <$> send conn
         Just (EmailAuth authType un pw) -> do
