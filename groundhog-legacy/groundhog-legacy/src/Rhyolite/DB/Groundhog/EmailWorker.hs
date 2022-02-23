@@ -14,15 +14,13 @@
 module Rhyolite.DB.Groundhog.EmailWorker where
 
 import ByteString.Aeson.Orphans ()
-import Control.Exception.Lifted (bracket)
-import Control.Monad.Base (MonadBase (liftBase))
+import Control.Exception.Lifted (bracket, throwIO)
+import Control.Monad.Base (MonadBase)
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.Aeson
 import Data.Aeson.TH
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe
 import Data.Pool
 import qualified Data.Text as T
@@ -34,7 +32,6 @@ import Database.Id.Groundhog
 import Database.Id.Groundhog.TH
 import Database.PostgreSQL.Simple (Only(..))
 import Database.PostgreSQL.Simple.Class
-import Database.PostgreSQL.Simple.Groundhog
 import Database.PostgreSQL.Simple.SqlQQ
 import qualified Network.HaskellNet.SMTP as SMTP
 import qualified Network.Mail.Mime as Mail
@@ -43,7 +40,6 @@ import qualified Data.Map.Monoidal as Map
 import Rhyolite.Concurrent
 import Rhyolite.DB.Groundhog
 import Rhyolite.DB.Groundhog.Serializable (Serializable)
-import qualified Rhyolite.DB.Groundhog.Serializable as Serializable
 import Rhyolite.DB.Groundhog.TH
 import Rhyolite.Email
 import Rhyolite.Schema
@@ -101,7 +97,7 @@ clearMailQueue :: forall m f.
   , MonadLoggerIO m
   )
   => f (Pool Postgresql)
-  -> EmailEnv
+  -> EmailConfig
   -> m ()
 clearMailQueue db emailEnv = do
   -- First we obtain a "lock" for an email we plan to send.
@@ -139,14 +135,14 @@ clearMailQueue db emailEnv = do
         return ()
       clearMailQueue db emailEnv
 
-sendQueuedEmail :: EmailEnv -> Mail.Mail -> IO ()
-sendQueuedEmail env payload = void $ withSMTP env $ SMTP.sendMail payload
+sendQueuedEmail :: EmailConfig -> Mail.Mail -> IO ()
+sendQueuedEmail env payload = (either throwIO pure =<<) $ withSMTP env $ SMTP.sendMail payload
 
 -- | Spawns a thread to monitor mail queue table and send emails if necessary
 emailWorker :: (MonadLoggerIO m, RunDb f)
             => Int -- ^ Thread delay
             -> f (Pool Postgresql)
-            -> EmailEnv
+            -> EmailConfig
             -> m (IO ()) -- ^ Action that kills the email worker thread
 emailWorker delay db emailEnv = askLoggerIO >>= worker delay . runLoggingT (clearMailQueue db emailEnv)
 
@@ -155,7 +151,7 @@ withEmailWorker
   :: (MonadIO m, MonadBaseControl IO m, MonadLoggerIO m, RunDb f)
   => Int -- ^ Thread delay
   -> f (Pool Postgresql)
-  -> EmailEnv
+  -> EmailConfig
   -> m a
   -> m a
 withEmailWorker i p e = bracket (emailWorker i p e) liftIO . const
