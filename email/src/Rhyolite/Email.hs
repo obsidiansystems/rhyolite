@@ -8,6 +8,7 @@ Utilities and templates to send emails from the backend.
 {-# Language OverloadedStrings #-}
 {-# Language PolyKinds #-}
 {-# Language ScopedTypeVariables #-}
+{-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
 {-# Language UndecidableInstances #-}
 
@@ -15,7 +16,7 @@ Utilities and templates to send emails from the backend.
 
 module Rhyolite.Email where
 
-import Control.Monad (void)
+import Control.Exception
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Monad.Reader (ReaderT, lift)
@@ -32,6 +33,7 @@ import Data.Maybe (maybeToList)
 import Data.Signed
 import Data.String (fromString)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding
 import qualified Data.Text.Lazy as LT
 import Data.Time.Clock
@@ -41,6 +43,7 @@ import Data.Word
 import GHC.Generics (Generic)
 import Network.HaskellNet.Auth
 import Network.HaskellNet.SMTP.SSL hiding (sendMail)
+import qualified Network.HaskellNet.SMTP.SSL as HaskellNet
 import Network.Mail.Mime (Mail)
 import Network.Mail.Mime (Address(..), Mail(..), htmlPart, plainPart)
 import Network.Mail.SMTP (simpleMail)
@@ -55,9 +58,19 @@ import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5.Attributes as A
 
+-- | Errors that can arise while interacting with an SMTP server
+data EmailError
+   = EmailError_Connection Text
+   -- ^ An error occurred while trying to connect to the SMTP server
+   | EmailError_Exception SMTPException
+   -- ^ An error occurred while interacting with an SMTP server
+  deriving (Generic, Show)
+
+instance Exception EmailError
+
 -- | A monad that can send emails
 class Monad m => MonadEmail m where
-  sendMail :: Mail -> m ()
+  sendMail :: Mail -> m (Either EmailError ())
 
 instance MonadEmail m => MonadEmail (ReaderT r m) where
   sendMail = lift . sendMail
@@ -67,6 +80,17 @@ instance MonadEmail m => MonadEmail (MaybeT m) where
 
 instance MonadEmail m => MonadEmail (ExceptT e m) where
   sendMail = lift . sendMail
+
+-- TODO upstream these orphan instances
+deriving instance Generic AuthType
+instance ToJSON AuthType
+instance FromJSON AuthType
+instance FromJSON PortNumber where
+  parseJSON v = do
+    n :: Word16 <- parseJSON v
+    return $ fromIntegral n
+instance ToJSON PortNumber where
+  toJSON n = toJSON (fromIntegral n :: Word16)
 
 -- | SMTP connection protocols
 data SMTPProtocol
@@ -78,40 +102,56 @@ data SMTPProtocol
 instance FromJSON SMTPProtocol
 instance ToJSON SMTPProtocol
 
--- | Mailserver connection and authentication information
-type EmailEnv = (HostName, SMTPProtocol, PortNumber, UserName, Password)
+-- | Configuration for how to authenticate with a mail server
+data EmailAuth = EmailAuth
+  { _emailAuth_authType :: AuthType
+  , _emailAuth_username :: Text
+  , _emailAuth_password :: Text
+  } deriving (Show, Eq, Generic)
+
+instance ToJSON EmailAuth
+instance FromJSON EmailAuth
+
+-- | Configuration for how to find an email server, and how to
+-- authenticate with it.
+data EmailConfig = EmailConfig
+  { _emailConfig_hostname :: HostName -- ^ E.g., "smtp.server.com"
+  , _emailConfig_port :: Word16
+  , _emailConfig_protocol :: SMTPProtocol
+  , _emailConfig_emailAuth :: Maybe EmailAuth
+  } deriving (Show, Eq, Generic)
+
+instance ToJSON EmailConfig
+instance FromJSON EmailConfig
 
 -- | Send an email using the provided connection info. This function ignores
 -- send errors.
-sendEmail :: EmailEnv -> Mail -> IO ()
-sendEmail ee m = void $ withSMTP ee $ sendMimeMail2 m
+sendEmail :: EmailConfig -> Mail -> IO (Either EmailError ())
+sendEmail ee m = withSMTP ee $ HaskellNet.sendMail m
 
--- | Perform an action with a connection to a mailserver (over smtp). E.g., send email.
-withSMTP :: EmailEnv -> (SMTPConnection -> IO a) -> IO (Either Text a)
-withSMTP  (hostname, protocol, port, un, pw) a = let
-  go c = do
-    case un of
-      [] -> Right <$> a c
-      _ -> do
-        loginResult <- authenticate LOGIN un pw c
-        if loginResult
-          then Right <$> a c
-          else return $ Left "Login failed"
-  in case protocol of
+-- | Run an IO action that expects an active connection to an smtp server.
+-- The action returns an error if that connection cannot be established.
+withSMTP :: EmailConfig -> (SMTPConnection -> IO a) -> IO (Either EmailError a)
+withSMTP cfg send = do
+  let hostname = _emailConfig_hostname cfg
+      port = fromIntegral $ _emailConfig_port cfg
+      go conn = case _emailConfig_emailAuth cfg of
+        Nothing -> Right <$> send conn
+        Just (EmailAuth authType un pw) -> do
+          loginResult <- authenticate authType (T.unpack un) (T.unpack pw) conn
+          if loginResult
+            then Right <$> send conn
+            else pure $ Left (EmailError_Connection "withSMTP: authenticate command failed")
+  er <- try $ case _emailConfig_protocol cfg of
     SMTPProtocol_Plain -> doSMTPPort hostname port go
     SMTPProtocol_STARTTLS -> doSMTPSTARTTLSWithSettings hostname (defaultSettingsSMTPSTARTTLS { sslPort = port }) go
     SMTPProtocol_SSL -> doSMTPSSLWithSettings hostname (defaultSettingsSMTPSSL { sslPort = port }) go
-
-instance FromJSON PortNumber where
-  parseJSON v = do
-    n :: Word16 <- parseJSON v
-    return $ fromIntegral n
-
-instance ToJSON PortNumber where
-  toJSON n = toJSON (fromIntegral n :: Word16)
+  case er of
+    Left err -> pure $ Left (EmailError_Exception err)
+    Right r -> pure $ r
 
 -- | A monad transformer that can send emails
-newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailEnv m a }
+newtype EmailT m a = EmailT { unEmailT :: ReaderT EmailConfig m a }
   deriving
     ( Functor
     , Applicative
@@ -135,7 +175,7 @@ instance MonadIO m => MonadEmail (EmailT m) where
     liftIO $ sendEmail env mail
 
 -- | Run an 'EmailT' action
-runEmailT :: EmailT m a -> EmailEnv -> m a
+runEmailT :: EmailT m a -> EmailConfig -> m a
 runEmailT = runReaderT . unEmailT
 
 -- | Send an email, specifiying the "from" fields
@@ -145,7 +185,7 @@ sendEmailFrom :: MonadEmail m
               -> NonEmpty Text -- ^ Recipients
               -> Text -- ^ Subject line
               -> Html -- ^ Body of message
-              -> m ()
+              -> m (Either EmailError ())
 sendEmailFrom name' email recipients sub body =
   sendMail $ simpleMail (Address (Just name') email)
                         (map (Address Nothing) $ toList recipients)
@@ -180,7 +220,7 @@ sendWidgetEmailFrom
   -- ^ Body plaintext, with route decoder
   -> SetRouteT t (R r) (RouteToUrlT (R r) (StaticWidget x)) a
   -- ^ Body widget for the email
-  -> m ()
+  -> m (Either EmailError ())
 sendWidgetEmailFrom cfg recipients sub plainText bodyWidget =
   sendMail =<< widgetMail cfg recipients sub plainText bodyWidget
 

@@ -48,6 +48,7 @@ This project's release branch is `master`. This log is written from the perspect
   * Remove Data.MonoidMap. It has been moved to [monoid-map](https://github.com/obsidiansystems/monoid-map) and is now used as a dependency.
   * Narrow the type of `signWithKey` so that the input type matches the output's phantom type parameter.
   * Move `Rhyolite.Backend.Email` and `Rhyolite.Email` to `Rhyolite.Email` in the new `rhyolite-email` package.
+    * Provide more error information in the interface for sending an email in `rhyolite-email`.
   * Move `LargeObjectId` to `psql-simple-class`.
   * Remove the `Rhyolite.TH` module. Use `file-embed` instead.
   * Move `Rhyolite.Backend.EmailWorker` to `Rhyolite.DB.Groundhog.EmailWorker` in `groundhog-legacy`. Change the schema for `QueuedEmail` to contain a JSON blob of the `Mail` object instead of the rendered email bytestring. See the groundhog-legacy migration guide for more information.
