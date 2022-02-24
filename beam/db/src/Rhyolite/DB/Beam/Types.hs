@@ -1,6 +1,10 @@
 {-# language DeriveGeneric #-}
+{-# language FlexibleInstances #-}
+{-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language RankNTypes #-}
+{-# language TemplateHaskell #-}
+{-# language TypeFamilies #-}
 {-|
    Description:
      Types and helpers for Beam that can be used in schemas and database interactions.
@@ -19,9 +23,13 @@ newtype WrapColumnar a f = WrapColumnar { unWrapColumnar :: Columnar f a }
 
 instance Beamable (WrapColumnar a)
 
+makeWrapped ''WrapColumnar
+
 -- | Used to decorate a beam thing like PrimaryKey with Nullable
 newtype WrapNullable k f = WrapNullable { unWrapNullable :: k (Nullable f) }
   deriving (Generic)
+
+makeWrapped ''WrapNullable
 
 -- | Useful in 'Rhyolite.Task.Beam.Task' for "no data" in payload or result.
 -- Every table has a subtable of type 'DummyTable'.
