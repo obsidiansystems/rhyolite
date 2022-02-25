@@ -26,6 +26,7 @@ import Data.Vessel
 import Data.Vessel.Vessel
 import GHC.Generics
 import Reflex.Query.Class
+import Data.Map.Monoidal (MonoidalMap)
 
 -- TODO Upstream a function that lets you change DMap keys monotonically
 -- while mutating the value so we don't have to do it here.
@@ -152,13 +153,15 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- a map from authentication identities to private views. This
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
-  :: (Monad m, Ord token, View public, View private, View personal)
+  :: (Monad m, Ord token, View public, View private, View personal, Ord user)
   => (token -> m (Maybe user))
   -> (public Proxy -> m (public Identity))
   -> (private Proxy -> m (private Identity))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
-  -> (user -> personal Proxy -> m (personal Identity))
+  -> (forall f g. (forall x. x -> f x -> g x)
+      -> personal (Compose (MonoidalMap user) f)
+      -> m (personal (Compose (MonoidalMap user) g)))
   -- ^ The result of personal queries depends on the identity making the query
   -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Proxy
   -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Identity)

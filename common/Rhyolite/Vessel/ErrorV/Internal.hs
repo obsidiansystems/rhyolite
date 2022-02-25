@@ -148,6 +148,17 @@ observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
     Nothing -> Right emptyV
     Just e -> Left e
 
+-- | Given an 'ErrorV' result, observe whether it is an error result
+-- or a result of the underlying view type.
+unsafeObserveErrorV
+  :: ErrorV e v f
+  -> (Maybe (f (First (Maybe e))), Maybe (v f))
+unsafeObserveErrorV (ErrorV v) =
+  let
+    err = fmap unSingleV $ lookupV ErrorVK_Error v
+  in (err, lookupV ErrorVK_View v)
+
+
 -- | A morphism that only cares about error results.
 unsafeProjectE
   :: ( EmptyView v

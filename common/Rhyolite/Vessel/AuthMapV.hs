@@ -1,21 +1,32 @@
 {-| Description: Authenticated vessel container
 -}
+{-# Language PolyKinds #-}
+{-# Language LambdaCase #-}
 {-# Language DeriveGeneric #-}
+{-# Language TypeApplications #-}
 {-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language RankNTypes #-}
+
 module Rhyolite.Vessel.AuthMapV where
 
+import Data.Set (Set)
+import Control.Monad.Writer.Strict (runWriterT) -- TODO: not strict enough, use writer-cps
+import Control.Monad.Writer.Class (tell)
+import Control.Monad.Trans.Class (lift)
+import Data.These
 import Data.Aeson
 import Data.Constraint.Extras
 import Data.Maybe
 import qualified Data.Map.Monoidal as MMap
+import qualified Data.Map.Strict as Map
 import Data.Patch
 import Data.Semigroup
 import qualified Data.Set as Set
-import Data.Traversable
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
@@ -30,6 +41,40 @@ import Rhyolite.Vessel.ErrorV
 -- where the result for each identity may succeed or fail.
 newtype AuthMapV auth v g = AuthMapV { unAuthMapV :: SubVessel auth (ErrorV () v) g }
   deriving (Generic)
+
+-- TODO: put this in vessel
+mapMaybeWithKeySubVessel'
+  :: forall k (v :: (* -> *) -> *) v' (g :: * -> *) (g' :: * -> *).
+    Ord k
+  => (k -> v g -> Maybe (v' g'))
+  -> SubVessel k v g
+  -> SubVessel k v' g'
+mapMaybeWithKeySubVessel' f = mkSubVessel . MMap.mapMaybeWithKey f . getSubVessel
+
+traverseMaybeSubVessel'
+  :: (Ord k, Applicative m)
+  => (k -> v g -> m (Maybe (v' h)))
+  -> SubVessel k v g
+  -> m (SubVessel k v' h)
+traverseMaybeSubVessel' f =
+  fmap (mkSubVessel . MMap.MonoidalMap)
+  . Map.traverseMaybeWithKey f
+  . MMap.getMonoidalMap
+  . getSubVessel
+
+-- | Extract the authorised fragment of an 'AuthMapV'
+getAuthMapV
+  :: Ord auth
+  => AuthMapV auth v g
+  -> SubVessel auth v g
+getAuthMapV (AuthMapV v) = mapMaybeWithKeySubVessel' (\_ -> snd . unsafeObserveErrorV) v
+
+-- | Construct an authorised 'AuthMapV'
+makeAuthMapV
+  :: (Ord auth, View v)
+  => SubVessel auth v g
+  -> AuthMapV auth v g
+makeAuthMapV = AuthMapV . mapMaybeWithKeySubVessel' (\_ -> Just . liftErrorV)
 
 deriving instance (Ord auth, Eq (view g), Eq (g (First (Maybe ())))) => Eq (AuthMapV auth view g)
 
@@ -133,23 +178,53 @@ handleAuthMapQuery readToken handler (AuthMapV vt) = do
 -- | Like 'handleAuthMapQuery' but the result can depend on the specific identity.
 -- This is implemented naively so that the query is done separately for each valid identity.
 handlePersonalAuthMapQuery
-  :: (Monad m, Ord token, View v)
+  :: forall m token v user.
+     (Monad m, Ord token, View v, Ord user)
   => (token -> m (Maybe user))
   -- ^ How to figure out the identity corresponding to a token
-  -> (user -> v Proxy -> m (v Identity))
+  -> (forall f g.
+        (forall x. x -> f x -> g x)
+     -> v (Compose (MMap.MonoidalMap user) f)
+     -> m (v (Compose (MMap.MonoidalMap user) g))
+     )
   -- ^ Handle the query for each individual identity
   -> AuthMapV token v Proxy
   -- ^ Personal views parameterized by tokens
   -> m (AuthMapV token v Identity)
-handlePersonalAuthMapQuery readToken handler (AuthMapV vt) = do
-  let unfilteredVt = getSubVessel vt
-      unvalidatedTokens = MMap.keys unfilteredVt
-  validTokens <- MMap.fromList <$> witherM (\t -> ((,) t <$>) <$> readToken t) unvalidatedTokens
-  let filteredVt = MMap.intersectionWith (,) unfilteredVt validTokens
-      invalidTokens = MMap.fromSet (\_ -> failureErrorV ()) $
-        Set.difference (Set.fromList unvalidatedTokens) (MMap.keysSet validTokens)
-  vt' <- forM filteredVt $ \(v, user) -> buildErrorV (fmap Right . handler user) v
-  pure $ AuthMapV $ mkSubVessel $ MMap.unionWith const invalidTokens vt'
+handlePersonalAuthMapQuery readToken handler vt = do
+  let unauthorisedAuthMapSingleton token = Map.singleton token $ failureErrorV ()
+
+      authoriseAction t v = do
+        lift (readToken t) >>= \case
+          Nothing -> do
+            tell $ unauthorisedAuthMapSingleton t
+            pure Nothing
+          Just u' -> pure $ Just $ mapV (Compose . (MMap.singleton u')) v
+
+      condenseTokens
+        :: Compose (MMap.MonoidalMap token) (Compose (MMap.MonoidalMap user) Proxy) a
+        -> Compose (MMap.MonoidalMap user) (Const (Set token)) a
+      condenseTokens =
+        Compose
+        . (MMap.foldMapWithKey $ \t (Compose u) -> Const (Set.singleton t) <$ u)
+        . getCompose
+
+      injectResult :: forall x.  x -> Const (Set token) x -> ((Set token), x)
+      injectResult x (Const xs) = (xs, x)
+
+      disperseTokens
+        :: MMap.MonoidalMap user (Set token, a)
+        -> Compose (MMap.MonoidalMap token) Identity a
+      disperseTokens = Compose . MMap.MonoidalMap
+        . foldMap (\(t, a) -> Map.fromSet (const (Identity a)) t)
+
+  (vtReadToken, invalidTokens) <- runWriterT $ traverseMaybeSubVessel' authoriseAction $ getAuthMapV vt
+
+  vt' <- handler injectResult $ mapV condenseTokens $ condenseV $ getSubVessel vtReadToken
+
+  -- TODO: warn about collisions in alignWithV
+  pure $ alignWithV (these id id const) (AuthMapV $ mkSubVessel $ MMap.MonoidalMap invalidTokens)
+      (makeAuthMapV (mkSubVessel $ disperseV $ mapV (disperseTokens . getCompose) vt'))
 
 -- | A query morphism that takes a view for a single identity and lifts it to
 -- a map of identities to views.
