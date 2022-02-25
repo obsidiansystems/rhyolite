@@ -16,6 +16,7 @@ let
   rhyolitePackages = {
     rhyolite-backend = ./backend;
     rhyolite-beam-db = ./beam/db;
+    rhyolite-beam-orphans = ./beam/orphans;
     rhyolite-beam-task-worker-types = ./beam/task/types;
     rhyolite-beam-task-worker-backend = ./beam/task/backend;
     rhyolite-notify-listen = ./notify-listen/notify-listen;

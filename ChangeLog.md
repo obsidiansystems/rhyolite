@@ -3,6 +3,8 @@
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
 ## Unreleased
+* Add helper types for beam code, namely `WrapColumnar` and `WrapNullable`.
+* Add beam orphan instances for some functor types, such as `Product` and `Proxy`.
 * Bump obelisk 1.0.0.0 and reflex-platform (0.9.2.0)
 * Add rhyolite-account-types and rhyolite-account-backend for use with beam-based rhyolite projects
   * Moved groundhog-legacy's `Rhyolite.Account` module to `Rhyolite.Account.Groundhog.Types`

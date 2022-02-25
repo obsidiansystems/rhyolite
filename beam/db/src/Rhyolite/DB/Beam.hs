@@ -12,6 +12,8 @@ import Database.Beam.Postgres
 import Database.Beam.Postgres.Syntax
 import Database.PostgreSQL.Simple.Transaction
 
+import Rhyolite.DB.Beam.Orphans ()
+
 -- | Run beam SQL statements inside a Postgres Serializable Transaction
 withTransactionSerializableRunBeamPostgres :: (MonadIO m) => Connection -> Pg a -> m a
 withTransactionSerializableRunBeamPostgres dbConn = liftIO . withTransactionSerializable dbConn . runBeamPostgres dbConn
