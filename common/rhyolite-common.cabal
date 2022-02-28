@@ -57,6 +57,8 @@ library
     Rhyolite.Vessel.ErrorV
     Rhyolite.Vessel.ErrorV.Internal
     Rhyolite.Vessel.Path
+    Rhyolite.Vessel.Types
+    Rhyolite.Vessel.App
     Rhyolite.WebSocket
 
   reexported-modules: aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT

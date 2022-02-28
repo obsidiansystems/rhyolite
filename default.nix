@@ -62,6 +62,7 @@ let
     push-notifications = repos.push-notifications;
     vessel = repos.vessel;
     dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
+
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -101,6 +102,12 @@ let
       } {};
       HaskellNet = self.callHackage "HaskellNet" "0.6" {};
       HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
+
+      base-orphans = self.callHackageDirect {
+        pkg = "base-orphans";
+        ver = "0.8.6";
+        sha256 = "sha256:17hplm1mgw65jbszg5z4vqk4i24ilxv8mbszr3s8lhpll5naik26";
+      } {};
 
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
       rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin

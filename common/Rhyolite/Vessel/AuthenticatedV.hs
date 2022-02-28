@@ -1,5 +1,6 @@
 {-| Description: Authenticated views -}
 {-# Language DeriveGeneric #-}
+{-# Language TypeApplications #-}
 {-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
@@ -24,6 +25,7 @@ import Data.Patch
 import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Vessel
+import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
 import Data.Map.Monoidal (MonoidalMap)
@@ -37,6 +39,13 @@ import Data.Dependent.Sum
 
 import Rhyolite.App
 import Rhyolite.Vessel.AuthMapV
+
+import Control.Applicative (Alternative)
+import Prelude hiding ((.), id)
+import Control.Category
+import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorphism(..))
+import Data.Vessel.Vessel (vessel)
+
 
 -- | An internal key type used to glue together parts of a view selector
 -- that have different authentication contexts.
@@ -266,3 +275,65 @@ mapKeysMonotonic' f = \case
       (k' :=> v') -> DMap.Bin n k' v'
         (mapKeysMonotonic' f bl)
         (mapKeysMonotonic' f br)
+
+type instance ViewQueryResult (AuthenticatedV public private personal g) = AuthenticatedV public private personal (ViewQueryResult g)
+
+instance View v => Keyed
+    (AuthenticatedVKey public private personal v)
+    (v g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (v g') where
+  key k = Path (AuthenticatedV . singletonV k) (lookupV k . unAuthenticatedV)
+
+authenticatedV
+  :: ( Monad m, Monad n, Alternative n
+     , View v, ViewQueryResult (v g) ~ v (ViewQueryResult g)
+     )
+  => AuthenticatedVKey public private personal v
+  -> ViewMorphism m n (v g) (AuthenticatedV public private personal g)
+authenticatedV k = ViewMorphism
+  (ViewHalfMorphism (pure . AuthenticatedV) (pure . unAuthenticatedV))
+  (ViewHalfMorphism (pure . unAuthenticatedV) (pure . AuthenticatedV))
+  . vessel k
+
+
+publicP :: forall public private personal g g'. View public
+  => Path
+    (public g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (public g')
+publicP = key (AuthenticatedVKey_Public @public @private @personal)
+
+privateP :: forall public private personal g g'. View private
+  => Path
+    (private g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (private g')
+privateP = key (AuthenticatedVKey_Private @public @private @personal)
+
+personalP :: forall public private personal g g'. View personal
+  => Path
+    (personal g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (personal g')
+personalP = key (AuthenticatedVKey_Personal @public @private @personal)
+
+publicV :: forall m n public private personal g.
+  (ViewQueryResult (public g) ~ public (ViewQueryResult g), Monad m, Monad n, Alternative n, View public)
+  => ViewMorphism m n (public g) (AuthenticatedV public private personal g)
+publicV = authenticatedV (AuthenticatedVKey_Public @public @private @personal)
+
+privateV :: forall m n public private personal g.
+  (ViewQueryResult (private g) ~ private (ViewQueryResult g), Monad m, Monad n, Alternative n, View private)
+  => ViewMorphism m n (private g) (AuthenticatedV public private personal g)
+privateV = authenticatedV (AuthenticatedVKey_Private @public @private @personal)
+
+personalV :: forall m n public private personal g.
+  (ViewQueryResult (personal g) ~ personal (ViewQueryResult g), Monad m, Monad n, Alternative n, View personal)
+  => ViewMorphism m n (personal g) (AuthenticatedV public private personal g)
+personalV = authenticatedV (AuthenticatedVKey_Personal @public @private @personal)
+

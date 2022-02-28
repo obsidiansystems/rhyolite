@@ -42,39 +42,19 @@ import Rhyolite.Vessel.ErrorV
 newtype AuthMapV auth v g = AuthMapV { unAuthMapV :: SubVessel auth (ErrorV () v) g }
   deriving (Generic)
 
--- TODO: put this in vessel
-mapMaybeWithKeySubVessel'
-  :: forall k (v :: (* -> *) -> *) v' (g :: * -> *) (g' :: * -> *).
-    Ord k
-  => (k -> v g -> Maybe (v' g'))
-  -> SubVessel k v g
-  -> SubVessel k v' g'
-mapMaybeWithKeySubVessel' f = mkSubVessel . MMap.mapMaybeWithKey f . getSubVessel
-
-traverseMaybeSubVessel'
-  :: (Ord k, Applicative m)
-  => (k -> v g -> m (Maybe (v' h)))
-  -> SubVessel k v g
-  -> m (SubVessel k v' h)
-traverseMaybeSubVessel' f =
-  fmap (mkSubVessel . MMap.MonoidalMap)
-  . Map.traverseMaybeWithKey f
-  . MMap.getMonoidalMap
-  . getSubVessel
-
 -- | Extract the authorised fragment of an 'AuthMapV'
 getAuthMapV
   :: Ord auth
   => AuthMapV auth v g
   -> SubVessel auth v g
-getAuthMapV (AuthMapV v) = mapMaybeWithKeySubVessel' (\_ -> snd . unsafeObserveErrorV) v
+getAuthMapV (AuthMapV v) = mapMaybeWithKeySubVesselSlow (\_ -> snd . unsafeObserveErrorV) v
 
 -- | Construct an authorised 'AuthMapV'
 makeAuthMapV
   :: (Ord auth, View v)
   => SubVessel auth v g
   -> AuthMapV auth v g
-makeAuthMapV = AuthMapV . mapMaybeWithKeySubVessel' (\_ -> Just . liftErrorV)
+makeAuthMapV = AuthMapV . mapMaybeWithKeySubVesselSlow (\_ -> Just . liftErrorV)
 
 deriving instance (Ord auth, Eq (view g), Eq (g (First (Maybe ())))) => Eq (AuthMapV auth view g)
 
@@ -218,7 +198,7 @@ handlePersonalAuthMapQuery readToken handler vt = do
       disperseTokens = Compose . MMap.MonoidalMap
         . foldMap (\(t, a) -> Map.fromSet (const (Identity a)) t)
 
-  (vtReadToken, invalidTokens) <- runWriterT $ traverseMaybeSubVessel' authoriseAction $ getAuthMapV vt
+  (vtReadToken, invalidTokens) <- runWriterT $ traverseMaybeSubVesselSlow authoriseAction $ getAuthMapV vt
 
   vt' <- handler injectResult $ mapV condenseTokens $ condenseV $ getSubVessel vtReadToken
 
