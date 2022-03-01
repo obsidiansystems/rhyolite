@@ -11,20 +11,25 @@
 {-# Language TemplateHaskell #-}
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
+{-# Language StandaloneDeriving #-}
 -- TODO Upstream for DMap
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
+import Control.Applicative
+import Control.Monad
 import Data.Aeson
 import Data.Aeson.GADT.TH
 import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
+import Data.GADT.Show
 import Data.Patch
 import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Vessel
+import Data.Semigroup
 import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
@@ -39,12 +44,14 @@ import Data.Dependent.Sum
 
 import Rhyolite.App
 import Rhyolite.Vessel.AuthMapV
+import Rhyolite.Vessel.ErrorV
 
 import Control.Applicative (Alternative)
 import Prelude hiding ((.), id)
 import Control.Category
 import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorphism(..))
 import Data.Vessel.Vessel (vessel)
+import Data.Bifoldable
 
 
 -- | An internal key type used to glue together parts of a view selector
@@ -117,17 +124,8 @@ instance
   , Semigroup (private Identity)
   , Semigroup (personal Identity)
   , View public, View private, View personal
-  ) => Query (AuthenticatedV public private personal (Const ())) where
-  type QueryResult (AuthenticatedV public private personal (Const ())) = AuthenticatedV public private personal Identity
-  crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
-
-instance
-  ( Semigroup (public Identity)
-  , Semigroup (private Identity)
-  , Semigroup (personal Identity)
-  , View public, View private, View personal
-  ) => Query (AuthenticatedV public private personal (Const SelectedCount)) where
-  type QueryResult (AuthenticatedV public private personal (Const SelectedCount)) = AuthenticatedV public private personal Identity
+  ) => Query (AuthenticatedV public private personal (Const g)) where
+  type QueryResult (AuthenticatedV public private personal (Const g)) = AuthenticatedV public private personal Identity
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 instance
@@ -276,6 +274,22 @@ mapKeysMonotonic' f = \case
         (mapKeysMonotonic' f bl)
         (mapKeysMonotonic' f br)
 
+traverseKeysMonotonic'
+  :: forall m k1 f k2 g. Applicative m
+  => (forall v. k1 v -> f v -> m (DSum k2 g))
+  -> DMap k1 f
+  -> m (DMap k2 g)
+traverseKeysMonotonic' f = go
+  where
+    go :: DMap k1 f -> m (DMap k2 g)
+    go = \case
+      DMap.Tip -> pure DMap.Tip
+      DMap.Bin n k v bl br ->
+        (\(k' :=> v') -> DMap.Bin n k' v')
+          <$> (f k v)
+          <*> (go bl)
+          <*> (go br)
+
 type instance ViewQueryResult (AuthenticatedV public private personal g) = AuthenticatedV public private personal (ViewQueryResult g)
 
 instance View v => Keyed
@@ -337,3 +351,54 @@ personalV :: forall m n public private personal g.
   => ViewMorphism m n (personal g) (AuthenticatedV public private personal g)
 personalV = authenticatedV (AuthenticatedVKey_Personal @public @private @personal)
 
+traverseAuthenticatedV ::
+  forall m public private personal public' private' personal' f g.
+  (Applicative m)
+  => (public f -> m (public' g))
+  -> (private f -> m (private' g))
+  -> (personal f -> m (personal' g))
+  -> AuthenticatedV public private personal f
+  -> m (AuthenticatedV public' private' personal' g)
+traverseAuthenticatedV f g h (AuthenticatedV (Vessel (MonoidalDMap v))) = AuthenticatedV . Vessel . MonoidalDMap <$> traverseKeysMonotonic' go v
+  where
+    go :: forall v. AuthenticatedVKey public private personal v
+             -> FlipAp f v
+             -> m (DSum
+                     (AuthenticatedVKey public' private' personal') (FlipAp g))
+    go = \case
+      AuthenticatedVKey_Public -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Public :=> FlipAp y) <$> f x
+      AuthenticatedVKey_Private -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Private :=> FlipAp y) <$> g x
+      AuthenticatedVKey_Personal -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Personal :=> FlipAp y) <$> h x
+
+disperseAuthenticatedErrorV ::
+  ( View publicV , Semigroup (publicV Identity)
+  , EmptyView privateV , Semigroup (privateV Identity)
+  , EmptyView personalV , Semigroup (personalV Identity)
+  )
+  => QueryMorphism
+    (ErrorV () (AuthenticatedV publicV privateV personalV) (Const x))
+    (AuthenticatedV publicV (ErrorV () privateV) (ErrorV () personalV) (Const x))
+disperseAuthenticatedErrorV = QueryMorphism
+  (maybe emptyV (runIdentity . traverseAuthenticatedV
+      pure
+      (pure . liftErrorV)
+      (pure . liftErrorV))
+    . snd . unsafeObserveErrorV)
+  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) liftErrorV
+    . traverseAuthenticatedV
+      ((,) Nothing)
+      (fmap (maybe emptyV id) . unsafeObserveErrorV)
+      (fmap (maybe emptyV id) . unsafeObserveErrorV)
+      )
+
+deriving instance Show (AuthenticatedVKey publicV privateV personalV v)
+instance GShow (AuthenticatedVKey publicV privateV personalV) where
+  gshowsPrec = showsPrec
+
+deriving instance
+    ( Show (publicV f)
+    , Show (privateV f)
+    , Show (personalV f)
+    )
+    =>
+    Show (AuthenticatedV publicV privateV personalV f)

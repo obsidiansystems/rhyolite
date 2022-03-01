@@ -61,6 +61,8 @@ deriving instance (Ord auth, Eq (view g), Eq (g (First (Maybe ())))) => Eq (Auth
 instance (Ord auth, ToJSON auth, ToJSON (g (First (Maybe ()))), ToJSON (view g)) => ToJSON (AuthMapV auth view g)
 instance (Ord auth, FromJSON auth, View view, FromJSON (g (First (Maybe ()))), FromJSON (view g)) => FromJSON (AuthMapV auth view g)
 
+deriving instance (Show (v f), Show (f (First (Maybe ()))), Show k) => Show (AuthMapV k v f)
+
 deriving instance
   ( Ord auth
   , Has' Semigroup (ErrorVK () v) (FlipAp g)
