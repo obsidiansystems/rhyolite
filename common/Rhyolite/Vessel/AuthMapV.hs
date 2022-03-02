@@ -3,6 +3,7 @@
 {-# Language PolyKinds #-}
 {-# Language LambdaCase #-}
 {-# Language DeriveGeneric #-}
+{-# Language DeriveTraversable #-}
 {-# Language TypeApplications #-}
 {-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
@@ -30,6 +31,7 @@ import qualified Data.Set as Set
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
+import Data.Vessel.ViewMorphism
 import Data.Witherable
 import GHC.Generics
 import Reflex.Query.Class
@@ -157,6 +159,25 @@ handleAuthMapQuery readToken handler (AuthMapV vt) = do
   -- The use of mapDecomposedV guarantees that the valid and invalid token sets are disjoint
   pure $ AuthMapV $ mkSubVessel $ MMap.unionWith const invalidTokens v'
 
+newtype TaggedQuery a b = TaggedQuery { getTaggedQuery :: a }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+instance Monoid w => Applicative (TaggedQuery w) where
+  pure _ = TaggedQuery mempty
+  TaggedQuery f <*> TaggedQuery x = TaggedQuery (f <> x)
+
+instance Monad (TaggedQuery ()) where
+  TaggedQuery {} >>= _f = TaggedQuery ()
+
+instance Semigroup w => Semigroup (TaggedQuery w x) where
+  TaggedQuery a <> TaggedQuery b = TaggedQuery (a <> b)
+
+instance Monoid w => Monoid (TaggedQuery w x) where
+  mempty = TaggedQuery mempty
+
+type instance ViewQueryResult (TaggedQuery w) = (,) w
+type instance ViewQueryResult (TaggedQuery w a) = (w, a)
+
 -- | Like 'handleAuthMapQuery' but the result can depend on the specific identity.
 -- This is implemented naively so that the query is done separately for each valid identity.
 handlePersonalAuthMapQuery
@@ -165,7 +186,8 @@ handlePersonalAuthMapQuery
   => (token -> m (Maybe user))
   -- ^ How to figure out the identity corresponding to a token
   -> (forall f g.
-        (forall x. x -> f x -> g x)
+     ViewQueryResult f ~ g
+     => (forall x. x -> f x -> g x)
      -> v (Compose (MMap.MonoidalMap user) f)
      -> m (v (Compose (MMap.MonoidalMap user) g))
      )
@@ -185,14 +207,14 @@ handlePersonalAuthMapQuery readToken handler vt = do
 
       condenseTokens
         :: Compose (MMap.MonoidalMap token) (Compose (MMap.MonoidalMap user) Proxy) a
-        -> Compose (MMap.MonoidalMap user) (Const (Set token)) a
+        -> Compose (MMap.MonoidalMap user) (TaggedQuery (Set token)) a
       condenseTokens =
         Compose
-        . (MMap.foldMapWithKey $ \t (Compose u) -> Const (Set.singleton t) <$ u)
+        . (MMap.foldMapWithKey $ \t (Compose u) -> TaggedQuery (Set.singleton t) <$ u)
         . getCompose
 
-      injectResult :: forall x.  x -> Const (Set token) x -> ((Set token), x)
-      injectResult x (Const xs) = (xs, x)
+      injectResult :: forall x.  x -> TaggedQuery (Set token) x -> ((Set token), x)
+      injectResult x (TaggedQuery xs) = (xs, x)
 
       disperseTokens
         :: MMap.MonoidalMap user (Set token, a)

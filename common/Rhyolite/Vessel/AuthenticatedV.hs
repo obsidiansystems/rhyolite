@@ -166,7 +166,9 @@ handleAuthenticatedQuery
   -> (private Proxy -> m (private Identity))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
-  -> (forall f g. (forall x. x -> f x -> g x)
+  -> ( forall f g.
+      ViewQueryResult f ~ g
+      => (forall x. x -> f x -> g x)
       -> personal (Compose (MonoidalMap user) f)
       -> m (personal (Compose (MonoidalMap user) g)))
   -- ^ The result of personal queries depends on the identity making the query
