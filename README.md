@@ -99,3 +99,4 @@ Because of the inter-related nature of these packages, `rhyolite-test-suite` tes
 nix-shell -A proj.shells.ghc --run cabal build test
 ```
 hi
+hi
