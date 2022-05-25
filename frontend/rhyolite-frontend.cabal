@@ -1,74 +1,58 @@
-name: rhyolite-frontend
-version: 0.1
-license: BSD3
-copyright: Copyright (C) Obsidian Systems LLC 2018
-author: Obsidian Systems LLC
-maintainer: maintainer@obsidian.systems
-stability: Experimental
-build-type: Simple
+name:          rhyolite-frontend
+version:       0.1
+license:       BSD3
+copyright:     Copyright (C) Obsidian Systems LLC 2018
+author:        Obsidian Systems LLC
+maintainer:    maintainer@obsidian.systems
+stability:     Experimental
+build-type:    Simple
 cabal-version: >=1.2
+synopsis:      Build apps that use a rhyolite backend as a datasource
+description:
+  Rhyolite frontend apps are typically obelisk- and reflex-based applications that need live-updating data from the backend. This package provides the adapters necessary to work with requests and streaming data from a rhyolite backend.
 
 library
-  hs-source-dirs: .
+  hs-source-dirs:  .
 
-  if impl(ghcjs)
-    build-depends:
-      ghcjs-base
+  if impl(ghcjs -any)
+    build-depends: ghcjs-base
 
   build-depends:
       aeson
     , base
-    , bifunctors
-    , binary
     , bytestring
     , constraints
     , constraints-extras
     , containers
     , cookie
     , data-default
-    , dependent-map
-    , dependent-sum
+    , either
     , exception-transformers
-    , filepath
-    , font-awesome-type
     , ghcjs-dom
-    , http-types
     , jsaddle
     , lens
-    , mmorph
-    , monad-control
     , mtl
     , network-uri
-    , obelisk-route
     , obelisk-executable-config-lookup
-    , prim-uniq
+    , obelisk-frontend
+    , obelisk-route
     , primitive
-    , raw-strings-qq
     , ref-tf
     , reflex
     , reflex-dom-core
     , rhyolite-common
-    , safe
-    , semigroups
-    , template-haskell
+    , some
     , text
-    , these
     , time
-    , timezone-olson
-    , timezone-series
     , transformers
-    , transformers-base
-    , vector
-    , vessel
     , validation
-    , witherable >= 0.2 && < 0.4
+    , vessel
+    , witherable
 
   exposed-modules:
     Rhyolite.Frontend.App
     Rhyolite.Frontend.Cookie
-    Rhyolite.Frontend.Form
-    Rhyolite.Frontend.Modal.Base
-    Rhyolite.Frontend.Modal.Class
-    Rhyolite.Frontend.Widget
 
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls -fexpose-all-unfoldings
+  ghc-options:
+    -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields
+    -O2 -fprof-auto-calls -fexpose-all-unfoldings

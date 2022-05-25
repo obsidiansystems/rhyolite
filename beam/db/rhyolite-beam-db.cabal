@@ -1,0 +1,31 @@
+cabal-version:      2.4
+name:               rhyolite-beam-db
+version:            0.1.0.0
+synopsis:           Beam database functions.
+homepage:           https://github.com/obsidiansystems/rhyolite
+bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+copyright:          2021 Obsidian Systems LLC
+category:           Web
+extra-source-files: README.md
+
+library
+  exposed-modules:
+    Rhyolite.DB.Beam
+    Rhyolite.DB.Beam.Types
+
+  build-depends:
+      base
+    , lens
+    , rhyolite-beam-orphans
+    , beam-core
+    , beam-postgres
+    , postgresql-simple
+    , time
+
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  ghc-options:      -Wall

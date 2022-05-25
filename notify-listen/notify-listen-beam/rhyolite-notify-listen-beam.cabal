@@ -1,0 +1,39 @@
+cabal-version:      2.4
+name:               rhyolite-notify-listen-beam
+version:            0.1.0.0
+synopsis:
+
+-- A longer description of the package.
+-- description:
+homepage:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+
+-- A copyright notice.
+-- copyright:
+category:           Database
+extra-source-files: CHANGELOG.md
+
+library
+  exposed-modules:  Rhyolite.DB.NotifyListen.Beam
+  build-depends:
+    , aeson
+    , base
+    , beam-core
+    , beam-postgres
+    , constraints
+    , constraints-extras
+    , dependent-sum
+    , psql-simple-beam
+    , psql-simple-class
+    , rhyolite-common
+    , rhyolite-notify-listen
+    , these
+
+  hs-source-dirs:   src
+  default-language: Haskell2010

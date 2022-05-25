@@ -1,23 +1,19 @@
-name: rhyolite-common
-version: 0.1
-license: BSD3
-copyright: Copyright (C) Obsidian Systems LLC 2018
-author: Obsidian Systems
-maintainer: maintainer@obsidian.systems
-stability: Experimental
-build-type: Simple
+name:          rhyolite-common
+version:       0.1
+license:       BSD3
+copyright:     Copyright (C) Obsidian Systems LLC 2018
+author:        Obsidian Systems
+maintainer:    maintainer@obsidian.systems
+stability:     Experimental
+build-type:    Simple
 cabal-version: >=1.2
+synopsis:      Common abstractions and datastructures.
 description:
-  Rhyolite is a staging area of common patterns and implementations that
-  Obsidian uses, before they are tested and polished enough to go into obelisk
-  or the reflex family of packages.
-
   This package defines some common abstractions and datatypes used by
   rhyolite-backend and rhyolite-frontend.
 
 library
-  hs-source-dirs: .
-
+  hs-source-dirs:     .
   build-depends:
       aeson
     , aeson-gadt-th
@@ -29,52 +25,45 @@ library
     , constraints-extras
     , containers
     , data-default
-    , database-id-class
     , dependent-map
+    , dependent-monoidal-map
     , dependent-sum
-    , file-embed
-    , filepath
     , http-types
-    , lens
-    , mime-mail
     , monad-control
     , monoidal-containers
     , mtl
     , network-uri
-    , obelisk-route
+    , patch
     , reflex
-    , resource-pool
     , semialign
-    , template-haskell
+    , semimap
+    , some
     , text
     , these
-    , time
     , transformers
     , transformers-base
-    , vector
-    , witherable >= 0.2 && < 0.4
+    , unordered-containers
     , vessel
+    , witherable
 
   exposed-modules:
-    Data.MonoidMap
-    Rhyolite.Account
+    Rhyolite.Aeson.Orphans
     Rhyolite.Api
     Rhyolite.App
     Rhyolite.Concurrent
-    Rhyolite.Email
-    Rhyolite.HList
-    Rhyolite.Request.Common
     Rhyolite.Route
-    Rhyolite.Schema
-    Rhyolite.Schema.Task
-    Rhyolite.Sign
-    Rhyolite.TH
+    Rhyolite.Vessel.AuthenticatedV
+    Rhyolite.Vessel.AuthMapV
+    Rhyolite.Vessel.ErrorV
+    Rhyolite.Vessel.ErrorV.Internal
+    Rhyolite.Vessel.Path
     Rhyolite.WebSocket
 
-  reexported-modules:
-    aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT
+  reexported-modules: aeson-gadt-th:Data.Aeson.GADT.TH as Data.Aeson.GADT
 
-  if !os(ios) && !arch(aarch64) && !arch(arm) && !impl(ghcjs)
+  if (((!os(ios) && !arch(aarch64)) && !arch(arm)) && !impl(ghcjs -any))
     build-depends: monad-logger
 
-  ghc-options: -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields -O2 -fprof-auto-calls
+  ghc-options:
+    -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields
+    -O2 -fprof-auto-calls

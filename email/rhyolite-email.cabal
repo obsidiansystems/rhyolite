@@ -1,0 +1,48 @@
+cabal-version:      2.4
+name:               rhyolite-email
+version:            0.1.0.0
+synopsis:           Send emails from rhyolite applications
+description:        Send emails over SMTP and build emails using blaze or reflex-dom
+homepage:           https://github.com/obsidiansystems/rhyolite
+bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+copyright:          2021 Obsidian Systems LLC
+category:           Web
+extra-source-files:
+  CHANGELOG.md
+  email.css
+
+library
+  exposed-modules:
+      Rhyolite.Email
+    , Rhyolite.Email.Orphans
+  build-depends:
+      base
+    , aeson
+    , blaze-html
+    , bytestring-aeson-orphans
+    , data-default
+    , file-embed
+    , HaskellNet
+    , HaskellNet-SSL
+    , mime-mail
+    , monad-logger
+    , mtl
+    , network
+    , obelisk-route
+    , reflex
+    , reflex-dom-core
+    , rhyolite-common
+    , signed-data
+    , smtp-mail
+    , text
+    , time
+    , timerep
+    , transformers
+
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  ghc-options:      -Wall

@@ -1,23 +1,42 @@
--- | This module contains the implementation of the view/viewselector machinery.
+{-|
+Description:
+  A push-pull data pipeline extending from the websocket connection to the database.
 
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE UndecidableInstances #-}
+The purpose of this module is to provide connected clients (e.g., application
+frontends) access to information in the database. Clients access the database
+in two ways:
 
-module Rhyolite.Backend.App
-  ( module Rhyolite.Backend.App
-  -- re-export
-  , Postgresql
-  ) where
+1. via request/response API calls. In FRP terms this can be thought of as
+@Event Request -> Event Response@.
+
+2. via "viewselector" queries. These are queries for a "view" of part of the
+database that can change over time. In FRP terms, this can be thought of as
+@Dynamic Query -> Dynamic QueryResponse@.
+
+Both of these APIs are served over websocket connection between the server and
+each connected client. Because users can have overlapping viewselectors, part
+of the work of the pipeline is to make it possible to share work when providing
+view updates to such clients. This is accomplished by aggregating viewselectors
+when possible and then distributing results out to interested clients.
+
+App implementers are probably looking for 'serveDbOverWebsockets' or
+'serveVessel': these are the most common entrypoints.
+
+Note that this module doesn't define the actual request/response or
+viewselector APIs, and instead focuses on the infrastructure needed to support
+such APIs. To actually define a request/response API, see `Rhyolite.Api`. For
+viewselector APIs, see `Data.Vessel`.
+-}
+{-# Language FlexibleContexts #-}
+{-# Language OverloadedStrings #-}
+{-# Language QuantifiedConstraints #-}
+{-# Language RankNTypes #-}
+{-# Language RecursiveDo #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeApplications #-}
+
+module Rhyolite.Backend.App where
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
@@ -28,89 +47,64 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (FromJSON, ToJSON, toJSON)
 import Data.Align
 import Data.Constraint.Extras
-import Data.Map.Monoidal (MonoidalMap)
-import qualified Data.Map.Monoidal as Map
 import Data.Foldable (fold)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
-import Data.MonoidMap (MonoidMap (..), monoidMap)
+import Data.Map.Monoidal (MonoidalMap)
+import qualified Data.Map.Monoidal as Map
+import Data.MonoidMap (MonoidMap(..), monoidMap)
 import Data.Pool (Pool)
-import Data.Semigroup (Semigroup, (<>))
+import Data.Semigroup ((<>), Semigroup)
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
-import Data.Witherable (Filterable(..))
-import Debug.Trace (trace)
-import Database.Groundhog.Postgresql (Postgresql (..))
-import qualified Database.PostgreSQL.Simple as Pg
-import Reflex.Query.Base (mapQuery, mapQueryResult)
-import Reflex.Query.Class (Query, QueryResult, QueryMorphism (..), SelectedCount (..), crop)
-import Snap.Core (MonadSnap, Snap)
-import qualified Web.ClientSession as CS
-import qualified Network.WebSockets as WS
-import Data.Coerce (coerce)
 import Data.Vessel
-import Reflex (Group(..), Additive)
+import Data.Witherable (Filterable(..))
+import qualified Database.PostgreSQL.Simple as Pg
+import Debug.Trace (trace)
+import qualified Network.WebSockets as WS
+import Reflex (Additive, Group(..))
+import Reflex.Query.Base (mapQuery, mapQueryResult)
+import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
+import Snap.Core (Snap)
 
+import Data.Signed (Signed)
+import Data.Signed.ClientSession as CS (Key, readSignedWithKey)
 import Rhyolite.Api
 import Rhyolite.App
-import Rhyolite.Backend.Listen (startNotificationListener)
+import Rhyolite.Backend.WebSocket (getDataMessage, sendEncodedDataMessage, withWebsocketsConnection)
 import Rhyolite.Concurrent
-import Rhyolite.Sign (Signed)
-import Rhyolite.Backend.WebSocket (withWebsocketsConnection, getDataMessage, sendEncodedDataMessage)
-import Rhyolite.Backend.Sign (readSignedWithKey)
-import Rhyolite.WebSocket (TaggedRequest (..), TaggedResponse (..), WebSocketResponse (..), WebSocketRequest (..))
+import Rhyolite.DB.NotifyListen (startNotificationListener)
+import Rhyolite.WebSocket (TaggedRequest(..), TaggedResponse(..), WebSocketRequest(..), WebSocketResponse(..))
 
--- | This query morphism translates between un-annotated queries for use over the wire, and ones with SelectedCount annotations used in the backend to be able to determine the differences between queries. This version is for use with the older Functor style of queries and results.
-functorFromWire
-  :: ( Filterable q
-     , Functor v
-     , QueryResult (q ()) ~ v ()
-     , QueryResult (q SelectedCount) ~ v SelectedCount)
-  => QueryMorphism (q ()) (q SelectedCount)
-functorFromWire = QueryMorphism
-  { _queryMorphism_mapQuery = (1 <$)
-  , _queryMorphism_mapQueryResult = void
-  }
 
--- | Handle API requests for a given app
---
--- The request format expected here is 'TaggedRequest'
--- The response format expected here is 'TaggedResponse'
-handleAppRequests
-  :: (MonadSnap m, Request r)
-  => (forall a. r a -> IO a)
-  -> m ()
-handleAppRequests f = withWebsocketsConnection $ forever . handleAppRequest f
+-- * Handling a request/response API
+-- $api
 
-handleAppRequest
-  :: (Request r)
-  => (forall a. r a -> IO a)
-  -> WS.Connection
-  -> IO ()
-handleAppRequest f conn = do
-  (TaggedRequest reqId (Some req)) <- getDataMessage conn
-  a <- f req
-  sendEncodedDataMessage conn $ TaggedResponse reqId (has @ToJSON req (toJSON a))
+-- $api
+-- Request/Response APIs are defined using a GADT. This function can produce
+-- the associated response type for each key of the GADT. Request handlers
+-- aren't directly part of the pipeline: delivery of the response is the end of
+-- the transaction and there are no automatic subsequent updates. However,
+-- changes made to the database via requests may produce notifications that
+-- ultimately result in updates being pushed into the pipeline and sent to
+-- connected clients.
 
--------------------------------------------------------------------------------
-
--- | Handles API requests
+-- | The request handler is just a function from requests to responses. The
+-- forall is necessary here because different requests may produce different
+-- response types.
 newtype RequestHandler r m = RequestHandler
   { runRequestHandler :: forall a. r a -> m a }
 
--------------------------------------------------------------------------------
+-- * Defining a push/pull data pipeline
+-- $pipeline
 
--- | A way for a pipeline to retrieve data
-newtype QueryHandler q m = QueryHandler
-  { runQueryHandler :: q -> m (QueryResult q) }
-
--- | A way to push data into a pipeline
-newtype Recipient q m = Recipient
-  { tellRecipient :: QueryResult q -> m () }
-
--- | A way of attaching to (and later detaching from) a pipeline
-newtype Registrar q = Registrar { unRegistrar :: Recipient q IO -> IO (QueryHandler q IO, IO ()) }
+-- $pipeline
+-- This module uses the term "pipeline" to refer to the connection between a
+-- consumer and a datasource (e.g., a client application connected via
+-- websockets, and the database). Pipelines are different from a
+-- request/response api because they allow new information to be "pushed" to
+-- the consumer.
 
 -- | A way of connecting a source of data to a consumer of data. The consumer
 -- can pull data from the datasource and the datasource can push data to the
@@ -118,8 +112,36 @@ newtype Registrar q = Registrar { unRegistrar :: Recipient q IO -> IO (QueryHand
 --
 -- q is the consumer side
 -- q' is the datasource side
-newtype Pipeline m q q' = Pipeline { unPipeline :: QueryHandler q' m -> Recipient q m -> IO (QueryHandler q m, Recipient q' m) }
+newtype Pipeline m q q' = Pipeline
+  { unPipeline ::
+      QueryHandler q' m ->
+        Recipient q m ->
+          IO (QueryHandler q m, Recipient q' m)
+  }
 
+-- | A way for a pipeline to retrieve data (e.g., use the database to produce a
+-- view corresponding to a client's viewselector).
+newtype QueryHandler q m = QueryHandler
+  { runQueryHandler :: q -> m (QueryResult q) }
+
+-- | A way to push data into a pipeline (e.g., send it to a client)
+newtype Recipient q m = Recipient
+  { tellRecipient :: QueryResult q -> m () }
+
+-- | A way of attaching to (and later detaching from) a pipeline (e.g., handle
+-- client connection and disconnection)
+newtype Registrar q = Registrar
+  { unRegistrar :: Recipient q IO -> IO (QueryHandler q IO, IO ())
+  }
+
+-- | Extends a 'Registrar' with a 'Pipeline'
+extendRegistrar :: Pipeline IO q q' -> Registrar q' -> Registrar q
+extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
+  rec (qh', close) <- r recipient'
+      (qh, recipient') <- p qh' recipient
+  return (qh, close)
+
+-- | Prints queries for debugging
 tracePipelineQuery :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipelineQuery tag = Pipeline $ \qh r -> do
   return 
@@ -131,6 +153,7 @@ tracePipelineQuery tag = Pipeline $ \qh r -> do
         tellRecipient r qr
     )
 
+-- | Prints queries, results, and recipient messages for debugging
 tracePipeline :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipeline tag = Pipeline $ \qh r -> do
   putStrLn $ tag ++ "(start)"
@@ -152,42 +175,30 @@ instance Category (Pipeline m) where
         (qh', r'') <- f qh r'
     return (qh'', r'')
 
--- | A key used to track particular consumers
+-- | A key used to track particular consumers. This should not be relevant
+-- outside of this module.
 newtype ClientKey = ClientKey { unClientKey :: Integer }
   deriving (Eq, Ord, Show)
 
--------------------------------------------------------------------------------
+-- ** Handling multiple clients
+-- $multiplex
 
--- | Produce a multi-client 'Recipient' and a single client 'QueryHandler'
-fanQuery
-  :: forall k q. (Ord k, Monoid (QueryResult q))
-  => (k -> IO (Recipient q IO))
-    -- ^ Look up a recipient
-  -> QueryHandler (MonoidalMap k q) IO
-    -- ^ A 'QueryHandler' for multiple clients
-  -> ( Recipient (MonoidalMap k q) IO
-       -- Used to notify recipients of new 'QueryResult' data
-     , k -> QueryHandler q IO
-       -- Used by 'multiplexQuery' to lookup the 'QueryHandler' for a given client
-     )
-fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler qh)
-  where
-    -- | Given a recipient lookup function, produces a 'Recipient' that can
-    -- handle distribution of a map of 'QueryResult's to many recipients
-    multiRecipient lookupR = Recipient $ imapM_ $ \k qr -> do
-      s <- lookupR k
-      tellRecipient s qr
-    -- | Given a multi-client 'QueryHandler', produces a 'QueryHandler' for
-    -- a single client
-    fanQueryHandler qh' = \k -> mapQueryHandler (singletonQuery k) qh'
+-- $multiplex
+-- The backend needs some way of managing multiple pipelines corresponding to
+-- multiple connected clients. It must keep track of each connected client, the
+-- queries (viewselectors) issued by that client, and have some way of sending
+-- data to that client.
 
--- | Maintains a Map from connected clients to a 'Recipient' that can be used to transmit data to the clients
+-- | Maintains a Map from connected clients to a 'Recipient' that can be used
+-- to transmit data to the clients, and provides an interface for adding and
+-- removing clients.
 --
--- Takes a function that looks up a the 'QueryHandler' for a given client
--- Returns: 1. A lookup function into the Map of clients
---          2. A way to register a new client
---             a. A 'QueryHandler' for the newly registered client
---             b. A removal callback to de-register a particular client
+-- Takes a function that looks up the 'QueryHandler' for a given client
+-- Returns:
+--   1. A lookup function into the Map of clients
+--   2. A way to register a new client
+--      a. A 'QueryHandler' for the newly registered client
+--      b. A removal callback to de-register a particular client
 multiplexQuery
   :: (MonadIO m, Monoid q, Query q, Group q)
   => (ClientKey -> QueryHandler q m)
@@ -232,66 +243,49 @@ multiplexQuery lookupQueryHandler = do
 
   return (lookupRecipient, registerRecipient)
 
--- | Like 'handleWebsocketConnection' but customized for 'Snap'.
-handleWebsocket
-  :: forall r q qWire.
-     ( Request r
-     , Eq (QueryResult q)
-     , Monoid (QueryResult q)
-     , ToJSON (QueryResult qWire)
-     , FromJSON qWire
-     , Monoid q
-     , Query q
-     )
-  => Text -- ^ Version
-  -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
-  -> RequestHandler r IO -- ^ Handler for API requests
-  -> Registrar q
-  -> Snap ()
-handleWebsocket v fromWire rh register = withWebsocketsConnection (handleWebsocketConnection v fromWire rh register)
-
--- | Handles a websocket connection given a raw connection.
-handleWebsocketConnection
-  :: forall r q qWire.
-    ( Request r
-    , Eq (QueryResult q)
-    , ToJSON (QueryResult qWire)
-    , FromJSON qWire
-    , Monoid q
-    , Query q
-    )
-  => Text -- ^ Version
-  -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
-  -> RequestHandler r IO -- ^ Handler for API requests
-  -> Registrar q
-  -> WS.Connection
-  -> IO ()
-handleWebsocketConnection v fromWire rh register conn = do
-  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (_queryMorphism_mapQueryResult fromWire a) :: WebSocketResponse qWire)
-  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse qWire)
-  bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> forever $ do
-    (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
-    case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
-        a <- runRequestHandler rh req
-        sendEncodedDataMessage conn
-          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
-      WebSocketRequest_ViewSelector new -> do
-        qr <- runQueryHandler vsHandler (_queryMorphism_mapQuery fromWire new)
-        when (qr /= mempty) $ do
-          sendEncodedDataMessage conn (WebSocketResponse_View (_queryMorphism_mapQueryResult fromWire qr) :: WebSocketResponse qWire)
-
--------------------------------------------------------------------------------
-
--- | Connect a datasource (e.g., a database) to a pipeline
+-- | Produce a multi-client 'Recipient' and a single client 'QueryHandler',
+-- given a per-client 'Recipient' lookup function and a 'QueryHandler' for
+-- multiple clients.
 --
--- Data taken from 'getNextNotification' is pushed into the pipeline and
--- when the pipeline pulls data, it is retrieved using 'qh'
+-- 1. Given a recipient lookup function, produces a 'Recipient' that can handle
+-- distribution of a map of 'QueryResult's to many recipients
+--
+-- 2.  Given a multi-client 'QueryHandler', produces a 'QueryHandler' for a
+-- single client
+fanQuery
+  :: forall k q. (Ord k, Monoid (QueryResult q))
+  => (k -> IO (Recipient q IO))
+    -- ^ Look up a recipient
+  -> QueryHandler (MonoidalMap k q) IO
+    -- ^ A 'QueryHandler' for multiple clients
+  -> ( Recipient (MonoidalMap k q) IO, k -> QueryHandler q IO)
+    -- ^ Pair of (1) a function to notify recipients of new 'QueryResult' data and (2) a function to lookup the 'QueryHandler' for a given client
+fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler qh)
+  where
+    -- | Given a recipient lookup function, produces a 'Recipient' that can
+    -- handle distribution of a map of 'QueryResult's to many recipients
+    multiRecipient lookupR = Recipient $ imapM_ $ \k qr -> do
+      s <- lookupR k
+      tellRecipient s qr
+    -- | Given a multi-client 'QueryHandler', produces a 'QueryHandler' for
+    -- a single client
+    fanQueryHandler qh' = \k -> mapQueryHandler (singletonQuery k) qh'
+
+-- ** Connecting a datasource
+
+-- | Connect a datasource (e.g., a database) to a pipeline. Data can be
+-- "pushed" into the pipeline when there's something new that needs to be sent
+-- to connected clients, or it can be pulled, when clients issue a request.
+--
+-- Data taken from 'getNextNotification' is pushed into the pipeline and when
+-- the pipeline pulls data, it is retrieved using 'qh'. In most apps, these
+-- "notifications" indicate that some data in the database has changed, and
+-- that connected clients may need to be made aware of the change.
 feedPipeline
   :: (Group q, Additive q, PositivePart q, Monoid (QueryResult q))
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
-  -- is available, this should block until one is available
+  -- is available, this should block until one is available.
   -> QueryHandler q IO
   -- ^ Retrieve data when requested by pipeline
   -> Recipient q IO
@@ -312,27 +306,79 @@ feedPipeline getNextNotification qh r = do
     tellRecipient r qr
   return (qhSaveQuery, stopWorker)
 
--- | Connects the pipeline to websockets consumers
-connectPipelineToWebsockets
-  :: ( Request r
-     , Monoid q
-     , Monoid (QueryResult q)
-     , Eq (QueryResult q)
-     , FromJSON qWire
-     , ToJSON (QueryResult qWire)
-     , Query q
-     , Group q
-     )
-  => Text -- ^ Version
-  -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
-  -> RequestHandler r IO
-  -- ^ API handler
-  -> QueryHandler (MonoidalMap ClientKey q) IO
-  -- ^ A way to retrieve more data for each consumer
-  -> IO (Recipient (MonoidalMap ClientKey q) IO, Snap ())
-  -- ^ A way to send data to many consumers and a handler for websockets connections
-connectPipelineToWebsockets = connectPipelineToWebsocketsRaw withWebsocketsConnection
+-- ** Connecting a client (via websockets)
+-- $connect_client
 
+-- $connect_client
+-- Client applications will send queries using a wire format. Typically, this
+-- data is transformed (via a 'QueryMorphism') so that it ends up in a shape
+-- that supports the group operations that the backend needs to perform
+-- (e.g., combining and subtracting queries/interest sets/viewselectors).
+--
+-- These functions are usually invoked by `serveDbOverWebsockets` or one of the
+-- other end-to-end pipelining functions.
+
+-- | Handles a websocket connection given a raw connection. This handler:
+--
+--  1. Registers the new client
+--  2. Separately handles messages coming in over the "api" and "viewselector" channels
+--  3. Transforms the incoming wire-format query and produce responses for new inbound queries
+handleWebsocketConnection
+  :: forall r q qWire.
+    ( Request r
+    , Eq (QueryResult q)
+    , ToJSON (QueryResult qWire)
+    , FromJSON qWire
+    , Monoid q
+    , Query q
+    )
+  => Text -- ^ Version
+  -> QueryMorphism qWire q
+  -- ^ Query morphism to translate between wire queries and queries with a
+  -- reasonable group instance. cf. 'vesselFromWire'
+  -> RequestHandler r IO -- ^ Handler for API requests
+  -> Registrar q
+  -> WS.Connection
+  -> IO ()
+handleWebsocketConnection v fromWire rh register conn = do
+  let sender = Recipient $ sendEncodedDataMessage conn . (\a -> WebSocketResponse_View (_queryMorphism_mapQueryResult fromWire a) :: WebSocketResponse qWire)
+  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse qWire)
+  bracket (unRegistrar register sender) snd $ \(vsHandler, _) -> forever $ do
+    (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
+    case wsr of
+      WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
+        a <- runRequestHandler rh req
+        sendEncodedDataMessage conn
+          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
+      WebSocketRequest_ViewSelector new -> do
+        qr <- runQueryHandler vsHandler (_queryMorphism_mapQuery fromWire new)
+        when (qr /= mempty) $ do
+          sendEncodedDataMessage conn (WebSocketResponse_View (_queryMorphism_mapQueryResult fromWire qr) :: WebSocketResponse qWire)
+
+-- | Like 'handleWebsocketConnection' but customized for 'Snap'.
+handleWebsocket
+  :: forall r q qWire.
+     ( Request r
+     , Eq (QueryResult q)
+     , Monoid (QueryResult q)
+     , ToJSON (QueryResult qWire)
+     , FromJSON qWire
+     , Monoid q
+     , Query q
+     )
+  => Text
+  -- ^ Version
+  -> QueryMorphism qWire q
+  -- ^ Query morphism from wire format to format with group instance
+  -> RequestHandler r IO
+  -- ^ Handler for request/response api
+  -> Registrar q
+  -- ^ Client registrar
+  -> Snap ()
+handleWebsocket v fromWire rh register = withWebsocketsConnection (handleWebsocketConnection v fromWire rh register)
+
+-- | Given a request/response api handler and a 'QueryHandler', this function
+-- produces a handler for incoming websockets connections.
 connectPipelineToWebsocketsRaw
   :: ( Request r
      , Monoid q
@@ -345,42 +391,70 @@ connectPipelineToWebsocketsRaw
      )
   => ((WS.Connection -> IO ()) -> m a) -- ^ Websocket handler
   -> Text -- ^ Version
-  -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
+  -> QueryMorphism qWire q
+  -- ^ Query morphism to translate between wire queries and queries with a
+  -- reasonable group instance. cf. 'vesselFromWire'
   -> RequestHandler r IO
   -- ^ API handler
   -> QueryHandler (MonoidalMap ClientKey q) IO
   -- ^ A way to retrieve more data for each consumer
   -> IO (Recipient (MonoidalMap ClientKey q) IO, m a)
-  -- ^ A way to send data to many consumers and a handler for websockets connections
+  -- ^ A way to send data to many consumers and a handler for websockets
+  -- connections
 connectPipelineToWebsocketsRaw withWsConn ver fromWire rh qh = do
   (allRecipients, registerRecipient) <- connectPipelineToWebsockets' qh
   return (allRecipients, withWsConn (handleWebsocketConnection ver fromWire rh registerRecipient))
+  where
+    -- | Like 'connectPipelineToWebsockets' but returns a Registrar that can
+    -- be used to construct a handler for a particular client
+    connectPipelineToWebsockets'
+      :: ( Monoid q
+         , Monoid (QueryResult q)
+         , Query q
+         , Group q
+         )
+      => QueryHandler (MonoidalMap ClientKey q) IO
+      -> IO (Recipient (MonoidalMap ClientKey q) IO, Registrar q)
+      -- ^ A way to send data to many consumers, and a way to register new consumers
+    connectPipelineToWebsockets' qh' = do
+      rec (lookupRecipient, registerRecipient) <- multiplexQuery clientQueryHandler
+          let (allRecipients, clientQueryHandler) = fanQuery lookupRecipient qh'
+      return (allRecipients, Registrar registerRecipient)
 
--- | Like 'connectPipelineToWebsockets' but returns a Registrar that can
--- be used to construct a handler for a particular client
-connectPipelineToWebsockets'
-  :: ( Monoid q
+-- | Connects the pipeline to websockets consumers. Specialized to 'Snap'. See
+-- 'connectPipelineToWebsocketsRaw' for more information.
+connectPipelineToWebsockets
+  :: ( Request r
+     , Monoid q
      , Monoid (QueryResult q)
+     , Eq (QueryResult q)
+     , FromJSON qWire
+     , ToJSON (QueryResult qWire)
      , Query q
      , Group q
      )
-  => QueryHandler (MonoidalMap ClientKey q) IO
-  -> IO (Recipient (MonoidalMap ClientKey q) IO, Registrar q)
-  -- ^ A way to send data to many consumers, and a way to register new consumers
-connectPipelineToWebsockets' qh = do
-  rec (lookupRecipient, registerRecipient) <- multiplexQuery clientQueryHandler
-      let (allRecipients, clientQueryHandler) = fanQuery lookupRecipient qh
-  return (allRecipients, Registrar registerRecipient)
+  => Text -- ^ Version
+  -> QueryMorphism qWire q
+  -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
+  -> RequestHandler r IO
+  -- ^ API handler
+  -> QueryHandler (MonoidalMap ClientKey q) IO
+  -- ^ A way to retrieve more data for each consumer
+  -> IO (Recipient (MonoidalMap ClientKey q) IO, Snap ())
+  -- ^ A way to send data to many consumers and a handler for websockets connections
+connectPipelineToWebsockets = connectPipelineToWebsocketsRaw withWebsocketsConnection
 
--- | Extends a 'Registrar' with a 'Pipeline'
-extendRegistrar :: Pipeline IO q q' -> Registrar q' -> Registrar q
-extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
-  rec (qh', close) <- r recipient'
-      (qh, recipient') <- p qh' recipient
-  return (qh, close)
 
--------------------------------------------------------------------------------
 
+-- ** Push/pull DB-to-websocket pipelines
+
+-- | Connects a database to clients over websockets, handling requests, db
+-- notifications, and viewselector queries. It returns a handler for incoming
+-- websockets connections that will set up the pipeline for the incoming
+-- client.
+--
+-- The 'Pipeline' argument determines how queries will be
+-- aggregated/transposed.
 serveDbOverWebsockets
   :: ( Request r
      , Monoid q'
@@ -399,18 +473,30 @@ serveDbOverWebsockets
      , Additive q'
      , PositivePart q'
      )
-  => Pool Postgresql
+  => Pool Pg.Connection
+  -- ^ The database
   -> RequestHandler r IO
+  -- ^ Handler for the request/response api
   -> (notifyMessage -> q' -> IO (QueryResult q'))
+  -- ^ Handler for notifications of changes to the database
   -> QueryHandler q' IO
+  -- ^ Handler for new viewselectors
   -> QueryMorphism qWire q
+  -- ^ Adapter from the query wire format
   -> Pipeline IO (MonoidalMap ClientKey q) q'
+  -- ^ Pipeline from a set of connected clients with individual queries to an
+  -- aggregation that the backend can handle. Note that the 'QueryHandler's and
+  -- 'QueryResult's mentioned in other arguments to this function operate on
+  -- the aggregated query.
   -> IO (Snap (), IO ())
+  -- ^ Returns (1) a websocket connection handler function, (2) a finalizer
 serveDbOverWebsockets pool rh nh qh fromWire pipeline = do
   mver <- try (T.readFile "version")
   let version = either (\(SomeException _) -> "") id mver
   serveDbOverWebsocketsRaw withWebsocketsConnection version fromWire pool rh nh qh pipeline
 
+-- | Like 'serveDbOverWebsockets' but provides finer-grained control over how
+-- the "version" is specified and how connections are handled
 serveDbOverWebsocketsRaw
   :: forall notifyMessage qWire q q' r m a.
      ( Request r
@@ -433,7 +519,7 @@ serveDbOverWebsocketsRaw
   => ((WS.Connection -> IO ()) -> m a)
   -> Text -- ^ version
   -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
-  -> Pool Postgresql
+  -> Pool Pg.Connection
   -> RequestHandler r IO
   -> (notifyMessage -> q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
@@ -446,12 +532,59 @@ serveDbOverWebsocketsRaw withWsConn version fromWire db handleApi handleNotify h
       (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn version fromWire handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
 
-convertPostgresPool :: Pool Pg.Connection -> Pool Postgresql
-convertPostgresPool = coerce
+-- | Like 'serveDbOverWebsockets' but specialized to 'Vessel'. See
+-- 'vesselFromWire' and 'vesselPipeline' for more information on the
+-- transformations applied.
+serveVessel ::
+  ( clients ~ MonoidalMap ClientKey
+  , count ~ Const SelectedCount
+  , Has ToJSON r
+  , Has FromJSON r
+  , ToJSON (QueryResult (v (Const ())))
+  , forall a. ToJSON (r a)
+  , FromJSON notifyMessage
+  , FromJSON (v (Const ()))
+  , FromJSON (Some r)
+  , Eq (QueryResult (v count))
+  , Eq (v count)
+  , Query (v (Compose clients count))
+  , Query (v count)
+  , Group (v (Compose clients count))
+  , Group (v count)
+  , Additive (v (Compose clients count))
+  , PositivePart (v (Compose clients count))
+  , QueryResult (v (Const ())) ~ v Identity
+  , QueryResult (v count) ~ v Identity
+  , QueryResult (v (Compose clients count)) ~ v (Compose clients Identity)
+  , View v
+  )
+  => Pool Pg.Connection
+  -- ^ Database connection pool (the datasource)
+  -> RequestHandler r IO
+  -- ^ Request/response api handler
+  -> (notifyMessage -> v (Compose clients count) -> IO (QueryResult (v (Compose clients count))))
+  -- ^ Notification handler
+  -> QueryHandler (v (Compose clients count)) IO
+  -- ^ Handler for aggregated vesselized queries
+  -> IO (Snap (), IO ())
+serveVessel pg rh nh qh = serveDbOverWebsockets pg rh nh qh vesselFromWire vesselPipeline
 
--- | This is typically useful to provide as a last argument to serveDbOverWebsockets, as it handles
--- the combinatorics of aggregating the queries of connected clients as provided to the handler for
--- database notifications, and disaggregating the corresponding results of the queries accordingly.
+-- ** Pipeline implementations
+-- $transpose
+
+-- $transpose
+-- An important design goal of this module is to ensure that queries are
+-- aggregated (so there's some possibility of handling them efficiently and
+-- in-bulk) and efficiently fanned out to each interested querier. What this
+-- usually means is that we take structures with clients as the keys and
+-- queries as the leaves and transpose them so that the queries are the keys
+-- and sets of clients are the leaves.
+
+-- | This is typically useful to provide as a last argument to
+-- 'serveDbOverWebsockets', as it handles the combinatorics of aggregating the
+-- queries of connected clients as provided to the handler for database
+-- notifications, and disaggregating the corresponding results of the queries
+-- accordingly.
 standardPipeline
   :: forall m k q qr.
     ( QueryResult (q (MonoidMap k SelectedCount)) ~ qr (MonoidMap k SelectedCount)
@@ -467,30 +600,64 @@ standardPipeline = queryMorphismPipeline
   (QueryMorphism (fmap MonoidMap . condense)
                  (disperse . fmap unMonoidMap))
 
--- | This is also useful as a final argument to serveDbOverWebsockets, in the case that you're using Vessel-style queries/views.
-vesselPipeline
-  :: forall m t v.
-    ( QueryResult (t (v (Const ()))) ~ t (v Identity)
-    , QueryResult (v (Compose t (Const ()))) ~ v (Compose t Identity)
-    , Monoid (v (Compose t (Const ())))
-    , Monoid (v (Const ()))
-    , Functor m
-    , View v
-    , Foldable t
-    , Filterable t
-    , Align t
-    )
-  => Pipeline m (t (v (Const ()))) (v (Compose t (Const ())))
-vesselPipeline = queryMorphismPipeline transposeView
+-- | This pipeline transposes a structure of vessel-based queries/viewselectors
+-- so that the queries are the keys of the structure instead of the values. The
+-- point of this transposition is to aggregate common queries. For example,
+-- this would transpose a @Map client (vessel (Const SelectedCount))@ so that
+-- the clients are "pushed into" the structure: @vessel (Compose (Map client)
+-- (Const Selectedcount))@. For each of the aggregated queries at the outer
+-- level, we now have a map of clients who are interested in that query.
+vesselPipeline :: forall t v m.
+  ( QueryResult (t (v (Const SelectedCount))) ~ t (v Identity)
+  , QueryResult (v (Compose t (Const SelectedCount))) ~ v (Compose t Identity)
+  , Functor m
+  , View v
+  , Filterable t
+  , Foldable t
+  , Align t
+  , Monoid (v (Const SelectedCount))
+  , Monoid (v (Compose t (Const SelectedCount)))
+  )
+  => Pipeline m (t (v (Const SelectedCount))) (v (Compose t (Const SelectedCount)))
+vesselPipeline = vesselGroupPipeline @(Const SelectedCount)
 
--------------------------------------------------------------------------------
+-- | Generalization of 'vesselPipeline' that doesn't necessarily use @Const
+-- SelectedCount@.
+vesselGroupPipeline
+  :: forall g t v m g'.
+  ( QueryResult (t (v g)) ~ t (v g')
+  , QueryResult (v (Compose t g)) ~ v (Compose t g')
+  , Functor m
+  , View v
+  , Filterable t
+  , Foldable t
+  , Align t
+  , Monoid (v g)
+  , Monoid (v (Compose t g))
+  )
+  => Pipeline m (t (v g)) (v (Compose t g))
+vesselGroupPipeline = queryMorphismPipeline transposeView
 
-monoidMapQueryMorphism :: (Eq q, Ord k, Monoid q) => QueryMorphism (MonoidalMap k q) (MonoidMap k q)
+-- *** Query morphisms
+
+-- | Build a 'Pipeline' out of a 'QueryMorphism'. This is the usual way
+-- 'Pipeline's are made.
+queryMorphismPipeline :: Functor m => QueryMorphism q q' -> Pipeline m q q'
+queryMorphismPipeline qm = Pipeline $ \qh r -> pure $ mapQueryHandlerAndRecipient qm qh r
+
+-- | A query morphism that converts between 'MonoidalMap' and 'MonoidMap'
+-- (i.e., between monoidal maps that can have keys with mempty values and a
+-- monoidal map where mempty is not admitted as a value).
+monoidMapQueryMorphism
+  :: (Eq q, Ord k, Monoid q)
+  => QueryMorphism (MonoidalMap k q) (MonoidMap k q)
 monoidMapQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = monoidMap
   , _queryMorphism_mapQueryResult = unMonoidMap
   }
 
+-- | A query morphism from 'MonoidMap' of containers to a container of
+-- 'MonoidMap's.
 transposeMonoidMap
   :: forall a a' k q qr.
      ( Ord k
@@ -520,6 +687,16 @@ transposeMonoidMap = QueryMorphism
     distributeResults :: qr (MonoidMap k a') -> MonoidMap k (qr a')
     distributeResults v = monoidMap $ Map.mapWithKey (\k _ -> mapMaybe (Map.lookup k . unMonoidMap) v) $ fold $ fmap unMonoidMap v
 
+-- | Use a 'QueryMorphism' to transform a 'QueryHandler's query type.
+mapQueryHandler :: Functor f => QueryMorphism q q' -> QueryHandler q' f -> QueryHandler q f
+mapQueryHandler qm qh = QueryHandler $ \qs -> mapQueryResult qm <$> runQueryHandler qh (mapQuery qm qs)
+
+-- | Use a 'QueryMorphism' to transform a 'Recipient's query type
+mapRecipient :: QueryMorphism q q' -> Recipient q m -> Recipient q' m
+mapRecipient qm s = Recipient $ \qr -> tellRecipient s $ mapQueryResult qm qr
+
+-- | Map a query morphism over both a 'QueryHandler' and a 'Recipient'. This is
+-- useful to ensure that the two match up.
 mapQueryHandlerAndRecipient
   :: Functor f
   => QueryMorphism q q'
@@ -528,15 +705,12 @@ mapQueryHandlerAndRecipient
   -> (QueryHandler q f, Recipient q' f)
 mapQueryHandlerAndRecipient qm qh s = (mapQueryHandler qm qh, mapRecipient qm s)
 
-mapQueryHandler :: Functor f => QueryMorphism q q' -> QueryHandler q' f -> QueryHandler q f
-mapQueryHandler qm qh = QueryHandler $ \qs -> mapQueryResult qm <$> runQueryHandler qh (mapQuery qm qs)
-
-mapRecipient :: QueryMorphism q q' -> Recipient q m -> Recipient q' m
-mapRecipient qm s = Recipient $ \qr -> tellRecipient s $ mapQueryResult qm qr
-
-fmapQueryMorphism
-  :: ( Functor f, QueryResult (f q) ~ f (QueryResult q)
-     , QueryResult (f q') ~ f (QueryResult q') )
+-- | Apply a query morphism to a query inside a functor
+fmapQueryMorphism ::
+  ( Functor f
+  , QueryResult (f q) ~ f (QueryResult q)
+  , QueryResult (f q') ~ f (QueryResult q') 
+  )
   => QueryMorphism q q'
   -> QueryMorphism (f q) (f q')
 fmapQueryMorphism qm = QueryMorphism
@@ -544,12 +718,49 @@ fmapQueryMorphism qm = QueryMorphism
   , _queryMorphism_mapQueryResult = fmap $ _queryMorphism_mapQueryResult qm
   }
 
-queryMorphismPipeline :: Functor m => QueryMorphism q q' -> Pipeline m q q'
-queryMorphismPipeline qm = Pipeline $ \qh r -> pure $ mapQueryHandlerAndRecipient qm qh r
+-- ** Wire format adapters
 
--------------------------------------------------------------------------------
+-- | Reverses 'Rhyolite.Frontend.App.vesselToWire' by re-annotating queries
+-- with a 'SelectedCount' used on the backend for group/monoid operations on
+-- aggregated queries.
+vesselFromWire
+  :: ( View v
+     , QueryResult (v (Const ())) ~ v Identity
+     , QueryResult (v (Const SelectedCount)) ~ v Identity
+     )
+  => QueryMorphism (v (Const ())) (v (Const SelectedCount))
+vesselFromWire = QueryMorphism
+  { _queryMorphism_mapQuery = mapV (const (Const 1))
+  , _queryMorphism_mapQueryResult = id
+  }
 
+-- | This query morphism translates between un-annotated queries for use over
+-- the wire, and ones with SelectedCount annotations used in the backend to be
+-- able to determine the differences between queries. This version is for use
+-- with the older Functor style of queries and results.
+functorFromWire
+  :: ( Filterable q
+     , Functor v
+     , QueryResult (q ()) ~ v ()
+     , QueryResult (q SelectedCount) ~ v SelectedCount)
+  => QueryMorphism (q ()) (q SelectedCount)
+functorFromWire = QueryMorphism
+  { _queryMorphism_mapQuery = (1 <$)
+  , _queryMorphism_mapQueryResult = void
+  }
+
+-- * Query verification
+-- $verification
+
+-- $verification
+-- Some applications require some authentication before a query response can be
+-- delivered. For an implementation that has better error handling, see
+-- 'Rhyolite.Vessel.AuthMapV'.
+
+-- | An unauthenticated query
 newtype Unverified q = Unverified q
+
+-- | An authenticated query
 data Verified cred q = Verified cred q
 
 instance Query q => Query (Verified cred q) where
@@ -560,6 +771,8 @@ instance Query q => Query (Unverified q) where
   type QueryResult (Unverified q) = Maybe (QueryResult q)
   crop (Unverified q) mqr = fmap (crop q) mqr
 
+-- | Checks the signed authentication tokens to validate that a request should
+-- get a response.
 verifyQuery
   :: (Monoid (QueryResult q), Typeable cred, FromJSON cred)
   => CS.Key
