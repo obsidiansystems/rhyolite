@@ -1,0 +1,43 @@
+cabal-version: 2.4
+name:          rhyolite-widgets
+version:       0.1.0.0
+synopsis:      Various widgets and controls
+description:
+  Reusable, fairly general widgets and controls for reflex-dom UIs
+
+homepage:      https://github.com/obsidiansystems/rhyolite
+bug-reports:   https://github.com/obsidiansystems/rhyolite
+license:       BSD-3-Clause
+license-file:  LICENSE
+author:        Obsidian Systems LLC
+maintainer:    maintainer@obsidian.systems
+copyright:     Obsidian Systems LLC
+category:      UI
+
+library
+  exposed-modules:
+    Reflex.Dom.Modal.Base
+    Reflex.Dom.Modal.Class
+    Reflex.Dom.Widget.ExtensibleList
+    Reflex.Dom.Widget.Form
+
+  build-depends:
+    , base
+    , containers
+    , either
+    , ghcjs-dom
+    , jsaddle
+    , lens
+    , mtl
+    , obelisk-executable-config-lookup
+    , obelisk-route
+    , primitive
+    , ref-tf
+    , reflex
+    , reflex-dom-core
+    , text
+    , transformers
+    , validation
+
+  hs-source-dirs:   src
+  default-language: Haskell2010

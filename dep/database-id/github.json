@@ -2,6 +2,7 @@
   "owner": "obsidiansystems",
   "repo": "database-id",
   "branch": "develop",
+  "private": false,
   "rev": "ca492329a683962c5d1137c269bb1df7c60c0734",
   "sha256": "0f46rn54v8qb8wzrsmfphqj9xv3idw81lag2a8nsmbpg9zabiy2b"
 }

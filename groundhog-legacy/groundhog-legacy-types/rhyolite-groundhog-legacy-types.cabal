@@ -1,0 +1,34 @@
+cabal-version:      2.4
+name:               rhyolite-groundhog-legacy-types
+version:            0.1.0.0
+synopsis:
+homepage:           https://github.com/obsidiansystems/rhyolite
+bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Obsidian Systems LLC
+maintainer:         maintainer@obsidian.systems
+copyright:          2021 Obsidian Systems LLC
+category:           Web
+extra-source-files: CHANGELOG.md
+
+library
+  exposed-modules:
+    Rhyolite.Account.Groundhog.Types
+    Rhyolite.Schema
+
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , database-id-class
+    , lens
+    , mtl
+    , obelisk-route
+    , rhyolite-common
+    , signed-data
+    , text
+    , time
+
+  hs-source-dirs:   src
+  default-language: Haskell2010

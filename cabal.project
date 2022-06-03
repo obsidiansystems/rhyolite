@@ -1,10 +1,21 @@
 packages:
-  aeson-orphans/
-  backend-db/
-  backend-snap/
+  account/backend/
+  account/types/
   backend/
+  beam/
   common/
-  datastructures/
+  semimap/
+  email/
   frontend/
-  logging/
+  groundhog-legacy/groundhog-legacy-types/
+  groundhog-legacy/groundhog-legacy/
+  notify-listen/notify-listen-beam/
+  notify-listen/notify-listen/
+  psql-extras/psql-serializable/
+  psql-extras/psql-simple-beam/
+  psql-extras/psql-simple-class/
+  psql-extras/psql-simple-groundhog/
+  signed-data/signed-data/
+  signed-data/signed-data-clientsession/
   test/
+  widgets/
