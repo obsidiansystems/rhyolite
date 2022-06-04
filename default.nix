@@ -1,5 +1,5 @@
 { config ? {}
-, obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs"])
+, obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs" "inNixShell"])
 , pkgs ? obelisk.nixpkgs
 , ... } @ args:
 
@@ -18,7 +18,10 @@ let
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
     rhyolite-backend = ./backend;
-    rhyolite-beam-task-worker = ./beam;
+    rhyolite-beam-db = ./beam/db;
+    rhyolite-beam-orphans = ./beam/orphans;
+    rhyolite-beam-task-worker-types = ./beam/task/types;
+    rhyolite-beam-task-worker-backend = ./beam/task/backend;
     rhyolite-notify-listen = ./notify-listen/notify-listen;
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
@@ -29,6 +32,7 @@ let
     rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
+    mime-mail-orphans = ./email/mime-mail-orphans;
     semimap = ./semimap;
     rhyolite-frontend = ./frontend;
     signed-data = ./signed-data/signed-data;
@@ -46,8 +50,6 @@ let
     groundhog = repos.groundhog + "/groundhog";
     groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
     groundhog-th = repos.groundhog + "/groundhog-th";
-    HaskellNet = repos.HaskellNet; # (super is marked as broken) unreleased fixes for newer GHC
-    HaskellNet-SSL = repos.HaskellNet-SSL; # (super is marked as broken)
     monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
@@ -100,14 +102,15 @@ let
         ver = "1.1";
         sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
       } {};
-      standalone-haddock = self.callHackage "standalone-haddock" "1.4.0.0" {};
+      HaskellNet = self.callHackage "HaskellNet" "0.6" {};
+      HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
 
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
-      rhyolite-beam-task-worker = if pkgs.stdenv.hostPlatform.isDarwin
+      rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
       then
-        haskellLib.dontCheck super.rhyolite-beam-task-worker
+        haskellLib.dontCheck super.rhyolite-beam-task-worker-backend
       else
-        super.rhyolite-beam-task-worker;
+        super.rhyolite-beam-task-worker-backend;
     })
   ];
 
@@ -145,6 +148,6 @@ in obelisk // {
         "rhyolite-frontend"
       ];
     };
-    tools = ghc: [ pkgs.postgresql pkgs.haskellPackages.standalone-haddock ];
+    tools = ghc: [ pkgs.postgresql (pkgs.haskell.lib.markUnbroken reflex-platform.ghc.standalone-haddock) ];
   });
 }

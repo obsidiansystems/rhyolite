@@ -2,10 +2,13 @@ packages:
   account/backend/
   account/types/
   backend/
-  beam/
+  beam/db/
+  beam/task/backend/
+  beam/task/types/
   common/
   semimap/
   email/
+  email/mime-mail-orphans/
   frontend/
   groundhog-legacy/groundhog-legacy-types/
   groundhog-legacy/groundhog-legacy/

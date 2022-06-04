@@ -54,3 +54,11 @@ This module has been renamed to `Rhyolite.DB.Groundhog.Schema` and moved to this
 ### Rhyolite.Backend.Schema.Class
 This module has been renamed to `Rhyolite.DB.Groundhog.Schema.Class` and moved to this package.
 
+### Rhyolite.Backend.EmailWorker
+This module has been renamed to `Rhyolite.DB.Groundhog.EmailWorker` and moved to this package.
+
+Some functions now require a `MonadIO` instance as well as a `MonadEmail` instance.
+
+The `EmailEnv` type has been changed to `EmailConfig` which is a record instead of a flat tuple.
+
+The `QueuedEmail` type has been changed in accordance with the changes to `HaskellNet-0.6`. In particular, rather than storing a `ByteString` of the rendered mail and JSON objects containing the sender and recipients, the `QueuedEmail` table now stores the entire `Network.Mail.Mime.Mail` object as JSON.  Going from the rendered email bytestring back to the `Mail` object requires parsing. It's recommended instead that you drain your email queue before migrating.

@@ -13,4 +13,4 @@ import Rhyolite.Email
 import Control.Monad.Trans.Reader
 import Rhyolite.DB.Groundhog.TH
 
-deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailEnv $m |]) 'EmailT 'unEmailT
+deriveNewtypePersistBackend (\m -> [t| EmailT $m |]) (\m -> [t| ReaderT EmailConfig $m |]) 'EmailT 'unEmailT

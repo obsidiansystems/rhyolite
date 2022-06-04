@@ -47,7 +47,7 @@ library
     , transformers
     , validation
     , vessel
-    , witherable                        >=0.2 && <0.4
+    , witherable
 
   exposed-modules:
     Rhyolite.Frontend.App

@@ -140,10 +140,6 @@ instance MonadJSM m => MonadJSM (RhyoliteWidget q r t m) where
 instance MonadTrans (RhyoliteWidget q r t) where
   lift = RhyoliteWidget . lift . lift
 
-instance HasJS x m => HasJS x (RhyoliteWidget q r t m) where
-  type JSX (RhyoliteWidget q r t m) = JSX m
-  liftJS = lift . liftJS
-
 instance HasDocument m => HasDocument (RhyoliteWidget q r t m) where
   askDocument = RhyoliteWidget . lift . lift $ askDocument
 
@@ -202,10 +198,6 @@ instance MonadHold t m => MonadHold t (RhyoliteWidget q r t m) where
 instance MonadSample t m => MonadSample t (RhyoliteWidget q r t m) where
   sample = RhyoliteWidget . sample
 
-instance HasJSContext m => HasJSContext (RhyoliteWidget q r t m) where
-  type JSContextPhantom (RhyoliteWidget q r t m) = JSContextPhantom m
-  askJSContext = RhyoliteWidget askJSContext
-
 instance MonadReflexCreateTrigger t m => MonadReflexCreateTrigger t (RhyoliteWidget q r t m) where
   newEventWithTrigger = RhyoliteWidget . newEventWithTrigger
   newFanEventWithTrigger a = RhyoliteWidget . lift $ newFanEventWithTrigger a
@@ -221,13 +213,13 @@ instance (Monad m, RouteToUrl route m) => RouteToUrl route (RhyoliteWidget q r t
 
 deriving instance
   ( Reflex t
-    , Prerender js t m
+    , Prerender t m
     , MonadFix m
     , Eq q
     , Group q
     , Additive q
     , Query q
-  ) => Prerender js t (RhyoliteWidget q r t m)
+  ) => Prerender t (RhyoliteWidget q r t m)
 
 instance PrimMonad m => PrimMonad (RhyoliteWidget q r t m) where
   type PrimState (RhyoliteWidget q r t m) = PrimState m
@@ -296,7 +288,7 @@ runObeliskRhyoliteWidget ::
   , PostBuild t m
   , MonadHold t m
   , MonadFix m
-  , Prerender x t m
+  , Prerender t m
   , HasConfigs m
   , Request req
   , Query qFrontend
@@ -321,13 +313,13 @@ runObeliskRhyoliteWidget toWire route enc listenRoute child = do
 -- | Runs a rhyolite frontend widget that opens a websocket connection and can
 -- issue requests and queries over that connection.
 runRhyoliteWidget
-   :: forall qFrontend qWire req m t b x.
+   :: forall qFrontend qWire req m t b.
       ( PerformEvent t m
       , TriggerEvent t m
       , PostBuild t m
       , MonadHold t m
       , MonadFix m
-      , Prerender x t m
+      , Prerender t m
       , Request req
       , Query qFrontend
       , Group qFrontend
@@ -409,14 +401,12 @@ data AppWebSocket t q = AppWebSocket
 -- | Open a websocket connection and split resulting incoming traffic into
 -- listen notification and api response channels
 openWebSocket
-  :: forall r q t x m.
+  :: forall r q t m.
      ( MonadJSM m
      , MonadJSM (Performable m)
      , PostBuild t m
      , TriggerEvent t m
      , PerformEvent t m
-     , HasJSContext m
-     , HasJS x m
      , MonadFix m
      , MonadHold t m
      , FromJSON (QueryResult q)
