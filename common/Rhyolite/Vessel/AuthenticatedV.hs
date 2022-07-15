@@ -34,6 +34,7 @@ import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
 import Data.Map.Monoidal (MonoidalMap)
+import Data.Monoid.DecidablyEmpty
 
 -- TODO Upstream a function that lets you change DMap keys monotonically
 -- while mutating the value so we don't have to do it here.
@@ -103,7 +104,7 @@ instance ArgDict c (AuthenticatedVKey public private personal) where
 -- | A functor-parametric container that has a public part and a private part.
 newtype AuthenticatedV public private personal g = AuthenticatedV
   { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
-  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart)
+  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart, DecidablyEmpty)
 
 instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 
