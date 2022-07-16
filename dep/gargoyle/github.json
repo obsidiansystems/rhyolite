@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "gargoyle",
-  "branch": "develop",
+  "branch": "db-configuration",
   "private": false,
-  "rev": "df0068f9572c1371bed7aa416af84d462c3574c0",
-  "sha256": "19amvx6r884ryvy9wq19x7a11fr56kwmw4h2nl8jx0ikzm0sdmfl"
+  "rev": "0f61c28f9d057e6120c4dd32e3ea0277cb063dcb",
+  "sha256": "0n165msh3wibvqlj7kc7sm07qdk41z4gcll1lgkrc0z9g40v5360"
 }
