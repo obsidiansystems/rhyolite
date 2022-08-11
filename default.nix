@@ -128,18 +128,12 @@ in obelisk // {
   # Used to build this project. Should only be needed by CI, devs.
   proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
-    packages = {
-      rhyolite-backend = ./backend;
-      rhyolite-common = ./common;
-      semimap = ./semimap;
-      rhyolite-frontend = ./frontend;
-      rhyolite-test-suite = ./test;
+    packages = rhyolitePackages // {
+      "rhyolite-test-suite" = ./test;
     };
     shells = rec {
-      ghc = [
-        "rhyolite-backend"
-        "rhyolite-test-suite"
-      ] ++ ghcjs;
+      ghc = builtins.attrNames rhyolitePackages
+      ++ [ "rhyolite-test-suite" ];
       ghcjs = [
         "rhyolite-common"
         "rhyolite-frontend"
