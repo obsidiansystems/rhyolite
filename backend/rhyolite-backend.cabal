@@ -21,6 +21,7 @@ library
     , lens
     , monoid-map
     , monoidal-containers
+    , patch
     , postgresql-simple
     , reflex
     , resource-pool

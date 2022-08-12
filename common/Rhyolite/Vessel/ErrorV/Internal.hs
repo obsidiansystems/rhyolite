@@ -18,6 +18,7 @@ import Data.Aeson.GADT.TH
 import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
+import Data.GADT.Show
 import Data.Patch
 import Data.Semigroup
 import Data.Type.Equality
@@ -62,6 +63,13 @@ instance ArgDict c (ErrorVK err view) where
     ErrorVK_Error -> Dict
     ErrorVK_View -> Dict
 
+deriving instance Show (ErrorVK e v a)
+
+instance GShow (ErrorVK e v) where
+  gshowsPrec = showsPrec
+
+deriving instance (Show (v f), Show (f (First (Maybe e)))) => Show (ErrorV e v f)
+
 -- | A functor-parametric container which as a query will contain a value of the
 -- underlying view type and as a result may contain either an err value or a
 -- view result value.
@@ -92,17 +100,9 @@ instance
 instance
   ( Semigroup (v Identity)
   , View v
-  , QueryResult (v (Const ())) ~ v Identity
-  ) => Query (ErrorV err v (Const ())) where
-  type QueryResult (ErrorV err v (Const ())) = ErrorV err v Identity
-  crop (ErrorV s) (ErrorV r) = ErrorV $ crop s r
-
-instance
-  ( Semigroup (v Identity)
-  , View v
-  , QueryResult (v (Const SelectedCount)) ~ v Identity
-  ) => Query (ErrorV err v (Const SelectedCount)) where
-  type QueryResult (ErrorV err v (Const SelectedCount)) = ErrorV err v Identity
+  , QueryResult (v (Const g)) ~ v Identity
+  ) => Query (ErrorV err v (Const g)) where
+  type QueryResult (ErrorV err v (Const g)) = ErrorV err v Identity
   crop (ErrorV s) (ErrorV r) = ErrorV $ crop s r
 
 instance
@@ -147,6 +147,17 @@ observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
   Just err -> case lookupSingleV err of
     Nothing -> Right emptyV
     Just e -> Left e
+
+-- | Given an 'ErrorV' result, observe both error and result
+-- of the underlying view type.
+unsafeObserveErrorV
+  :: ErrorV e v f
+  -> (Maybe (f (First (Maybe e))), Maybe (v f))
+unsafeObserveErrorV (ErrorV v) =
+  let
+    err = fmap unSingleV $ lookupV ErrorVK_Error v
+  in (err, lookupV ErrorVK_View v)
+
 
 -- | A morphism that only cares about error results.
 unsafeProjectE
