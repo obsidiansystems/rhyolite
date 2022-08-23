@@ -22,10 +22,11 @@ insertTestTasks :: Connection -> [TestTask] -> IO ()
 insertTestTasks c = runBeamPostgres c . runInsert . insert (_testTasksDb_tasks tasksDb) . insertValues
 
 createTaskWorker :: Connection -> Work -> Text -> IO Bool
-createTaskWorker conn work wId = taskWorker
+createTaskWorker conn work wId = taskWorker1
   conn
   (_testTasksDb_tasks tasksDb)
   testTask
+  _testTaskT_finished
   (\_ -> work . unWrappedColumnar)
   wId
 

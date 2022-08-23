@@ -11,7 +11,6 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.Thread.Delay
 import Control.Exception.Lifted (bracket)
-import Control.Lens ((^.))
 import Control.Monad (forM)
 import Control.Monad.Cont
 import Control.Monad.Trans.Control
@@ -26,6 +25,7 @@ import Database.Beam.Schema.Tables
 
 import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
+import Rhyolite.DB.Beam.Types (WrapColumnar(..))
 
 -- | Takes a worker continuation and handles checking out and checking in a task
 -- that is stored in a database table.  The 'Rhyolite.Task.Beam.Task' type tells
@@ -77,8 +77,7 @@ taskWorker dbConn table schema k checkoutId = do
 
           -- Both task fields should be empty for an unclaimed task
           -- Also apply any other filters that may have been passed, using ready
-          guard_ $ not_ (task ^. _task_hasRun schema)
-               &&. isNothing_ (task ^. _task_checkedOutBy schema)
+          guard_ $ isNothing_ (_task_checkedOutBy schema task)
                &&. (_task_filter schema task)
 
           -- Return the primary key (task id) along with a custom field that the user asked for.
@@ -89,7 +88,7 @@ taskWorker dbConn table schema k checkoutId = do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
           update table
-            (\task -> (task ^. _task_checkedOutBy schema) <-. val_ (Just checkoutId))
+            (\task -> _task_checkedOutBy schema task <-. val_ (Just checkoutId))
             (\task -> primaryKey task ==. val_ taskId)
 
         (,) taskId <$> k taskId input
@@ -107,12 +106,66 @@ taskWorker dbConn table schema k checkoutId = do
         -- Update the task's result field, set checked out field to null
         runUpdate $ update table
           (\task -> mconcat
-            [ task ^. _task_result schema <-. val_ b
-            , task ^. _task_hasRun schema <-. val_ True
-            , task ^. _task_checkedOutBy schema <-. val_ Nothing])
+            [ _task_result schema task <-. val_ b
+            , _task_checkedOutBy schema task <-. val_ Nothing
+            ])
           (\task -> primaryKey task ==. val_ taskId)
 
       pure True
+
+
+-- | Takes a worker continuation and handles checking out and checking in a task
+-- that is stored in a database table.  The 'Rhyolite.Task.Beam.Task' type tells
+-- it how to find eligible tasks, how to extract a useful payload from the row,
+-- and how to put results back into the row while the continuation does the real
+-- work.
+--
+-- The worker continuation is divided into 3 phases:
+--
+--   1. A checkout action that is transaction safe (it may retry).
+--   2. A work action that is not transaction safe (it will not retry).
+--   3. A commit action that is transaction safe (it may retry).
+--
+-- The continuation can perform its own queries in the checkout transaction but
+-- it is ideal to spend as little time as possible in this phase for the sake
+-- of throughput.
+taskWorker1
+  :: forall m be db table f payload checkout result.
+     ( MonadIO m, Database be db, Beamable table, Table table
+     , Beamable payload, Beamable result
+     , FromBackendRow be (PrimaryKey table Identity)
+     , FromBackendRow be (payload Identity)
+     , FieldsFulfillConstraint (HasSqlEqualityCheck be) (PrimaryKey table)
+     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey table)
+     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) result
+     , HasSqlValueSyntax PgValueSyntax checkout
+     , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
+     )
+  => Connection
+  -> DatabaseEntity be db (TableEntity table)
+  -- ^ The table whose rows represent tasks to be run
+  -> Task be table payload checkout result
+  -- ^ Description of how task data is embedded within the table
+  -> (forall x. table x -> C x Bool)
+  -- ^ Which field indicates that the task result has been checked in.
+  -> (PrimaryKey table Identity -> payload Identity -> Pg (m (Pg (result Identity))))
+  -- ^ Worker continuation
+  -> checkout
+  -- ^ Identifier for the worker checking out the task
+  -> m Bool
+taskWorker1 dbConn table schema hasRun k = taskWorker dbConn table schema1 $ \tId p -> do
+  k' <- k tId p
+  pure $ do
+    k'' <- k'
+    pure $ do
+      res <- k''
+      pure (res :*: WrapColumnar True)
+  where
+    schema1 = schema
+      { _task_filter = \tbl -> not_ (hasRun tbl) &&. _task_filter schema tbl
+      , _task_result = \tbl -> _task_result schema tbl :*: WrapColumnar (hasRun tbl)
+      }
+
 
 -- | Run a worker thread
 -- The worker will wake up whenever the timer expires or the wakeup action is called

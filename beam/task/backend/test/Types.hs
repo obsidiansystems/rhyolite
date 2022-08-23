@@ -56,14 +56,8 @@ testTask :: Task Postgres TestTaskT (WrappedColumnar Int64) Text (WrappedColumna
 testTask = Task
   { _task_filter = \_ -> val_ True
   , _task_payload = WrappedColumnar . _testTaskT_payload
-  , _task_checkedOutBy = testTaskT_checkedOutBy
-  , _task_hasRun = testTaskT_finished
-  , _task_result = lens
-    (\t -> WrappedColumnar (_testTaskT_result t))
-    (\t (WrappedColumnar s) -> t
-      { _testTaskT_result = s
-      }
-    )
+  , _task_checkedOutBy = _testTaskT_checkedOutBy
+  , _task_result = (\t -> WrappedColumnar (_testTaskT_result t))
   }
 
 createTask :: Int64 -> TestTask
