@@ -1,4 +1,4 @@
-{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs" "inNixShell"])
+{ obelisk ? import ./dep/obelisk (builtins.removeAttrs args ["pkgs" "inNixShell"])
 , pkgs ? obelisk.nixpkgs
 , ... } @ args:
 
