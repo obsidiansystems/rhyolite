@@ -1,8 +1,8 @@
 {
-  "owner": "obsidiansystems",
+  "owner": "danbornside",
   "repo": "postgresql-simple",
-  "branch": "obsidian-patches",
+  "branch": "synthesizable-fields-2",
   "private": false,
-  "rev": "66c577055742c7a58fdd33c55b4c5162dcd5828c",
-  "sha256": "11ncja98ynry0bqirah65psp35czg9j62ms2jrsk5f6jiysl7gkl"
+  "rev": "84aa6882a1ff5d8b2bf1c0af9c0762efd2d43f6d",
+  "sha256": "1myfgklrkmma26nxadjkzxrvfv9i4fcyvm8wcml8j4x3vyvhhxw2"
 }

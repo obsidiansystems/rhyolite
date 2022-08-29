@@ -1,0 +1,144 @@
+cabal-version: 2.2
+name: iv-common
+version: 0.1
+build-type: Simple
+
+common common
+  build-depends: QuickCheck
+               , aeson
+               , aeson-gadt-th
+               , base64-bytestring
+               , beam-core
+               , bytestring
+               , constraints
+               , constraints-extras
+               , containers
+               , concurrency
+               , dejafu
+               , tasty-dejafu
+               , dependent-map
+               , dependent-monoidal-map
+               , dependent-sum
+               , dependent-sum-aeson-orphans
+               , dependent-sum-template
+               , either
+               , exceptions
+               , generic-deriving
+               , groom
+               , lens
+               , microlens
+               , monad-loops
+               , monoidal-containers
+               , mtl
+               , obelisk-aeson-orphans
+               , obelisk-route
+               , patch
+               , random
+               , ref-tf
+               , reflex
+               , semialign
+               , stm
+               , primitive
+               , tasty
+               , tasty-hunit
+               , tasty-quickcheck
+               , template-haskell
+               , text
+               , th-abstraction
+               , these
+               , these-lens
+               , time
+               , transformers
+               , validation
+               , vessel
+               , witherable
+               , writer-cps-mtl
+               , tabulation
+               , async
+               , dejafu
+
+
+  default-extensions:
+    AllowAmbiguousTypes
+    BangPatterns
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyCase
+    EmptyDataDecls
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    OverloadedStrings
+    PolyKinds
+    QuasiQuotes
+    RankNTypes
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+  ghc-options:
+    -- Showing valid hole fits is too slow
+    -fno-show-valid-hole-fits
+    -Wall
+    -- Missing fields in records is almost always a bug
+    -Werror=missing-fields
+    -Werror=missing-home-modules
+
+flag debug-show
+  description: Better error messages at the cost of requiring a bunch of show instances
+  manual: True
+  default: False
+
+library
+  import: common
+  hs-source-dirs: src
+  if !flag(debug-show)
+     cpp-options: -DNDEBUG_SHOW
+  build-depends: base
+  exposed-modules:
+    Control.Monad.MVar.Restricted
+    Control.Monad.Ref.Restricted
+    Data.Constraint.Empty
+    Obelisk.Beam.BLens
+    Obelisk.Beam.Constraints
+    Obelisk.Beam.Constructor
+    Obelisk.Beam.DZippable
+    Obelisk.Beam.Orphans
+    Obelisk.Beam.Patch.Db
+    Obelisk.Beam.Patch.Decoder
+    Obelisk.Beam.Patch.Row
+    Obelisk.Beam.Patch.Table
+    Obelisk.Beam.Patch.Types
+    Obelisk.Beam.Schema
+    Obelisk.Beam.TablesOnly
+    Obelisk.Beam.TablesV
+    Obelisk.Beam.Traversals
+    Obelisk.Beam.View.Db
+    Obelisk.Beam.View.Table
+    Obelisk.Reflex.Orphans
+    Obelisk.Schema.NullableScalar
+    Obelisk.Schema.NullableSubRow
+    Obelisk.Schema.Scalar
+    Obelisk.Schema.TH
+    Obelisk.View.DefMap
+    Obelisk.View.Misc
+    Obelisk.View.NonEmptyInterval
+    Obelisk.View.Orphans
+    Obelisk.View.Patchable
+    Obelisk.View.These1
+    Obelisk.View.Time

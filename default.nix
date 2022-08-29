@@ -14,6 +14,9 @@ let
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
+    iv-backend = ./iv/backend;
+    iv-common = ./iv/common;
+    obelisk-aeson-orphans = ./aeson-orphans;
     rhyolite-backend = ./backend;
     rhyolite-beam-db = ./beam/db;
     rhyolite-beam-orphans = ./beam/orphans;
@@ -41,6 +44,11 @@ let
 
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
+    beam-sqlite = repos.beam + "/beam-sqlite";
+    beam-core = repos.beam + "/beam-core";
+    beam-postgres = repos.beam + "/beam-postgres";
+    beam-migrate = repos.beam + "/beam-migrate";
+    beam-migrate-cli = repos.beam + "/beam-migrate-cli";
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
@@ -71,6 +79,8 @@ let
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
       beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
+      beam-postgres = haskellLib.dontCheck super.beam-postgres;
+      beam-migrate = haskellLib.dontCheck super.beam-migrate;
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {

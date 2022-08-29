@@ -1,0 +1,5 @@
+:set -fwarn-unused-binds -fwarn-unused-imports -Wname-shadowing
+:set -XAllowAmbiguousTypes -XBangPatterns -XConstraintKinds -XDataKinds -XDefaultSignatures -XDeriveDataTypeable -XDeriveFoldable -XDeriveFunctor -XDeriveGeneric -XDeriveTraversable -XEmptyCase -XEmptyDataDecls -XFlexibleContexts -XFlexibleInstances -XFunctionalDependencies -XGADTs -XGeneralizedNewtypeDeriving -XInstanceSigs -XKindSignatures -XLambdaCase -XMultiParamTypeClasses -XOverloadedStrings -XPolyKinds -XQuasiQuotes -XRankNTypes -XRecursiveDo -XScopedTypeVariables -XStandaloneDeriving -XTemplateHaskell -XTypeApplications -XTypeFamilies -XTypeOperators
+:set -isrc:tests
+:load tests/Main.hs
+
