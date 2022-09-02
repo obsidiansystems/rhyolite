@@ -35,6 +35,7 @@ viewselector APIs, see `Data.Vessel`.
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language GeneralizedNewtypeDeriving #-}
 
 module Rhyolite.Backend.App where
 
@@ -177,8 +178,8 @@ instance Category (Pipeline m) where
 
 -- | A key used to track particular consumers. This should not be relevant
 -- outside of this module.
-newtype ClientKey = ClientKey { unClientKey :: Integer }
-  deriving (Eq, Ord, Show)
+newtype ClientKey = ClientKey { unClientKey :: Int }
+  deriving (Eq, Ord, Show, Enum)
 
 -- ** Handling multiple clients
 -- $multiplex

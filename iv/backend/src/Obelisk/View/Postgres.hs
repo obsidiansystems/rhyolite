@@ -1,16 +1,15 @@
 --TODO: This module now has almost nothing to do with Postgres
 {-# LANGUAGE PartialTypeSignatures #-}
--- {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 module Obelisk.View.Postgres
-  ( runDbIvSequential
-  , runDbIv
+  ( runDbIv
   , DbDriver (..)
   , DbReader (..)
   --TODO: Move out
   , MonadLog (..)
   , tshow
   , AsyncReadDb (..)
+  , TablePatchInfo
   ) where
 
 import Prelude hiding (id, (.), fail)
@@ -38,7 +37,6 @@ import Data.Void
 import Obelisk.Beam.Constraints
 import Obelisk.Beam.DZippable
 import Obelisk.Beam.Patch.Db
-import Obelisk.Beam.Patch.Decode.Postgres
 import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
@@ -99,42 +97,42 @@ killAllThreads r = do
 
 data AsyncReadDb m = forall x. AsyncReadDb (ReadDb x) (x -> m ())
 
-runDbIvSequential
-  :: forall db a b m
-  .  ( Monad m
-     , DecodableDatabase db
-     , HasT IsTable db
-     , DZippable db
-     -- , HasT (TableHas Eq (ComposeMaybe (Compose (Const ()) TablePatch))) db
-     -- , HasT (TableHas Coverage (Compose (Const ()) TablePatch)) db
-     -- , HasT (TableHas FullCoverage (Compose (Const ()) TablePatch)) db
-     -- , HasT (TableHas HasCov (Compose Identity TablePatch)) db
-     -- , HasT (TableHas Coverable (Compose Identity TablePatch)) db
-     -- , _
-     , RefData m (Set (ThreadId m))
-     , MVarData m ()
-     , MVarData m (Int -> QueryResultPatch (TablesV db) TablePatch -> m ())
-     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
-     , ConstraintsForT db (TableHas_ EmptyConstraint)
-     , RefData m (IntMap (DbReader db m))
-     , MonadConc m
-     , MonadFail m
-     , MonadAtomicRef m
-     , MonadLog m
-     , MonadMVar m
-     , MonadFork m
-     , DPointed db
-     , Ord (ThreadId m)
-     , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
-     )
-  => DbDriver db m
-  -> ((NonEmptyInterval -> m ())
-      -> (Time -> AsyncReadDb m -> m ())
-      -> m (Time -> QueryResultPatch (TablesV db) TablePatch -> m (), b))
-  -> (Time -> m ())
-  -> (b -> m a)
-  -> m a
-runDbIvSequential dbDriver = runDbIv dbDriver 1
+-- runDbIvSequential
+--   :: forall db a b m
+--   .  ( Monad m
+--      , DecodableDatabase db
+--      , HasT IsTable db
+--      , DZippable db
+--      -- , HasT (TableHas Eq (ComposeMaybe (Compose (Const ()) TablePatch))) db
+--      -- , HasT (TableHas Coverage (Compose (Const ()) TablePatch)) db
+--      -- , HasT (TableHas FullCoverage (Compose (Const ()) TablePatch)) db
+--      -- , HasT (TableHas HasCov (Compose Identity TablePatch)) db
+--      -- , HasT (TableHas Coverable (Compose Identity TablePatch)) db
+--      -- , _
+--      , RefData m (Set (ThreadId m))
+--      , MVarData m ()
+--      , MVarData m (Int -> QueryResultPatch (TablesV db) TablePatch -> m ())
+--      , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
+--      , ConstraintsForT db (TableHas_ EmptyConstraint)
+--      , RefData m (IntMap (DbReader db m))
+--      , MonadConc m
+--      , MonadFail m
+--      , MonadAtomicRef m
+--      , MonadLog m
+--      , MonadMVar m
+--      , MonadFork m
+--      , DPointed db
+--      , Ord (ThreadId m)
+--      , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
+--      )
+--   => DbDriver db m
+--   -> ((NonEmptyInterval -> m ())
+--       -> (Time -> AsyncReadDb m -> m ())
+--       -> m (Time -> QueryResultPatch (TablesV db) TablePatch -> m (), b))
+--   -> (Time -> m ())
+--   -> (b -> m a)
+--   -> m a
+-- runDbIvSequential dbDriver = runDbIv dbDriver 1
 
 -- | Analogous to a read-only transaction
 data DbReader db m = DbReader
@@ -335,129 +333,6 @@ walkTransactionLog openReader initialTime transactions initialReaderReady subseq
         loop (succ t) snapshot
   loop (succ initialTime) initialSnapshot
 
-
--- -- | Buffer notifications until their subscription state is resolved
--- --
--- -- In particular, this gadget forwards subscriptions properly, but allows
--- -- notifications to occur before that state is known, and silently discards
--- -- unwanted notifications.
--- startIv
---   :: forall a b m
---   .  ( Monad m
---      , MonadAtomicRef m
---      , MonadLog m
---      , MonadFix m
---      , MonadFork m
---      , Coverable (Pull a)
---      , Coverable (Push a)
---      , Coverage (Cov (Pull a))
---      , Coverage (Cov (Push a))
---      , Coverage (Cov (Pull b))
---      , Coverage (Cov (Push b))
---      -- , RefData m (CoverageMap (WithFullCoverage (Cov (Pull a))))
---      -- , RefData m (CoverageMap (WithFullCoverage (Cov (Pull b))))
---      -- , RefData m (CoverageMap (WithFullCoverage (Cov (Push b))))
---      -- , RefData m (BufferPushState (Push a))
---      , MonadMVar m
---      , Collidable (Push a)
---      , Show (Cov (Push a))
---      , Show (WithFullCoverage (Cov (Push a)))
---      , Show (Collision (Push a))
---      , _
---      )
---   => Iv m a b -- ^ The Iv to run
---   -> IvForward m b -- ^ Where to send the Iv's output
---   -> (NonEmptyInterval -> m ()) -- ^ Notify the data source that we're done with the Times in the given range
---   -> (Time -> Cov (Pull a) -> (Pull a -> m ()) -> m ()) -- Request some stuff at a particular Time
---   -> m ( Time -> Push a -> m () -- Push a value through the Iv; this should be called on each Time exactly once
---        , IvBackward m b
---        )
--- startIv iv fIn closeTime readAtTime = do
---   -- The amount of the input coverage space that has been covered.  When
---   -- a given index reaches 100% coverage, the associated read
---   -- transaction will be closed and the connection will be returned to
---   -- the pool.
---   inputReadCoverageRef :: Ref m (CoverageMap (WithFullCoverage (Cov (Pull a)))) <- newRef emptyCoverageMap
--- 
---   let -- Note that reads are done for a given region, either because
---       -- they've already been performed or because we've been informed
---       -- that they won't be needed.  When an index of the region
---       -- corresponding with a transaction is fully done, close the
---       -- transaction and return its connection to the pool.
---       finishReadCoverage q = do
---         coverageToClose <- atomicModifyRef' inputReadCoverageRef $ \old ->
---           let new = old `unionCoverageMaps` q
---               justFullCoverage c = if c == fullCoverage then Just () else Nothing
---           in ( new --TODO: Error on overlap
---              , mapCoverageMapMaybe justFullCoverage new `differenceCoverageMaps` mapCoverageMapMaybe justFullCoverage old
---              )
---         flip traverseWithInterval_CoverageMap coverageToClose $ \i _ -> do
---           putLog $ "readDone " <> tshow i
---           closeTime i
---   rec
---       (fOut, bIn) <- bufferPush fOut' $ IvBackward
---             { _ivBackward_read = \req t -> do
---                 readAtTime t req $ \rsp -> void $ fork $ do
---                   _ivForward_readResponse fOut rsp t
---                   finishReadCoverage $ singletonCoverageMap t $ toWithFullCoverage $ covered rsp -- This is a bit awkward; instead of calling `closeTime` when we've *received* all the queries we wanted, we should probably call it when we've *sent* them all; that potentially would let the postgres side, e.g., enqueue the `commit` command after the final query without needing to wait for a roundtrip
---             , _ivBackward_readNone = finishReadCoverage
---             , _ivBackward_subscribe = \_ _ -> pure ()
---             , _ivBackward_unsubscribe = \_ _ -> pure ()
---             , _ivBackward_subscribeNone = \_ -> pure () --TODO: Do we need to do anything with this information?  Yes: we shouldn't send data through when it hasn't been requested.  However, we can't avoid *accumulating* transaction info, because otherwise we could end up pulling from a state without having the ability to follow up by pushing.
---             }
--- 
---       (fOut', bOut) <- unIv iv fIn (bIn :: IvBackward m a)
--- 
--- 
---   readsSent <- newRef emptyCoverageMap
---   subscribesSent <- newRef emptyCoverageMap
--- 
---   let bOutWithMonitor = IvBackward --TODO: This monitoring should be unnecessary now that we've moved the finalization logic to makeSequential
---         { _ivBackward_read = \q t -> do
---             atomicModifyRef' readsSent $ \old ->
---               assert (old `intersectionCoverageMaps` singletonCoverageMap t (toWithFullCoverage q) == emptyCoverageMap) $
---               ( old `unionCoverageMapsAssertDisjoint` singletonCoverageMap t (toWithFullCoverage q)
---               , ()
---               )
---             _ivBackward_read bOut q t
---         , _ivBackward_readNone = \c -> do
---             -- Note: this should only happen when we're cleaning up a Time
---             atomicModifyRef' readsSent $ \old ->
---               assert (old `intersectionCoverageMaps` c == emptyCoverageMap) $
---               ( old `unionCoverageMapsAssertDisjoint` c
---               , ()
---               )
---             _ivBackward_readNone bOut c
---         , _ivBackward_subscribe = \q t -> do
---             atomicModifyRef' subscribesSent $ \old ->
---               assert (old `intersectionCoverageMaps` singletonCoverageMap t (toWithFullCoverage q) == emptyCoverageMap) $
---               ( old `unionCoverageMapsAssertDisjoint` singletonCoverageMap t (toWithFullCoverage q)
---               , ()
---               )
---             _ivBackward_subscribe bOut q t
---         , _ivBackward_unsubscribe = \q t -> do
---             atomicModifyRef' subscribesSent $ \old ->
---               assert (old `intersectionCoverageMaps` singletonCoverageMap t (toWithFullCoverage q) == emptyCoverageMap) $
---               ( old `unionCoverageMapsAssertDisjoint` singletonCoverageMap t (toWithFullCoverage q)
---               , ()
---               )
---             _ivBackward_unsubscribe bOut q t
---         , _ivBackward_subscribeNone = \c -> do
---             -- Note: this should only happen when we're cleaning up a Time
---             atomicModifyRef' subscribesSent $ \old ->
---               assert (old `intersectionCoverageMaps` c == emptyCoverageMap) $
---               ( old `unionCoverageMapsAssertDisjoint` c
---               , ()
---               )
---             _ivBackward_subscribeNone bOut c
---         }
---       sendPatch n filteredPatch = do
---         putLog $ "Sending notification for transaction " <> tshow n
---         _ivForward_notify fOut filteredPatch n
---         putLog $ "Finalizing notification for transaction " <> tshow n
---         traverse_ (_ivForward_notifyNone fOut . singletonCoverageMap n) $ fullCoverage `differenceCoverage` toWithFullCoverage (covered filteredPatch)
---         putLog $ "Done with transaction " <> tshow n
---   pure (sendPatch, bOutWithMonitor)
 
 --TODO: We can actually fully enforce foreign keys with phantom types, since our transactions are read-only
 

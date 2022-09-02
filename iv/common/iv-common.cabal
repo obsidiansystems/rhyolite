@@ -135,10 +135,23 @@ library
     Obelisk.Schema.NullableSubRow
     Obelisk.Schema.Scalar
     Obelisk.Schema.TH
+    Obelisk.View.Collidable
+    Obelisk.View.Coverable
+    Obelisk.View.Coverage
+    Obelisk.View.CoverageMap
+    Obelisk.View.Data
     Obelisk.View.DefMap
+    Obelisk.View.Fan
+    Obelisk.View.Interface
+    Obelisk.View.Iv.Class
+    Obelisk.View.IvMonad
     Obelisk.View.Misc
     Obelisk.View.NonEmptyInterval
+    Obelisk.View.OccurrenceMap
     Obelisk.View.Orphans
     Obelisk.View.Patchable
+    Obelisk.View.SubscriptionMap
+    Obelisk.View.SubscriptionMap.Internal.Class
+    Obelisk.View.SubscriptionMap.Internal.Faster
     Obelisk.View.These1
     Obelisk.View.Time

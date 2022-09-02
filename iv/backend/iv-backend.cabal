@@ -122,6 +122,7 @@ library
     buildable: False
   build-depends: base
   exposed-modules:
+    Obelisk.View.App
     Obelisk.Api
     Obelisk.Beam
     Obelisk.Beam.Misc
@@ -133,4 +134,5 @@ library
     Obelisk.Postgres.Snapshot
     Obelisk.View.DbDriver.Postgres
     Obelisk.View.Postgres
+    Obelisk.View.Sequential
   ghc-options: -Wall
