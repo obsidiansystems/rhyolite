@@ -75,6 +75,9 @@ common common
                , websockets-snap
                , witherable
                , writer-cps-mtl
+               , reflex
+               , rhyolite-backend
+               , rhyolite-common
   default-extensions:
     AllowAmbiguousTypes
     BangPatterns

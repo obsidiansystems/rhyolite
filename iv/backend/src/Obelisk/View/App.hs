@@ -58,6 +58,15 @@ import qualified Control.Lens as Lens
 import qualified Data.Map.Strict as Map
 import qualified Data.These.Combinators as These
 import qualified Network.WebSockets as WS
+import Data.Align (align)
+import Obelisk.View.Vessel
+import Data.Vessel.Class
+import Data.Vessel.Vessel (Vessel)
+import Data.Constraint.Forall
+import Data.Vessel.Internal (FlipAp)
+import Data.Functor.Identity
+import Data.GADT.Compare
+import Rhyolite.Vessel.AuthenticatedV
 
 data BufferRhyoliteAppState db i = BufferRhyoliteAppState
   { _bufferRhyoliteAppState_cachedDBPatch :: Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
@@ -71,7 +80,14 @@ data BufferRhyoliteAppState db i = BufferRhyoliteAppState
   , _bufferRhyoliteAppState_closedTimes :: CoverageMap ()
   }
 
+data ClientKeyState i = ClientKeyState
+  { _clientKeyState_nextId :: ClientKey
+  , _clientKeyState_recipients :: Map.Map ClientKey (IvForwardSequential IO i)
+  }
+
+
 Lens.makeLenses ''BufferRhyoliteAppState
+Lens.makeLenses ''ClientKeyState
 
 data ReadDbPatch a where
   ReadDbPatch_Old :: ReadDb a -> ReadDbPatch a
@@ -118,17 +134,97 @@ instance Monad ReadDbPatch where
   (>>=) = ReadDbPatch_Bind
 
 
-type QueryHandler' i m = Cov (Pull i) -> m (Pull i)
-
 -- | A way of attaching to (and later detaching from) a pipeline (e.g., handle
 -- client connection and disconnection)
-type Registrar' i = IvForwardSequential IO i -> IO (IvBackwardSequential IO i, IO ())
+newtype Registrar i = Registrar { runRegistrar :: IvForwardSequential IO i -> IO (IvBackwardSequential IO i, IO ()) }
 
-data QueryMorphism' q push pull = InterfaceToQuery
-  { _i2q :: q -> These (These (Cov push) (Cov push)) (Cov pull)
-  , _push2q :: push -> QueryResult q
-  , _pull2q :: pull -> QueryResult q
+withRegistrar :: Registrar i -> IvForwardSequential IO i -> (IvBackwardSequential IO i -> IO r) -> IO r
+withRegistrar r fwd k = bracket (runRegistrar r fwd) snd (k . fst)
+
+newtype IvSequential a b = IvSequential (Registrar a -> Registrar b)
+
+instance Category IvSequential where
+  id = IvSequential id
+  IvSequential f . IvSequential g = IvSequential $ f . g
+
+newtype Pipeline i q = Pipeline
+  { runPipeline :: IO
+    ( q -> IO (Maybe (These (These (Cov (Push i)) (Cov (Push i))) (Cov (Pull i))))
+    , Push i -> IO (Maybe (QueryResult q))
+    , Pull i -> IO (Maybe (QueryResult q))
+    )
   }
+
+-- | simple pipeline for when the Query and Coverage instances happen to agree.
+--
+-- Start here and add query morphism to build up to what you need.  This will
+-- also do the extra step of keeping track of the "current" query and adjusting
+-- the subscribe/unsubscribe/read to account for it.
+idCoveragePipeline
+  :: forall i q.
+     ( Push i ~ Pull i
+     , Push i ~ QueryResult q
+     , Cov (Push i) ~ q
+     , Coverage q
+     )
+  => Pipeline i q
+idCoveragePipeline = Pipeline $ do
+  currentSubs <- newIORef (Nothing :: Maybe q)
+  pure
+    ( \newSub -> atomicModifyIORef' currentSubs $ (,) (Just newSub) . \case
+        Nothing -> Just (These (This newSub) newSub)
+        Just currentSub ->
+          let sub = newSub `differenceCoverage` currentSub
+              unsub = currentSub `differenceCoverage` newSub
+          in align (align sub unsub) sub
+    , pure . Just
+    , pure . Just
+    )
+
+viewPipeline
+  :: forall v f g h.
+  ( View v, ForallF Coverage (ViewCov f), HasViewCov f, Eq (v (ViewCov f))
+  , QueryResult (v g) ~ v h
+  )
+  => (forall x. g x -> ViewCov f x) -> (forall x. f x -> h x) -> Pipeline ('Interface (IView v f) (IView v f)) (v g)
+viewPipeline toCov toView = Pipeline $ do
+  currentSubs <- newIORef (Nothing :: Maybe (IView v (ViewCov f)))
+  pure
+    ( \newSub ->
+        let newSub' = IView $ mapV toCov newSub
+        in atomicModifyIORef' currentSubs $ (,) (Just newSub') . \case
+          Nothing -> Just $ (These (This newSub') newSub')
+          Just currentSub ->
+            let sub = newSub' `differenceCoverage` currentSub
+                unsub = currentSub `differenceCoverage` newSub'
+            in align (align sub unsub) sub
+    , pure . Just . mapV toView . getIView
+    , pure . Just . mapV toView . getIView
+    )
+
+vesselPipeline
+  :: ( Has View k , Has' Eq k (FlipAp QueryV) , GCompare k)
+  => Pipeline
+    ('Interface (IView (Vessel k) ResultV) (IView (Vessel k) ResultV))
+    (Vessel k (Const ()))
+vesselPipeline = viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x)
+
+authenticatedVPipeline
+  ::
+  ( View public , Eq (public QueryV)
+  , View private , Eq (private QueryV)
+  , View personal , Eq (personal QueryV)
+  )
+  => Pipeline
+    ('Interface (IView (AuthenticatedV public private personal) ResultV) (IView (AuthenticatedV public private personal) ResultV))
+    (AuthenticatedV public private personal (Const ()))
+authenticatedVPipeline = viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x)
+
+
+-- | Compose a querymorphism with a pipeline.  Both "arrows" point toward the
+-- front-end, so the mnemonic is the pipe is closer to the backend than the
+-- QueryMorphism.
+-- (.|) :: QueryMorphism q q' -> Pipeline i q -> Pipeline i q'
 
 bufferRhyoliteApp
   :: forall db i.
@@ -215,8 +311,9 @@ bufferRhyoliteApp closeTime readAtTime qh nh fwd = do
     $ \t db' -> processState $ Lens.over (bufferRhyoliteAppState_cachedDBPatch) ((<>) (Just (singletonOccurrenceMap t db')))
 
 
+
 serveDbOverWebsocketsNew
-  :: forall db r push pull qWire.
+  :: forall db r push pull qWire a.
     ( ConstraintsForT db IsTable
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
@@ -260,25 +357,67 @@ serveDbOverWebsocketsNew
   -- ^ Handler for notifications of changes to the database
   -> (Cov pull -> ReadDb pull)
   -- ^ Handler for new viewselectors
-  -> QueryMorphism' qWire push pull
+  -> Pipeline ('Interface push pull) qWire
   -- ^ Adapter from the query wire format
-  -> IO (Snap (), IO ())
-  -- ^ Returns (1) a websocket connection handler function, (2) a finalizer
-serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire = withDbDriver dburi checkedDb $ \driver -> do
+  -> ((Registrar ('Interface push pull)) -> Snap () -> IO a)
+  -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
+  -> IO a
+serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire k =
+  serveDbOverWebsocketsNewRaw dburi checkedDb nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
+
+serveDbOverWebsocketsNewRaw
+  :: forall db push pull a.
+    ( ConstraintsForT db IsTable
+    , ConstraintsForT db (TableHas_ EmptyConstraint)
+    , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
+    , GZipDatabase Postgres
+      (AnnotatedDatabaseEntity Postgres db) (AnnotatedDatabaseEntity Postgres db) (DatabaseEntity Postgres db)
+      (Rep (db (AnnotatedDatabaseEntity Postgres db))) (Rep (db (AnnotatedDatabaseEntity Postgres db)))
+      (Rep (db (DatabaseEntity Postgres db)))
+    , GSchema Postgres db '[] (Rep (db (AnnotatedDatabaseEntity Postgres db)))
+    , Database Postgres db
+    , Generic (db (DatabaseEntity Postgres db))
+    , Generic (db (AnnotatedDatabaseEntity Postgres db))
+    , Generic (db (EntityPatchDecoder Postgres))
+    , GPatchDatabase (Rep (db (EntityPatchDecoder Postgres)) ())
+    , ArgDictT db
+    , Collidable push
+    , Collidable pull
+    , Coverable pull
+    , Coverable push
+    , Show (Collision push)
+    , Show (Collision pull)
+    , Show (WithFullCoverage (Cov push))
+    , Show (Cov push)
+    , Show (Cov pull)
+    , Show (WithFullCoverage (Cov pull))
+    , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
+    , DPointed db
+    , Coverage (Cov push)
+    , Coverage (Cov pull)
+    )
+  => ByteString -- Pool Pg.Connection
+  -- ^ The database
+  -> AnnotatedDatabaseSettings Postgres db
+  -> (QueryResultPatch (TablesV db) TablePatch -> Cov push -> ReadDbPatch push)
+  -- ^ Handler for notifications of changes to the database
+  -> (Cov pull -> ReadDb pull)
+  -- ^ Handler for new viewselectors
+  -> (Registrar ('Interface push pull) -> IO a)
+  -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
+  -> IO a
+serveDbOverWebsocketsNewRaw dburi checkedDb nh qh k = withDbDriver dburi checkedDb $ \driver -> do
   let initialTime = 1
 
   handleTimeVar <- newIORef (Left [])
 
-  clientKeyVar <- newIORef (ClientKey 1)
+  -- we aren't "ready" for outputs as soon as we must call runDbIv, we can
+  -- cache forward data using workFwd until we have a "real" forward.  It might
+  -- be possible to use a bit of MonadFix cleverness and save a couple of
+  -- pointer derefs, but this avoids strictness concerns
+  (workFwd, setFwd) <- mkBootForwards @_ @(MapInterface ClientKey ('Interface push pull))
+  (workBwd, setBwd) <- mkBootBackwards @_ @('Interface push pull)
 
-  clientRecipients <- newIORef (Map.empty)
-
-  -- finishedReadsVar <- newIORef (emptyCoverageMap :: CoverageMap (WithFullCoverage (Cov pull)))
-  -- finishedNotifyVar <- newIORef (emptyCoverageMap :: CoverageMap (WithFullCoverage (Cov push)))
-  -- subscriptionsVar <- newIORef (emptySubscriptionMap :: SubscriptionMap (WithFullCoverage (Cov push)))
-  -- cachedDBPatchVar <- newIORef (unsafeEmptyOccurenceMap :: OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
-
-  -- clientState :: Map ClientKey (ClientState q) <- atomically $ newTVar 
   let
       -- | we aren't "ready" to process new time events until we're almost done
       -- with set-up, so we cache them until we have the "real" handler.
@@ -290,27 +429,10 @@ serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire = withDbDriver dburi 
         :: (NonEmptyInterval -> IO ())
         -> (Time -> AsyncReadDb IO -> IO ())
         -> IO ( Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-              , ( {- IvForward            IO (MapInterface ClientKey ('Interface push pull))
-                , -} IvBackwardSequential IO (MapInterface ClientKey ('Interface push pull))
-                )
+              , IvBackward IO (MapInterface ClientKey ('Interface push pull))
               )
       setup closeTime readAtTime = do
-        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface push pull))
-            fwdSeq = IvForwardSequential
-              { _ivForwardSequential_notify = \pushes -> do
-                rcpts <- readIORef clientRecipients
-                forM_ (Map.intersectionWith (,) rcpts pushes) $ \(IvForwardSequential f _, x) -> f x
-              , _ivForwardSequential_readResponse = \pulls -> do
-                rcpts <- readIORef clientRecipients
-                forM_ (Map.intersectionWith (,) rcpts pulls) $ \(IvForwardSequential _ f, x) -> f x
-              }
 
-        -- we aren't "ready" for outputs yet, we can cache forward data using
-        -- workFwd until we have a "real" forward.  It might be possible to use
-        -- a bit of MonadFix cleverness and save a couple of pointer derefs,
-        -- but this avoids strictness concerns
-        (workFwd, setFwd) <- mkBootForwards @_ @(MapInterface ClientKey ('Interface push pull))
-        (workBwd, setBwd) <- mkBootBackwards @_ @('Interface push pull)
 
 
         (myRead, myReadNone, ourReadResponse :: pull -> Time -> IO ()) <- fanPull
@@ -324,10 +446,6 @@ serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire = withDbDriver dburi 
           (_ivForward_notify workFwd)
           (_ivForward_notifyNone workFwd)
 
-        (fwd, bwdSeq, handleTime') <- makeSequential @IO @(MapInterface ClientKey ('Interface push pull)) initialTime
-          fwdSeq
-          (IvBackward mySub myUnsub myRead myReadNone mySubNone)
-
 
         (bwd, notifyAtTime) <- bufferRhyoliteApp closeTime readAtTime qh nh $
           IvForward
@@ -337,21 +455,35 @@ serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire = withDbDriver dburi 
             }
         setBwd bwd
 
-        setFwd fwd
-        join $ atomicModifyIORef' handleTimeVar $ \case
-          Left xs -> (Right handleTime', forM_ (reverse xs) handleTime')
-          Right {} -> error "handleTimeVar is already configured"
-
-        pure (notifyAtTime, bwdSeq)
+        pure (notifyAtTime, (IvBackward mySub myUnsub myRead myReadNone mySubNone) )
 
   runDbIv driver initialTime
     setup
-    handleTime $ \(IvBackwardSequential bwdSeq) -> do
-      let finalizer = pure ()
-          myRegistrar  :: IvForwardSequential IO ('Interface push pull) -> IO (IvBackwardSequential IO ('Interface push pull), IO ())
+    handleTime $ \bwd -> do
+      clientRecipients <- newIORef $ ClientKeyState @('Interface push pull) (ClientKey 1) Map.empty
+
+      let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface push pull))
+          fwdSeq = IvForwardSequential
+            { _ivForwardSequential_notify = \pushes -> do
+              ClientKeyState _ rcpts <- readIORef clientRecipients
+              forM_ (Map.intersectionWith (,) rcpts pushes) $ \(IvForwardSequential f _, x) -> f x
+            , _ivForwardSequential_readResponse = \pulls -> do
+              ClientKeyState _ rcpts <- readIORef clientRecipients
+              forM_ (Map.intersectionWith (,) rcpts pulls) $ \(IvForwardSequential _ f, x) -> f x
+            }
+      (fwd, IvBackwardSequential bwdSeq, handleTime') <- makeSequential @IO @(MapInterface ClientKey ('Interface push pull)) initialTime
+        fwdSeq
+        bwd
+      setFwd fwd
+      join $ atomicModifyIORef' handleTimeVar $ \case
+        Left xs -> (Right handleTime', forM_ (reverse xs) handleTime')
+        Right {} -> error "handleTimeVar is already configured"
+
+      let myRegistrar  :: IvForwardSequential IO ('Interface push pull) -> IO (IvBackwardSequential IO ('Interface push pull), IO ())
           myRegistrar rcpt = do
-            clientKey <- atomicModifyIORef' clientKeyVar $ \k -> let k' = succ k in (k', k')
-            atomicModifyIORef' clientRecipients $ \rcpts -> (Map.union rcpts $ Map.singleton clientKey rcpt, ())
+            clientKey <- atomicModifyIORef' clientRecipients $ \(ClientKeyState nextId rcpts) ->
+              (ClientKeyState (succ nextId) (Map.insert nextId rcpt rcpts), nextId)
+            -- atomicModifyIORef' clientRecipients $ \rcpts -> (Map.union rcpts $ Map.singleton clientKey rcpt, ())
             subsVar <- newIORef Nothing
             pure $ (,)
               IvBackwardSequential
@@ -362,19 +494,18 @@ serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire = withDbDriver dburi 
                 }
               $ do
                 join $ atomicModifyIORef' subsVar $ \subs -> (Nothing, forM_ subs $ bwdSeq . This . That . Map.singleton clientKey)
-                atomicModifyIORef' clientRecipients $ \rcpts -> (Map.delete clientKey rcpts, ())
+                atomicModifyIORef' clientRecipients $ \st -> (Lens.set (clientKeyState_recipients . Lens.at clientKey) Nothing st, ())
 
-      let wsHandled = withWebsocketsConnection (handleWebsocketConnection "TODO:version" fromWire rh (myRegistrar))
+      k (Registrar myRegistrar)
 
-      pure (wsHandled, finalizer)
 
 -- ** Connecting a client (via websockets)
 -- $connect_client
 
 -- $connect_client
 -- Client applications will send queries using a wire format. Typically, this
--- data is transformed (via a 'QueryMorphism') so that it ends up in a shape
--- that supports the group operations that the backend needs to perform
+-- data is transformed (via a 'Pipeline') so that it ends up in a shape
+-- that supports the coverage operations
 -- (e.g., combining and subtracting queries/interest sets/viewselectors).
 --
 -- These functions are usually invoked by `serveDbOverWebsockets` or one of the
@@ -389,19 +520,20 @@ handleWebsocketConnection
   :: forall r i qWire.
   (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), ConstraintsFor r ToJSON, ArgDict ToJSON r)
   => Text -- ^ Version
-  -> QueryMorphism' qWire (Push i) (Pull i)
+  -> Pipeline i qWire
   -- ^ Query morphism to translate between wire queries and queries with a
   -- reasonable group instance. cf. 'vesselFromWire'
   -> RequestHandler r IO -- ^ Handler for API requests
-  -> Registrar' i
+  -> Registrar i
   -> WS.Connection
   -> IO ()
 handleWebsocketConnection v fromWire rh register conn = do
+  (q2i, push2q, pull2q) <- runPipeline fromWire
   let sender = IvForwardSequential
-        (sendEncodedDataMessage conn . WebSocketResponse_View @qWire . _push2q fromWire)
-        (sendEncodedDataMessage conn . WebSocketResponse_View @qWire . _pull2q fromWire)
+        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< push2q)
+        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< pull2q)
   sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse qWire)
-  bracket (register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
+  bracket (runRegistrar register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
     (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
     case wsr of
       WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
@@ -410,5 +542,5 @@ handleWebsocketConnection v fromWire rh register conn = do
         sendEncodedDataMessage conn
           (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
       WebSocketRequest_ViewSelector new -> do
-        vsHandler $ _i2q fromWire new
+        mapM_ vsHandler =<< q2i new
 
