@@ -97,43 +97,6 @@ killAllThreads r = do
 
 data AsyncReadDb m = forall x. AsyncReadDb (ReadDb x) (x -> m ())
 
--- runDbIvSequential
---   :: forall db a b m
---   .  ( Monad m
---      , DecodableDatabase db
---      , HasT IsTable db
---      , DZippable db
---      -- , HasT (TableHas Eq (ComposeMaybe (Compose (Const ()) TablePatch))) db
---      -- , HasT (TableHas Coverage (Compose (Const ()) TablePatch)) db
---      -- , HasT (TableHas FullCoverage (Compose (Const ()) TablePatch)) db
---      -- , HasT (TableHas HasCov (Compose Identity TablePatch)) db
---      -- , HasT (TableHas Coverable (Compose Identity TablePatch)) db
---      -- , _
---      , RefData m (Set (ThreadId m))
---      , MVarData m ()
---      , MVarData m (Int -> QueryResultPatch (TablesV db) TablePatch -> m ())
---      , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
---      , ConstraintsForT db (TableHas_ EmptyConstraint)
---      , RefData m (IntMap (DbReader db m))
---      , MonadConc m
---      , MonadFail m
---      , MonadAtomicRef m
---      , MonadLog m
---      , MonadMVar m
---      , MonadFork m
---      , DPointed db
---      , Ord (ThreadId m)
---      , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
---      )
---   => DbDriver db m
---   -> ((NonEmptyInterval -> m ())
---       -> (Time -> AsyncReadDb m -> m ())
---       -> m (Time -> QueryResultPatch (TablesV db) TablePatch -> m (), b))
---   -> (Time -> m ())
---   -> (b -> m a)
---   -> m a
--- runDbIvSequential dbDriver = runDbIv dbDriver 1
-
 -- | Analogous to a read-only transaction
 data DbReader db m = DbReader
   { _dbReader_getVisibleTransactionsSince :: TxidSnapshot -> TxidSnapshot -> m (Set Xid)
