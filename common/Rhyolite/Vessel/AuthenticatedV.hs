@@ -144,14 +144,14 @@ instance
 -- a handler for the total view container.
 handleAuthenticatedQuery'
   :: (Monad m, View public, View private, View personal)
-  => (public Proxy -> m (public Identity))
+  => (public f -> m (public g))
   -- ^ Handle the aggregate public query
-  -> (private Proxy -> m (private Identity))
+  -> (private f -> m (private g))
   -- ^ Handle the aggregate private query for all identities
-  -> (personal Proxy -> m (personal Identity))
-  -> AuthenticatedV public private personal Proxy
+  -> (personal f -> m (personal g))
+  -> AuthenticatedV public private personal f
   -- ^ Private views parameterized by tokens
-  -> m (AuthenticatedV public private personal Identity)
+  -> m (AuthenticatedV public private personal g)
 handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap AuthenticatedV $ buildV q $ \case
   AuthenticatedVKey_Public -> public
   AuthenticatedVKey_Private -> private
@@ -161,10 +161,10 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- a map from authentication identities to private views. This
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
-  :: (Monad m, Ord token, View public, View private, View personal, Ord user)
+  :: (Monad m, Ord token, View public, View private, View personal, Ord user, Applicative q)
   => (token -> m (Maybe user))
-  -> (public Proxy -> m (public Identity))
-  -> (private Proxy -> m (private Identity))
+  -> (forall p'. public p' -> m (public q))
+  -> (forall p'. private p' -> m (private q))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
   -> ( forall f g.
@@ -173,8 +173,8 @@ handleAuthenticatedQuery
       -> personal (Compose (MonoidalMap user) f)
       -> m (personal (Compose (MonoidalMap user) g)))
   -- ^ The result of personal queries depends on the identity making the query
-  -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Proxy
-  -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Identity)
+  -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) p
+  -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) q)
 handleAuthenticatedQuery readToken public private personal =
   handleAuthenticatedQuery'
     public
