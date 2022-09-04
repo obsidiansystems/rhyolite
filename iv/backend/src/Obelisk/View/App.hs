@@ -12,6 +12,7 @@ import Data.ByteString (ByteString)
 import Data.Constraint.Compose
 import Data.Constraint.Empty
 import Data.Constraint.Extras
+import Data.Foldable
 import Data.Functor.Misc
 import Data.IORef (atomicModifyIORef', newIORef, readIORef, IORef)
 import Data.Some (Some(Some))
@@ -228,7 +229,7 @@ authenticatedVPipeline = viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> I
 
 bufferRhyoliteApp
   :: forall db i.
-    ( Coverage (Cov (Push i)), Show (Cov (Push i)), Show (WithFullCoverage (Cov (Push i)))
+    ( Coverage (Cov (Push i)), Show (Cov (Push i)), Show (WithFullCoverage (Cov (Push i))), Coverable (Push i)
     , Coverage (Cov (Pull i)), Show (Cov (Pull i)), Show (WithFullCoverage (Cov (Pull i)))
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
@@ -290,6 +291,7 @@ bufferRhyoliteApp closeTime readAtTime qh nh fwd = do
           forM_ fulfillableSubs $ traverseOccurenceMap_ $ \(q, db) t -> do
             runReadDbPatch (readAtTime (pred t)) (readAtTime t) (nh db q) $ \res -> do
               _ivForward_notify fwd res t
+              traverse_ @Maybe (_ivForward_notifyNone fwd . singletonCoverageMap t . toWithFullCoverage) (q `differenceCoverage` covered res)
               processState $ Lens.over bufferRhyoliteAppState_pendingNotifies (`differenceCoverageMaps` singletonCoverageMap t q)
 
           traverseWithInterval_CoverageMap (\t () -> closeTime t) newClosedTimes
