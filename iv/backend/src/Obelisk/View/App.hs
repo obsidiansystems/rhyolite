@@ -100,6 +100,7 @@ data ReadDbPatch a where
 
 liftOld :: ReadDb a -> ReadDbPatch a
 liftOld = ReadDbPatch_Old
+
 liftNew :: ReadDb a -> ReadDbPatch a
 liftNew = ReadDbPatch_New
 
@@ -133,6 +134,12 @@ instance Applicative ReadDbPatch where
 
 instance Monad ReadDbPatch where
   (>>=) = ReadDbPatch_Bind
+
+instance Semigroup w => Semigroup (ReadDbPatch w) where
+  (<>) = liftA2 (<>)
+
+instance Monoid w => Monoid (ReadDbPatch w) where
+  mempty = pure mempty
 
 
 -- | A way of attaching to (and later detaching from) a pipeline (e.g., handle

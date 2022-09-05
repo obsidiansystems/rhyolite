@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Obelisk.Api where
 
 import Prelude hiding ((.))
@@ -27,11 +28,22 @@ import Data.Attoparsec.ByteString
 import Data.ByteString (ByteString)
 import Data.Default
 import Data.Pool (Pool, withResource)
+import Database.Beam (MonadBeam(..))
+import Database.Beam.Postgres
 import qualified Database.PostgreSQL.Simple as PG
 import qualified Database.PostgreSQL.Simple.Transaction as PG
 
 newtype ReadDb a = ReadDb { unReadDb :: ReaderT PG.Connection IO a }
   deriving (Functor, Applicative, Monad, MonadFail)
+
+unsafeReadDbToPg :: ReadDb a -> Pg a
+unsafeReadDbToPg = liftIOWithHandle . runReaderT . unReadDb
+
+unsafePgToReadDb :: Pg a -> ReadDb a
+unsafePgToReadDb x = ReadDb $ ReaderT $ \conn -> runBeamPostgres conn x
+
+instance MonadBeam Postgres ReadDb where
+  runReturningMany cmd k = unsafePgToReadDb $ runReturningMany cmd (unsafeReadDbToPg . k . unsafePgToReadDb)
 
 readTransaction :: PG.Connection -> ReadDb a -> IO a
 readTransaction conn (ReadDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r conn

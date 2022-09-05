@@ -17,6 +17,7 @@ import Obelisk.View.Collidable
 import Obelisk.View.These1
 import Reflex.Query.Class
 import Data.Monoid (Sum(..))
+import Data.Vessel.Map (MapV(..))
 
 -- wrap a type with a View instance and derive the corresponding Coverage/Coverable/Collidable instances.
 newtype IView v (f :: * -> *) = IView { getIView :: v f }
@@ -168,3 +169,8 @@ restrictMaybeCoverageView mc ma = do
   c <- mc
   a <- ma
   restrictCoverageView c a
+
+-- TODO; upstream this instead:
+-- deriving instance (Ord k, Semigroup (f a)) => Semigroup (MapV k a f)
+deriving instance (Ord k, Semigroup (ResultV a)) => Semigroup (MapV k a ResultV)
+

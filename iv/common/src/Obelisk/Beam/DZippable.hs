@@ -6,6 +6,8 @@ module Obelisk.Beam.DZippable
   , zipDBMaybe
   , alignDBMaybe
   , mapDBMaybe
+  , dmap_
+  , dfoldMap
   ) where
 
 import qualified GHC.Generics as Generic
@@ -41,6 +43,16 @@ class DMappable db where
       -- For GHC 8.0.1 renamer bug
       refl' :: (Proxy h -> m (db h)) -> m (db h)
       refl' fn = fn Proxy
+
+dmap_ :: (DMappable db, Applicative m)
+     => (forall tbl. f tbl -> m ())
+     -> db f -> m ()
+dmap_ f a = void $ dmap (\x -> Proxy <$ f x) a
+
+dfoldMap :: (DMappable db, Monoid w)
+     => (forall tbl. f tbl -> w)
+     -> db f -> w
+dfoldMap f a = getConst $ dmap (\x -> Const (f x)) a
 
 
 class GMapDatabase' f h x z where
