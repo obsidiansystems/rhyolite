@@ -155,3 +155,4 @@ library
     Obelisk.View.SubscriptionMap.Internal.Faster
     Obelisk.View.These1
     Obelisk.View.Time
+    Obelisk.View.Vessel
