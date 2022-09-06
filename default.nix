@@ -26,10 +26,10 @@ let
     rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
     psql-simple-class = ./psql-extras/psql-simple-class;
     psql-simple-beam = ./psql-extras/psql-simple-beam;
-    psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
+    # psql-simple-groundhog = ./psql-extras/psql-simple-groundhog;
     psql-serializable = ./psql-extras/psql-serializable;
-    rhyolite-groundhog-legacy = ./groundhog-legacy/groundhog-legacy;
-    rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
+    # rhyolite-groundhog-legacy = ./groundhog-legacy/groundhog-legacy;
+    # rhyolite-groundhog-legacy-types = ./groundhog-legacy/groundhog-legacy-types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
     mime-mail-orphans = ./email/mime-mail-orphans;
@@ -49,12 +49,13 @@ let
     beam-postgres = repos.beam + "/beam-postgres";
     beam-migrate = repos.beam + "/beam-migrate";
     beam-migrate-cli = repos.beam + "/beam-migrate-cli";
+
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     dependent-monoidal-map = repos.dependent-monoidal-map;
-    groundhog = repos.groundhog + "/groundhog";
-    groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
-    groundhog-th = repos.groundhog + "/groundhog-th";
+    # groundhog = repos.groundhog + "/groundhog";
+    # groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
+    # groundhog-th = repos.groundhog + "/groundhog-th";
     monoid-map = repos.monoid-map;
     postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
@@ -65,7 +66,7 @@ let
     gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
     gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
     database-id-class = repos.database-id + "/class";
-    database-id-groundhog = repos.database-id + "/groundhog";
+    # database-id-groundhog = repos.database-id + "/groundhog";
     database-id-obelisk = repos.database-id + "/obelisk";
     push-notifications = repos.push-notifications;
     vessel = repos.vessel;
