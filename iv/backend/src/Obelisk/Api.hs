@@ -44,6 +44,9 @@ unsafePgToReadDb x = ReadDb $ ReaderT $ \conn -> runBeamPostgres conn x
 
 instance MonadBeam Postgres ReadDb where
   runReturningMany cmd k = unsafePgToReadDb $ runReturningMany cmd (unsafeReadDbToPg . k . unsafePgToReadDb)
+  runNoReturn cmd = unsafePgToReadDb (runNoReturn cmd)
+  runReturningOne cmd = unsafePgToReadDb (runReturningOne cmd)
+  runReturningList cmd = unsafePgToReadDb (runReturningList cmd)
 
 readTransaction :: PG.Connection -> ReadDb a -> IO a
 readTransaction conn (ReadDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r conn
