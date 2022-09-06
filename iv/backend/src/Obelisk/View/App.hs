@@ -115,15 +115,7 @@ runReadDbPatch readOld readNew x0 k0 = go k0 x0
       ReadDbPatch_Pure x -> k x
       ReadDbPatch_FMap f x -> go (k . f) x
       ReadDbPatch_LiftA2 f x y -> do
-        res <- newIORef Nothing
-        _ <- forkIO $ flip go x $ \x' -> join $ atomicModifyIORef' res $ \case
-          Nothing -> (Just (Left x'), pure ())
-          Just (Left _) -> error "double fill"
-          Just (Right y') -> (Nothing, k $ f x' y')
-        flip go y $ \y' -> join $ atomicModifyIORef' res $ \case
-          Nothing -> (Just (Right y'), pure ())
-          Just (Right _) -> error "double fill"
-          Just (Left x') -> (Nothing, k $ f x' y')
+        flip go x $ \x' -> flip go y $ \y' -> k (f x' y')
 
 instance Functor ReadDbPatch where
   fmap = ReadDbPatch_FMap
@@ -280,18 +272,27 @@ bufferRhyoliteApp closeTime readAtTime qh nh fwd = do
             fulfillableSubsCov = fmap (occurenceToCoverageMap . fmap fst) fulfillableSubs
 
             allClosedTimes = coverageMapFullCoveragesOnly (_bufferRhyoliteAppState_readsResponded st')
-              `unionCoverage` shiftCoverageMap (-1) (coverageMapFullCoveragesOnly unsubs')
+              `intersectionCoverage` shiftCoverageMap (-1) (coverageMapFullCoveragesOnly unsubs')
               -- NOTE: we should not need to separately trim out
               -- fulfillableSubsCov from this, because those aren't fulfilled until st'',
               -- and thus not be covered by unsubs'
-            newClosedTimes = allClosedTimes `differenceCoverageMaps` _bufferRhyoliteAppState_closedTimes st
+            newClosedTimes = fmap (flip differenceCoverageMaps $ _bufferRhyoliteAppState_closedTimes st) allClosedTimes
+
+            -- helper function to keep patches we still need
+            keepPatches
+              :: Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
+              -> Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
+            keepPatches = \case
+              Nothing -> Nothing
+              Just oldPatches -> do
+                keepTimes <- negateCoverage =<< allClosedTimes
+                zipOccurenceMapWithCoverageMap (\() -> Just) keepTimes oldPatches
 
             st'' = ($ st')
-              $ Lens.over bufferRhyoliteAppState_closedTimes (unionCoverage newClosedTimes)
+              $ Lens.over bufferRhyoliteAppState_closedTimes (maybe id unionCoverage newClosedTimes)
               . Lens.over bufferRhyoliteAppState_subscriptions (maybe id fulfillSubscriptionMap fulfillableSubsCov)
               . Lens.over bufferRhyoliteAppState_pendingNotifies (maybe id unionCoverage fulfillableSubsCov)
-              . Lens.over bufferRhyoliteAppState_cachedDBPatch
-                (join . liftA2 (zipOccurenceMapWithCoverageMap (\() -> Just)) (negateCoverage allClosedTimes))
+              . Lens.over bufferRhyoliteAppState_cachedDBPatch keepPatches
 
         in (,) st'' $ do
 
@@ -301,7 +302,7 @@ bufferRhyoliteApp closeTime readAtTime qh nh fwd = do
               traverse_ @Maybe (_ivForward_notifyNone fwd . singletonCoverageMap t . toWithFullCoverage) (q `differenceCoverage` covered res)
               processState $ Lens.over bufferRhyoliteAppState_pendingNotifies (`differenceCoverageMaps` singletonCoverageMap t q)
 
-          traverseWithInterval_CoverageMap (\t () -> closeTime t) newClosedTimes
+          forM_ newClosedTimes $ traverseWithInterval_CoverageMap (\t () -> closeTime t)
 
   pure $ (,)
     IvBackward
