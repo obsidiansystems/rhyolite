@@ -11,7 +11,6 @@ import Data.These
 import Data.Vessel.Class
 import GHC.Generics
 import Obelisk.View.Coverable
-import Obelisk.View.Interface
 import Obelisk.View.Coverage
 import Obelisk.View.Collidable
 import Obelisk.View.These1
