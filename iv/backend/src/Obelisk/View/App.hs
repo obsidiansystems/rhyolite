@@ -13,9 +13,8 @@ import Data.ByteString (ByteString)
 import Data.Constraint.Compose
 import Data.Constraint.Empty
 import Data.Constraint.Extras
-import Data.Foldable
 import Data.Functor.Misc
-import Data.IORef (atomicModifyIORef', newIORef, readIORef, IORef)
+import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import Data.These (These(..))
@@ -67,7 +66,6 @@ import Data.Vessel.Internal (FlipAp)
 import Data.Functor.Identity
 import Data.GADT.Compare
 import Rhyolite.Vessel.AuthenticatedV
-import Data.Bifoldable
 
 data ClientKeyState i = ClientKeyState
   { _clientKeyState_nextId :: ClientKey
@@ -358,8 +356,8 @@ serveDbOverWebsocketsNewRaw dburi checkedDb nh qh k = withDbDriver dburi checked
                         `unionMaybeCoverage` (justHere =<< subUnsubs)
                         `differenceMaybeCoverage` (justThere =<< subUnsubs)
                     in (,) (t, newSubs) $ do
-                      forM_ readsMaybe $ \reads ->
-                        flip Map.traverseWithKey reads $ \clientKey read_ ->
+                      forM_ readsMaybe $ \reads_ ->
+                        flip Map.traverseWithKey reads_ $ \clientKey read_ ->
                           readAtTime t $ AsyncReadDb (qh read_) (_ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey)
                       pure ()
               }

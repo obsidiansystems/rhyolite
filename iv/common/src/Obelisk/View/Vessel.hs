@@ -1,6 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-{-# OPTIONS_GHC -Werror=missing-methods #-}
 module Obelisk.View.Vessel where
 
 import Control.Applicative

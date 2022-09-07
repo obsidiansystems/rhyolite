@@ -5,24 +5,10 @@ import Prelude hiding (id, (.))
 
 import Control.Category
 import Control.Exception
-import Control.Lens ((^?))
-import Control.Monad
-import Control.Monad.Ref.Restricted
-import Data.Align
-import Data.Bifunctor
-import Data.IntMap.Strict (IntMap)
-import Data.Maybe
 import Data.These
-import Data.These.Lens
-import qualified Data.IntMap.Strict as IntMap
 
-import Obelisk.View.Collidable
 import Obelisk.View.Coverable
-import Obelisk.View.Coverage
 import Obelisk.View.Interface
-import Obelisk.View.IvMonad
-import Obelisk.View.NonEmptyInterval
-import Obelisk.View.Time
 
 
 newtype IvBackwardSequential m a = IvBackwardSequential
