@@ -134,7 +134,6 @@ library
     Obelisk.Schema.NullableScalar
     Obelisk.Schema.NullableSubRow
     Obelisk.Schema.Scalar
-    Obelisk.Schema.TH
     Obelisk.View.Collidable
     Obelisk.View.Coverable
     Obelisk.View.Coverage
