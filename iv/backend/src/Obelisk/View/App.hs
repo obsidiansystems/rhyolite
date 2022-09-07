@@ -1,8 +1,9 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Obelisk.View.App where
 
 import Control.Applicative
 import Control.Category
-import Control.Concurrent
 import Control.Exception (bracket)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -18,6 +19,7 @@ import Data.IORef (atomicModifyIORef', newIORef, readIORef, IORef)
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import Data.These (These(..))
+import Data.These.Combinators
 import Database.Beam.AutoMigrate.Annotated
 import Database.Beam.AutoMigrate.Generic
 import Database.Beam.Postgres (Postgres)
@@ -34,18 +36,15 @@ import Obelisk.Beam.TablesV
 import Obelisk.View.Collidable
 import Obelisk.View.Coverable
 import Obelisk.View.Coverage
-import Obelisk.View.CoverageMap
-import Obelisk.View.Data
+-- import Obelisk.View.CoverageMap
 import Obelisk.View.DbDriver.Postgres (withDbDriver)
-import Obelisk.View.Fan
 import Obelisk.View.Interface
-import Obelisk.View.Iv.Class
 import Obelisk.View.NonEmptyInterval
-import Obelisk.View.OccurrenceMap
+-- import Obelisk.View.OccurrenceMap
 import Obelisk.View.Postgres
 import Obelisk.View.Postgres (runDbIv)
 import Obelisk.View.Sequential
-import Obelisk.View.SubscriptionMap
+-- import Obelisk.View.SubscriptionMap
 import Obelisk.View.Time
 import Prelude hiding ((.), id)
 import Reflex.Query.Class (QueryResult)
@@ -68,18 +67,7 @@ import Data.Vessel.Internal (FlipAp)
 import Data.Functor.Identity
 import Data.GADT.Compare
 import Rhyolite.Vessel.AuthenticatedV
-
-data BufferRhyoliteAppState db i = BufferRhyoliteAppState
-  { _bufferRhyoliteAppState_cachedDBPatch :: Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
-  -- ^ The database notifications at each timestep, in case we need to reuse it to satisfy unresolved subscriptions.
-  , _bufferRhyoliteAppState_subscriptions :: SubscriptionMap (Cov (Push i))
-  -- ^ outstanding subscriptions.
-  , _bufferRhyoliteAppState_readsResponded :: CoverageMap (WithFullCoverage (Cov (Pull i)))
-  -- ^ unresolved reads, this fills with readNone and readResponse.
-  , _bufferRhyoliteAppState_pendingNotifies :: CoverageMap (Cov (Push i))
-  -- ^ notifications we have dispatched to the handler, but not recieved from the handler yet.
-  , _bufferRhyoliteAppState_closedTimes :: CoverageMap ()
-  }
+import Data.Bifoldable
 
 data ClientKeyState i = ClientKeyState
   { _clientKeyState_nextId :: ClientKey
@@ -87,7 +75,7 @@ data ClientKeyState i = ClientKeyState
   }
 
 
-Lens.makeLenses ''BufferRhyoliteAppState
+-- Lens.makeLenses ''BufferRhyoliteAppState
 Lens.makeLenses ''ClientKeyState
 
 data ReadDbPatch a where
@@ -116,6 +104,15 @@ runReadDbPatch readOld readNew x0 k0 = go k0 x0
       ReadDbPatch_FMap f x -> go (k . f) x
       ReadDbPatch_LiftA2 f x y -> do
         flip go x $ \x' -> flip go y $ \y' -> k (f x' y')
+        -- res <- newIORef Nothing
+        -- _ <- forkIO $ flip go x $ \x' -> join $ atomicModifyIORef' res $ \case
+        --   Nothing -> (Just (Left x'), pure ())
+        --   Just (Left _) -> error "double fill"
+        --   Just (Right y') -> (Nothing, k $ f x' y')
+        -- flip go y $ \y' -> join $ atomicModifyIORef' res $ \case
+        --   Nothing -> (Just (Right y'), pure ())
+        --   Just (Right _) -> error "double fill"
+        --   Just (Left x') -> (Nothing, k $ f x' y')
 
 instance Functor ReadDbPatch where
   fmap = ReadDbPatch_FMap
@@ -133,19 +130,6 @@ instance Semigroup w => Semigroup (ReadDbPatch w) where
 instance Monoid w => Monoid (ReadDbPatch w) where
   mempty = pure mempty
 
-
--- | A way of attaching to (and later detaching from) a pipeline (e.g., handle
--- client connection and disconnection)
-newtype Registrar i = Registrar { runRegistrar :: IvForwardSequential IO i -> IO (IvBackwardSequential IO i, IO ()) }
-
-withRegistrar :: Registrar i -> IvForwardSequential IO i -> (IvBackwardSequential IO i -> IO r) -> IO r
-withRegistrar r fwd k = bracket (runRegistrar r fwd) snd (k . fst)
-
-newtype IvSequential a b = IvSequential (Registrar a -> Registrar b)
-
-instance Category IvSequential where
-  id = IvSequential id
-  IvSequential f . IvSequential g = IvSequential $ f . g
 
 newtype Pipeline i q = Pipeline
   { runPipeline :: IO
@@ -220,108 +204,6 @@ authenticatedVPipeline
     (AuthenticatedV public private personal (Const ()))
 authenticatedVPipeline = viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x)
 
-
--- | Compose a querymorphism with a pipeline.  Both "arrows" point toward the
--- front-end, so the mnemonic is the pipe is closer to the backend than the
--- QueryMorphism.
--- (.|) :: QueryMorphism q q' -> Pipeline i q -> Pipeline i q'
-
-bufferRhyoliteApp
-  :: forall db i.
-    ( Coverage (Cov (Push i)), Show (Cov (Push i)), Show (WithFullCoverage (Cov (Push i))), Coverable (Push i)
-    , Coverage (Cov (Pull i)), Show (Cov (Pull i)), Show (WithFullCoverage (Cov (Pull i)))
-    , ConstraintsForT db (TableHas_ EmptyConstraint)
-    , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
-    , ArgDictT db
-    , DZippable db
-    )
-  => (NonEmptyInterval -> IO ())
-  -> (Time -> AsyncReadDb IO -> IO ())
-  -> (Cov (Pull i) -> ReadDb (Pull i))
-  -> (QueryResultPatch (TablesV db) TablePatch -> Cov (Push i) -> ReadDbPatch (Push i))
-  -> IvForward IO i
-  -> IO
-    ( IvBackward IO i
-    , Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-    )
-bufferRhyoliteApp closeTime readAtTime qh nh fwd = do
-  var :: IORef (BufferRhyoliteAppState db i) <- newIORef $ BufferRhyoliteAppState
-    { _bufferRhyoliteAppState_cachedDBPatch = Nothing
-    , _bufferRhyoliteAppState_subscriptions = emptySubscriptionMap
-    , _bufferRhyoliteAppState_readsResponded = emptyCoverageMap
-    , _bufferRhyoliteAppState_pendingNotifies = emptyCoverageMap
-    , _bufferRhyoliteAppState_closedTimes = emptyCoverageMap
-    }
-
-  -- reads are sent along immediately as they are recieved; only "finished" status of reads is recorded in state.
-  --  the only thing we need to worry about with reads is to call closeTime when we're done reading for that time.
-  -- "everything" about subscriptions are recorded, since we get "real" notifications in.
-  -- we "can" handle notifications if we have the corresponding entry in cachedDBPatch.
-  -- any subscription present is fulfilled as soon as it's dispatched, and immediately added to pending.
-  --
-  -- we can free cachedDBPatches for times that are unsubscribed and not pending
-  -- finally, we can close times for which we have full read coverage, no pending notifies, are unsubscribed
-  let processState f = join $ atomicModifyIORef' var $ \st ->
-        let st' = f st
-            (subs', unsubs') = knownSubscriptionStates $ _bufferRhyoliteAppState_subscriptions st'
-
-            fulfillableSubs = do
-              cachedDBPatch <- _bufferRhyoliteAppState_cachedDBPatch st'
-              zipOccurenceMapWithCoverageMap (\q p -> Just (q, p)) subs' cachedDBPatch
-
-            fulfillableSubsCov = fmap (occurenceToCoverageMap . fmap fst) fulfillableSubs
-
-            allClosedTimes = coverageMapFullCoveragesOnly (_bufferRhyoliteAppState_readsResponded st')
-              `intersectionCoverage` shiftCoverageMap (-1) (coverageMapFullCoveragesOnly unsubs')
-              -- NOTE: we should not need to separately trim out
-              -- fulfillableSubsCov from this, because those aren't fulfilled until st'',
-              -- and thus not be covered by unsubs'
-            newClosedTimes = fmap (flip differenceCoverageMaps $ _bufferRhyoliteAppState_closedTimes st) allClosedTimes
-
-            -- helper function to keep patches we still need
-            keepPatches
-              :: Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
-              -> Maybe (OccurrenceMap (QueryResultPatch (TablesV db) TablePatch))
-            keepPatches = \case
-              Nothing -> Nothing
-              Just oldPatches -> do
-                keepTimes <- negateCoverage =<< allClosedTimes
-                zipOccurenceMapWithCoverageMap (\() -> Just) keepTimes oldPatches
-
-            st'' = ($ st')
-              $ Lens.over bufferRhyoliteAppState_closedTimes (maybe id unionCoverage newClosedTimes)
-              . Lens.over bufferRhyoliteAppState_subscriptions (maybe id fulfillSubscriptionMap fulfillableSubsCov)
-              . Lens.over bufferRhyoliteAppState_pendingNotifies (maybe id unionCoverage fulfillableSubsCov)
-              . Lens.over bufferRhyoliteAppState_cachedDBPatch keepPatches
-
-        in (,) st'' $ do
-
-          forM_ fulfillableSubs $ traverseOccurenceMap_ $ \(q, db) t -> do
-            runReadDbPatch (readAtTime (pred t)) (readAtTime t) (nh db q) $ \res -> do
-              _ivForward_notify fwd res t
-              traverse_ @Maybe (_ivForward_notifyNone fwd . singletonCoverageMap t . toWithFullCoverage) (q `differenceCoverage` covered res)
-              processState $ Lens.over bufferRhyoliteAppState_pendingNotifies (`differenceCoverageMaps` singletonCoverageMap t q)
-
-          forM_ newClosedTimes $ traverseWithInterval_CoverageMap (\t () -> closeTime t)
-
-  pure $ (,)
-    IvBackward
-      { _ivBackward_subscribe = \q t -> processState $
-        Lens.over bufferRhyoliteAppState_subscriptions (fst . subscribeSubscriptionMap t q)
-      , _ivBackward_unsubscribe = \q t -> processState $
-        Lens.over bufferRhyoliteAppState_subscriptions (fst . unsubscribeSubscriptionMap t q)
-      , _ivBackward_subscribeNone = \q -> processState $
-        Lens.over bufferRhyoliteAppState_subscriptions (checkpointSubscriptions q)
-      , _ivBackward_read = \q t -> readAtTime t $ AsyncReadDb (qh q) $ \qResult -> do
-        _ivForward_readResponse fwd qResult t
-        processState $ Lens.over bufferRhyoliteAppState_readsResponded (unionCoverage (singletonCoverageMap t $ toWithFullCoverage q))
-      , _ivBackward_readNone = \q ->
-        processState $ Lens.over bufferRhyoliteAppState_readsResponded (unionCoverage q)
-      }
-    $ \t db' -> processState $ Lens.over (bufferRhyoliteAppState_cachedDBPatch) ((<>) (Just (singletonOccurrenceMap t db')))
-
-
-
 serveDbOverWebsocketsNew
   :: forall db r push pull qWire a.
     ( ConstraintsForT db IsTable
@@ -357,6 +239,9 @@ serveDbOverWebsocketsNew
     , ArgDict ToJSON r
     , Coverage (Cov push)
     , Coverage (Cov pull)
+    , Show push
+    , Show pull
+    , Show (db (TableOnly (ComposeMaybe TablePatch)))
     )
   => ByteString -- Pool Pg.Connection
   -- ^ The database
@@ -405,6 +290,9 @@ serveDbOverWebsocketsNewRaw
     , DPointed db
     , Coverage (Cov push)
     , Coverage (Cov pull)
+    , Show push
+    , Show pull
+    , Show (db (TableOnly (ComposeMaybe TablePatch)))
     )
   => ByteString -- Pool Pg.Connection
   -- ^ The database
@@ -418,95 +306,84 @@ serveDbOverWebsocketsNewRaw
   -> IO a
 serveDbOverWebsocketsNewRaw dburi checkedDb nh qh k = withDbDriver dburi checkedDb $ \driver -> do
   let initialTime = 1
-
-  handleTimeVar <- newIORef (Left [])
-
-  -- we aren't "ready" for outputs as soon as we must call runDbIv, we can
-  -- cache forward data using workFwd until we have a "real" forward.  It might
-  -- be possible to use a bit of MonadFix cleverness and save a couple of
-  -- pointer derefs, but this avoids strictness concerns
-  (workFwd, setFwd) <- mkBootForwards @_ @(MapInterface ClientKey ('Interface push pull))
-  (workBwd, setBwd) <- mkBootBackwards @_ @('Interface push pull)
-
+  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey push))) (initialTime, Nothing)
   let
+
       -- | we aren't "ready" to process new time events until we're almost done
       -- with set-up, so we cache them until we have the "real" handler.
-      handleTime t = join $ atomicModifyIORef' handleTimeVar $ \case
-        Left ts -> (Left (t:ts), pure ())
-        Right f -> (Right f, f t)
+      handleTime :: Time -> IO ()
+      handleTime tNew = atomicModifyIORef' timeAndSubsVar $ \(_, currentSub) -> ((tNew, currentSub), ())
 
       setup
         :: (NonEmptyInterval -> IO ())
         -> (Time -> AsyncReadDb IO -> IO ())
         -> IO ( Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-              , IvBackward IO (MapInterface ClientKey ('Interface push pull))
+              , Registrar ('Interface push pull)
               )
       setup closeTime readAtTime = do
+        clientRecipients <- newIORef $ ClientKeyState @('Interface push pull) (ClientKey 1) Map.empty
 
 
+        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface push pull))
+            fwdSeq = IvForwardSequential
+              { _ivForwardSequential_notify = \pushes -> do
+                ClientKeyState _ rcpts <- readIORef clientRecipients
+                forM_ (Map.intersectionWith (,) rcpts pushes) $ \(IvForwardSequential f _, x) -> f x
+              , _ivForwardSequential_readResponse = \pulls -> do
+                ClientKeyState _ rcpts <- readIORef clientRecipients
+                forM_ (Map.intersectionWith (,) rcpts pulls) $ \(IvForwardSequential _ f, x) -> f x
+              }
 
-        (myRead, myReadNone, ourReadResponse :: pull -> Time -> IO ()) <- fanPull
-          (_ivBackward_read workBwd)
-          (_ivBackward_readNone workBwd)
-          (_ivForward_readResponse workFwd)
-        (mySub, myUnsub, mySubNone, ourNotify, ourNotifyNone) <- fanPush
-          (_ivBackward_subscribe workBwd)
-          (_ivBackward_unsubscribe workBwd)
-          (_ivBackward_subscribeNone workBwd)
-          (_ivForward_notify workFwd)
-          (_ivForward_notifyNone workFwd)
+        let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
+            notifyAtTime tPrev p = join $ atomicModifyIORef' timeAndSubsVar $ \(tNew, currentSubM) ->
+                (,) (tNew, currentSubM) $ do
+                  case currentSubM of
+                    Nothing -> pure ()
+                    Just currentSub -> do
+                      void $ flip Map.traverseWithKey currentSub $ \clientKey q ->
+                        runReadDbPatch (readAtTime tPrev) (readAtTime tNew)
+                          (nh p q)
+                          (_ivForwardSequential_notify fwdSeq . Map.singleton clientKey)
+                  closeTime $ lessThanOrEqualInterval tPrev
 
+            fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface push pull))
+            fanBwd = IvBackwardSequential
+              { _ivBackwardSequential_subscribeUnsubscribeRead = \subUnsubRead ->
+                join $ atomicModifyIORef' timeAndSubsVar $ \case
+                  (t, currentSubs) ->
+                    let
+                      readsMaybe = justThere subUnsubRead
+                      subUnsubs = justHere subUnsubRead
+                      newSubs = currentSubs
+                        `unionMaybeCoverage` (justHere =<< subUnsubs)
+                        `differenceMaybeCoverage` (justThere =<< subUnsubs)
+                    in (,) (t, newSubs) $ do
+                      forM_ readsMaybe $ \reads ->
+                        flip Map.traverseWithKey reads $ \clientKey read_ ->
+                          readAtTime t $ AsyncReadDb (qh read_) (_ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey)
+                      pure ()
+              }
 
-        (bwd, notifyAtTime) <- bufferRhyoliteApp closeTime readAtTime qh nh $
-          IvForward
-            { _ivForward_readResponse = ourReadResponse
-            , _ivForward_notify = ourNotify
-            , _ivForward_notifyNone = ourNotifyNone
-            }
-        setBwd bwd
+        let myRegistrar  :: IvForwardSequential IO ('Interface push pull) -> IO (IvBackwardSequential IO ('Interface push pull), IO ())
+            myRegistrar rcpt = do
+              clientKey <- atomicModifyIORef' clientRecipients $ \(ClientKeyState nextId rcpts) ->
+                (ClientKeyState (succ nextId) (Map.insert nextId rcpt rcpts), nextId)
+              -- atomicModifyIORef' clientRecipients $ \rcpts -> (Map.union rcpts $ Map.singleton clientKey rcpt, ())
+              subsVar <- newIORef Nothing
+              pure $ (,)
+                IvBackwardSequential
+                  { _ivBackwardSequential_subscribeUnsubscribeRead = \q -> do
+                    forM_ @Maybe (These.justHere q) $ \q' -> atomicModifyIORef' subsVar $ \old ->
+                      (old `unionMaybeCoverage` (These.justHere q') `differenceMaybeCoverage` (These.justThere q') , ())
+                    _ivBackwardSequential_subscribeUnsubscribeRead fanBwd $ bimap (bimap (Map.singleton clientKey) (Map.singleton clientKey)) (Map.singleton clientKey) q
+                  }
+                $ do
+                  join $ atomicModifyIORef' subsVar $ \subs -> (Nothing, forM_ subs $ _ivBackwardSequential_subscribeUnsubscribeRead fanBwd . This . That . Map.singleton clientKey)
+                  atomicModifyIORef' clientRecipients $ \st -> (Lens.set (clientKeyState_recipients . Lens.at clientKey) Nothing st, ())
 
-        pure (notifyAtTime, (IvBackward mySub myUnsub myRead myReadNone mySubNone) )
+        pure (notifyAtTime, Registrar myRegistrar)
 
-  runDbIv driver initialTime
-    setup
-    handleTime $ \bwd -> do
-      clientRecipients <- newIORef $ ClientKeyState @('Interface push pull) (ClientKey 1) Map.empty
-
-      let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface push pull))
-          fwdSeq = IvForwardSequential
-            { _ivForwardSequential_notify = \pushes -> do
-              ClientKeyState _ rcpts <- readIORef clientRecipients
-              forM_ (Map.intersectionWith (,) rcpts pushes) $ \(IvForwardSequential f _, x) -> f x
-            , _ivForwardSequential_readResponse = \pulls -> do
-              ClientKeyState _ rcpts <- readIORef clientRecipients
-              forM_ (Map.intersectionWith (,) rcpts pulls) $ \(IvForwardSequential _ f, x) -> f x
-            }
-      (fwd, IvBackwardSequential bwdSeq, handleTime') <- makeSequential @IO @(MapInterface ClientKey ('Interface push pull)) initialTime
-        fwdSeq
-        bwd
-      setFwd fwd
-      join $ atomicModifyIORef' handleTimeVar $ \case
-        Left xs -> (Right handleTime', forM_ (reverse xs) handleTime')
-        Right {} -> error "handleTimeVar is already configured"
-
-      let myRegistrar  :: IvForwardSequential IO ('Interface push pull) -> IO (IvBackwardSequential IO ('Interface push pull), IO ())
-          myRegistrar rcpt = do
-            clientKey <- atomicModifyIORef' clientRecipients $ \(ClientKeyState nextId rcpts) ->
-              (ClientKeyState (succ nextId) (Map.insert nextId rcpt rcpts), nextId)
-            -- atomicModifyIORef' clientRecipients $ \rcpts -> (Map.union rcpts $ Map.singleton clientKey rcpt, ())
-            subsVar <- newIORef Nothing
-            pure $ (,)
-              IvBackwardSequential
-                { _ivBackwardSequential_subscribeUnsubscribeRead = \q -> do
-                  forM_ @Maybe (These.justHere q) $ \q' -> atomicModifyIORef' subsVar $ \old ->
-                    (old `unionMaybeCoverage` (These.justHere q') `differenceMaybeCoverage` (These.justThere q') , ())
-                  bwdSeq $ bimap (bimap (Map.singleton clientKey) (Map.singleton clientKey)) (Map.singleton clientKey) q
-                }
-              $ do
-                join $ atomicModifyIORef' subsVar $ \subs -> (Nothing, forM_ subs $ bwdSeq . This . That . Map.singleton clientKey)
-                atomicModifyIORef' clientRecipients $ \st -> (Lens.set (clientKeyState_recipients . Lens.at clientKey) Nothing st, ())
-
-      k (Registrar myRegistrar)
+  runDbIv driver initialTime setup handleTime k
 
 
 -- ** Connecting a client (via websockets)
