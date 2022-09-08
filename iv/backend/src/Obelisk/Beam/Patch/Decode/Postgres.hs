@@ -172,5 +172,8 @@ decodeTransaction db conn tableChanges = TablesV <$> zipTablesOnly f (toTablesOn
           vals = Map.findWithDefault mempty (QualifiedIdentifier s n) tableChanges
           x = case decoder of
                 EntityPatchDecoder_NotDecodable -> error "impossible"
-                EntityPatchDecoder_Table decoders -> TablePatch . mconcat . toList <$> traverse (decodeChange conn (dbTableSettings descriptor) decoders) vals
+                EntityPatchDecoder_Table decoders -> do
+                  TablePatch . mconcat . reverse . toList <$> traverse (decodeChange conn (dbTableSettings descriptor) decoders) vals
+                  -- THIS REVERSE        ^^^^^^^
+                  -- is neccessary because Patch instances are applied with newer patches coming from the left; so if we're folding things together, we need the newest thing on the left; but decoded will have them oldest elements first.
       in x

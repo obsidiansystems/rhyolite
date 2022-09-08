@@ -223,6 +223,7 @@ data LineError
      Xid -- Existing transaction ID
      Xid -- New transaction ID that tried to start
    | LineError_ChangeOutsideTransaction
+  deriving Show
 
 -- | Create a function that will statefully accumulate lines until a Transaction
 -- is produced.  If the given line is not valid in the current state, an error
