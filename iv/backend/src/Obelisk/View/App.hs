@@ -241,7 +241,9 @@ serveDbOverWebsocketsNew
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
     )
-  => ByteString -- Pool Pg.Connection
+  => (Text -> IO ())
+  -- ^ logger
+  -> ByteString -- Pool Pg.Connection
   -- ^ The database
   -> AnnotatedDatabaseSettings Postgres db
   -> RequestHandler r IO
@@ -255,8 +257,8 @@ serveDbOverWebsocketsNew
   -> ((Registrar ('Interface push pull)) -> Snap () -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
-serveDbOverWebsocketsNew dburi checkedDb rh nh qh fromWire k =
-  serveDbOverWebsocketsNewRaw dburi checkedDb nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
+serveDbOverWebsocketsNew logger dburi checkedDb rh nh qh fromWire k =
+  serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
 
 serveDbOverWebsocketsNewRaw
   :: forall db push pull a.
@@ -292,7 +294,9 @@ serveDbOverWebsocketsNewRaw
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
     )
-  => ByteString -- Pool Pg.Connection
+  => (Text -> IO ())
+  -- ^ logger
+  -> ByteString -- Pool Pg.Connection
   -- ^ The database
   -> AnnotatedDatabaseSettings Postgres db
   -> (QueryResultPatch (TablesV db) TablePatch -> Cov push -> ReadDbPatch push)
@@ -302,7 +306,7 @@ serveDbOverWebsocketsNewRaw
   -> (Registrar ('Interface push pull) -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
-serveDbOverWebsocketsNewRaw dburi checkedDb nh qh k = withDbDriver dburi checkedDb $ \driver -> do
+serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger dburi checkedDb $ \driver -> do
   let initialTime = 1
   timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey push))) (initialTime, Nothing)
   let
@@ -381,7 +385,7 @@ serveDbOverWebsocketsNewRaw dburi checkedDb nh qh k = withDbDriver dburi checked
 
         pure (notifyAtTime, Registrar myRegistrar)
 
-  runDbIv driver initialTime setup handleTime k
+  runDbIv logger driver initialTime setup handleTime k
 
 
 -- ** Connecting a client (via websockets)

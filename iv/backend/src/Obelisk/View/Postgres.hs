@@ -6,7 +6,6 @@ module Obelisk.View.Postgres
   , DbDriver (..)
   , DbReader (..)
   --TODO: Move out
-  , MonadLog (..)
   , tshow
   , AsyncReadDb (..)
   , TablePatchInfo
@@ -66,29 +65,30 @@ sliceIntMap (NonEmptyInterval start end) m =
      )
 
 
+type Logger m = Text -> m ()
 
 closeAllInRef
   :: ( MonadRef m
-     , MonadLog m
      , RefData m (IntMap (DbReader db m))
      )
-  => (DbReader db m -> m ())
+  => Logger m
+  -> (DbReader db m -> m ())
   -> Ref m (IntMap (DbReader db m))
   -> m ()
-closeAllInRef closeReader r = do
+closeAllInRef putLog closeReader r = do
   cs <- readRef r
   putLog $ "closing " <> tshow (IntMap.size cs) <> " connections"
   mapM_ closeReader cs
 
 killAllThreads
   :: ( MonadAtomicRef m
-     , MonadLog m
      , MonadFork m
      , RefData m (Set (ThreadId m))
      )
-  => Ref m (Set (ThreadId m))
+  => Logger m
+  -> Ref m (Set (ThreadId m))
   -> m ()
-killAllThreads r = do
+killAllThreads putLog r = do
   threads <- atomicModifyRef' r $ \s -> (Set.empty, s)
   putLog $ "killing " <> tshow (Set.size threads) <> " threads"
   mapM_ killThread threads
@@ -135,7 +135,6 @@ runDbIv
   .  ( MonadConc m
      , MonadFail m
      , MonadAtomicRef m
-     , MonadLog m
      , MonadMVar m
      , RefData m (Set (ThreadId m))
      , MonadFork m
@@ -152,7 +151,8 @@ runDbIv
      , DPointed db
      -- , Control.Monad.Conc.Class.STM m ~ GHC.Conc.Sync.STM
      )
-  => DbDriver db m
+  => Logger m
+  -> DbDriver db m
   -> Time
   -> ( (NonEmptyInterval -> m ())
       -> (Time -> AsyncReadDb m -> m ())
@@ -163,15 +163,15 @@ runDbIv
   -> (Time -> m ())
   -> (b -> m a)
   -> m a
-runDbIv (DbDriver withFeed openReader) initialTime startMyIv setTime go = do
+runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go = do
   transactions <- atomically newTChan
   let enqueueTransaction txn = do
         atomically $ writeTChan transactions $ Right txn
       releaseSnapshot s = do
         atomically $ writeTChan transactions $ Left s
   withFeed enqueueTransaction releaseSnapshot $ do
-    bracket (newRef mempty) (closeAllInRef _dbReader_close) $ \openReadTransactionsRef -> do
-      bracket (newRef mempty) killAllThreads $ \allWorkersRef -> do
+    bracket (newRef mempty) (closeAllInRef putLog _dbReader_close) $ \openReadTransactionsRef -> do
+      bracket (newRef mempty) (killAllThreads putLog) $ \allWorkersRef -> do
         let forkWorker :: m () -> m ()
             forkWorker a = void $ fork $ do
               tid <- myThreadId
@@ -214,7 +214,7 @@ runDbIv (DbDriver withFeed openReader) initialTime startMyIv setTime go = do
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
-          withAsync (walkTransactionLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ \_ -> do
+          withAsync (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ \_ -> do
             takeMVar readyToStartVar
             (sendPatch, bOut) <- startMyIv closeTime readAtTime
             putMVar sendPatchVar sendPatch
@@ -223,14 +223,15 @@ runDbIv (DbDriver withFeed openReader) initialTime startMyIv setTime go = do
 -- | Given a way of opening read transactions, a starting time, and stream of transactions, call the given callbacks in such a way as to "walk" through the transaction log, processing contiguous blocks of transactions and providing open transactions at each of the points betweeen those blocks.
 walkTransactionLog
   :: forall m db
-  .  (MonadLog m, MonadConc m)
-  => m (TxidSnapshot, DbReader db m) -- ^ The command to open a reader
+  .  (MonadConc m)
+  => Logger m
+  -> m (TxidSnapshot, DbReader db m) -- ^ The command to open a reader
   -> Time -- ^ The initial logical time; the walker will consider its initial reader to be at this time, and all subsequent readers to be at subsequent times.  The actual magnitude is not important, and typically `1` will be passed here.
   -> TChan (STM m) (Either TxidSnapshot (Xid, QueryResultPatch (TablesV db) TablePatch)) -- ^ The channel from which the walker can retrieve transactions and snapshot fences.  This is expected to come from a logical decoding slot on the upstream server.
   -> (DbReader db m -> m ()) -- ^ The walker will call this when the initial reader is opened; there's no patch associated with the initial reader.
   -> (Seq (QueryResultPatch (TablesV db) TablePatch) -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
   -> m Void
-walkTransactionLog openReader initialTime transactions initialReaderReady subsequentReaderReady = do
+walkTransactionLog putLog openReader initialTime transactions initialReaderReady subsequentReaderReady = do
   let burnOldTransactions :: TxidSnapshot -> m ()
       burnOldTransactions snapshot = do
         atomically (readTChan transactions) >>= \case
@@ -329,14 +330,6 @@ instance MonadFork IO where
   myThreadId = Control.Concurrent.myThreadId
   killThread = Control.Concurrent.killThread
 
-class MonadLog m where
-  putLog :: Text -> m ()
-
-instance MonadLog IO where
-  putLog x = do
-    tid <- myThreadId
-    t <- getCurrentTime
-    T.putStrLn $ tshow t <> " " <> tshow tid <> ": " <> x
 
 tshow :: Show a => a -> Text
 tshow = T.pack . show

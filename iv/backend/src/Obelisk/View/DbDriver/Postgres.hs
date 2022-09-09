@@ -57,8 +57,8 @@ snapshotFencePrefix :: ByteString
 snapshotFencePrefix = "obelisk/snapshotFence"
 
 withDbDriver
-  :: forall db a . _ => ByteString -> AnnotatedDatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
-withDbDriver dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
+  :: forall db a . _ => (Text -> IO ()) -> ByteString -> AnnotatedDatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
+withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
   withResource pool $ \conn -> do
     let expectedHaskellSchema = fromAnnotatedDbSettings annotatedDb (Proxy @'[])
     actualDatabaseSchema <- getSchema conn
@@ -107,7 +107,7 @@ withDbDriver dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withReso
               withAsync feedTransactions $ \_ -> innerGo
         , _dbDriver_openReader = do
             readerId <- atomicModifyRef' readerIdVar $ \old -> (succ old, old)
-            let putMyLog x = putLog $ "reader " <> tshow readerId <> ": " <> x
+            let putMyLog x = logger $ "reader " <> tshow readerId <> ": " <> x
             putMyLog "Starting reader"
             (conn, localPool) <- takeResource pool
             putMyLog "Got connection from pool"
