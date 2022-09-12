@@ -3,6 +3,7 @@
 module Obelisk.View.App where
 
 import Control.Applicative
+import Data.Foldable
 import Control.Category
 import Control.Exception (bracket)
 import Control.Monad
@@ -34,6 +35,7 @@ import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
 import Obelisk.View.Collidable
 import Obelisk.View.Coverable
+import qualified Data.Text as T
 import Obelisk.View.Coverage
 -- import Obelisk.View.CoverageMap
 import Obelisk.View.DbDriver.Postgres (withDbDriver)
@@ -55,6 +57,8 @@ import Rhyolite.WebSocket (WebSocketResponse(..))
 import Snap.Core (Snap)
 import qualified Control.Lens as Lens
 import qualified Data.Map.Strict as Map
+import qualified Data.Map.Merge.Strict as Map
+import qualified Data.Set as Set
 import qualified Data.These.Combinators as These
 import qualified Network.WebSockets as WS
 import Data.Align (align)
@@ -72,6 +76,11 @@ data ClientKeyState i = ClientKeyState
   , _clientKeyState_recipients :: Map.Map ClientKey (IvForwardSequential IO i)
   }
 
+
+data PendingReaderState
+  = PendingReaderState_NoChange -- ^ the new time is announced, and readers should read at this time, but the patch hasn't happened yet.
+  | PendingReaderState_ChangeInProgress -- ^ The new patch has been announced.  once all readers for this time have been recieved, the given time should be closed.
+  deriving (Show, Eq, Ord)
 
 -- Lens.makeLenses ''BufferRhyoliteAppState
 Lens.makeLenses ''ClientKeyState
@@ -308,13 +317,20 @@ serveDbOverWebsocketsNewRaw
   -> IO a
 serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger dburi checkedDb $ \driver -> do
   let initialTime = 1
-  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey push))) (initialTime, Nothing)
+  -- the "current" time - reads and subscription changes apply to this
+  --  , the subscriptions
+  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey push)), Map.Map Time (Int, PendingReaderState))
+    (initialTime, Nothing, Map.singleton initialTime (0, PendingReaderState_NoChange))
+
   let
 
       -- | we aren't "ready" to process new time events until we're almost done
       -- with set-up, so we cache them until we have the "real" handler.
       handleTime :: Time -> IO ()
-      handleTime tNew = atomicModifyIORef' timeAndSubsVar $ \(_, currentSub) -> ((tNew, currentSub), ())
+      handleTime tNew = do
+        logger $ T.unwords ["new time: ", tshow tNew]
+        atomicModifyIORef' timeAndSubsVar $ \(_, currentSub, pendingReads) ->
+          ((tNew, currentSub, Map.insert tNew (0, PendingReaderState_NoChange) pendingReads), ())
 
       setup
         :: (NonEmptyInterval -> IO ())
@@ -336,33 +352,61 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                 forM_ (Map.intersectionWith (,) rcpts pulls) $ \(IvForwardSequential _ f, x) -> f x
               }
 
+            -- resolve a specified number of reads at specified times, and if possible, close the corresponding times.
+            tryCloseTimes :: Map.Map Time Int -> IO ()
+            tryCloseTimes responses = join $ atomicModifyIORef' timeAndSubsVar $ \(t, s, pendingReads) ->
+              let pendingReads' =
+                    Map.filter (/= (0, PendingReaderState_ChangeInProgress)) $ Map.merge
+                      Map.preserveMissing -- unresponded reads; preserve
+                      (Map.mapMissing $ \t _ -> error $ "stale read response at" <> show t)  -- stale read responses... error!!!
+                      (Map.zipWithMatched $ \t (p, st) p' -> (p - p', st))
+                      pendingReads
+                      responses
+                  newClosedTimes = Set.difference (Map.keysSet pendingReads) (Map.keysSet pendingReads')
+              in (,) (t, s, pendingReads') $ do
+                logger $ T.unwords ["tryCloseTimes", tshow pendingReads]
+                traverse_ (closeTime . singletonInterval) newClosedTimes
+
         let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-            notifyAtTime tPrev p = join $ atomicModifyIORef' timeAndSubsVar $ \(tNew, currentSubM) ->
-                (,) (tNew, currentSubM) $ do
-                  case currentSubM of
-                    Nothing -> pure ()
+            notifyAtTime tPrev p = join $ atomicModifyIORef' timeAndSubsVar $ \(tNew, currentSubM, pendingReads) ->
+              let
+                numSubs = maybe 0 Map.size currentSubM
+                pendingReads' :: Map.Map Time (Int, PendingReaderState)
+                pendingReads'
+                  = Map.alter (maybe (error "no reader state at tNew" ) (\(i, PendingReaderState_NoChange) -> Just (i + numSubs, PendingReaderState_NoChange))) tNew
+                  $ Map.alter (maybe (error "no reader state at tPrev") (\(i, PendingReaderState_NoChange) -> Just (i + numSubs, PendingReaderState_ChangeInProgress))) tPrev pendingReads
+              in
+                (,) (tNew, currentSubM, pendingReads') $ case currentSubM of
+                    Nothing -> tryCloseTimes Map.empty -- we might just be done right away.
                     Just currentSub -> do
+                      logger $ T.unwords ["processing at", tshow tPrev, "..", tshow tNew]
+                      -- readAtTime is "non-blocking" and will call it's callback later.
+                      -- So we need to "wait" until all notifications are actually sent.
                       void $ flip Map.traverseWithKey currentSub $ \clientKey q ->
-                        runReadDbPatch (readAtTime tPrev) (readAtTime tNew)
-                          (nh p q)
-                          (_ivForwardSequential_notify fwdSeq . Map.singleton clientKey)
-                  closeTime $ lessThanOrEqualInterval tPrev
+                        runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
+                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey res
+                          tryCloseTimes $ Map.fromList [(tPrev, 1), (tNew, 1)]
 
             fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface push pull))
             fanBwd = IvBackwardSequential
               { _ivBackwardSequential_subscribeUnsubscribeRead = \subUnsubRead ->
                 join $ atomicModifyIORef' timeAndSubsVar $ \case
-                  (t, currentSubs) ->
+                  (tCurrent, currentSubs, pendingReads) ->
                     let
                       readsMaybe = justThere subUnsubRead
                       subUnsubs = justHere subUnsubRead
                       newSubs = currentSubs
                         `unionMaybeCoverage` (justHere =<< subUnsubs)
                         `differenceMaybeCoverage` (justThere =<< subUnsubs)
-                    in (,) (t, newSubs) $ do
-                      forM_ readsMaybe $ \reads_ ->
+                      pendingReads' = Map.alter (maybe (error "no reader state at tCurrent" ) (\(i, PendingReaderState_NoChange) ->
+                        Just (i + length @Maybe readsMaybe, PendingReaderState_NoChange))) tCurrent pendingReads
+                    in (,) (tCurrent, newSubs, pendingReads') $ do
+                      forM_ @Maybe readsMaybe $ \reads_ ->
                         flip Map.traverseWithKey reads_ $ \clientKey read_ ->
-                          readAtTime t $ AsyncReadDb (qh read_) (_ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey)
+                          readAtTime tCurrent $ AsyncReadDb (qh read_) $ \result -> do
+                            _ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey $ result
+                            tryCloseTimes $ Map.singleton tCurrent 1
+
                       pure ()
               }
 
