@@ -69,6 +69,7 @@ import Data.Constraint.Forall
 import Data.Vessel.Internal (FlipAp)
 import Data.Functor.Identity
 import Data.GADT.Compare
+import Data.Proxy
 import Rhyolite.Vessel.AuthenticatedV
 
 data ClientKeyState i = ClientKeyState
@@ -249,6 +250,7 @@ serveDbOverWebsocketsNew
     , Show push
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
+    , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
     )
   => (Text -> IO ())
   -- ^ logger
@@ -263,7 +265,7 @@ serveDbOverWebsocketsNew
   -- ^ Handler for new viewselectors
   -> Pipeline ('Interface push pull) qWire
   -- ^ Adapter from the query wire format
-  -> ((Registrar ('Interface push pull)) -> Snap () -> IO a)
+  -> ((Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull)) -> Snap () -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
 serveDbOverWebsocketsNew logger dburi checkedDb rh nh qh fromWire k =
@@ -302,6 +304,7 @@ serveDbOverWebsocketsNewRaw
     , Show push
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
+    , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
     )
   => (Text -> IO ())
   -- ^ logger
@@ -312,14 +315,14 @@ serveDbOverWebsocketsNewRaw
   -- ^ Handler for notifications of changes to the database
   -> (Cov pull -> ReadDb pull)
   -- ^ Handler for new viewselectors
-  -> (Registrar ('Interface push pull) -> IO a)
+  -> (Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
 serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger dburi checkedDb $ \driver -> do
   let initialTime = 1
   -- the "current" time - reads and subscription changes apply to this
   --  , the subscriptions
-  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey push)), Map.Map Time (Int, PendingReaderState))
+  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey (These (QueryResultPatch (TablesV db) TablePatch) push))), Map.Map Time (Int, PendingReaderState))
     (initialTime, Nothing, Map.singleton initialTime (0, PendingReaderState_NoChange))
 
   let
@@ -336,13 +339,13 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
         :: (NonEmptyInterval -> IO ())
         -> (Time -> AsyncReadDb IO -> IO ())
         -> IO ( Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-              , Registrar ('Interface push pull)
+              , Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull)
               )
       setup closeTime readAtTime = do
-        clientRecipients <- newIORef $ ClientKeyState @('Interface push pull) (ClientKey 1) Map.empty
+        clientRecipients <- newIORef $ ClientKeyState @('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) (ClientKey 1) Map.empty
 
 
-        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface push pull))
+        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull))
             fwdSeq = IvForwardSequential
               { _ivForwardSequential_notify = \pushes -> do
                 ClientKeyState _ rcpts <- readIORef clientRecipients
@@ -358,8 +361,8 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
               let pendingReads' =
                     Map.filter (/= (0, PendingReaderState_ChangeInProgress)) $ Map.merge
                       Map.preserveMissing -- unresponded reads; preserve
-                      (Map.mapMissing $ \t _ -> error $ "stale read response at" <> show t)  -- stale read responses... error!!!
-                      (Map.zipWithMatched $ \t (p, st) p' -> (p - p', st))
+                      (Map.mapMissing $ \myT _ -> error $ "stale read response at" <> show myT)  -- stale read responses... error!!!
+                      (Map.zipWithMatched $ \_ (p, st) p' -> (p - p', st))
                       pendingReads
                       responses
                   newClosedTimes = Set.difference (Map.keysSet pendingReads) (Map.keysSet pendingReads')
@@ -370,7 +373,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
         let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
             notifyAtTime tPrev p = join $ atomicModifyIORef' timeAndSubsVar $ \(tNew, currentSubM, pendingReads) ->
               let
-                numSubs = maybe 0 Map.size currentSubM
+                numSubs = maybe 0 (Map.size . Map.mapMaybe justThere) currentSubM -- only count the subs that will cause reads.
                 pendingReads' :: Map.Map Time (Int, PendingReaderState)
                 pendingReads'
                   = Map.alter (maybe (error "no reader state at tNew" ) (\(i, PendingReaderState_NoChange) -> Just (i + numSubs, PendingReaderState_NoChange))) tNew
@@ -382,12 +385,14 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                       logger $ T.unwords ["processing at", tshow tPrev, "..", tshow tNew]
                       -- readAtTime is "non-blocking" and will call it's callback later.
                       -- So we need to "wait" until all notifications are actually sent.
-                      void $ flip Map.traverseWithKey currentSub $ \clientKey q ->
-                        runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
-                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey res
+                      void $ flip Map.traverseWithKey currentSub $ \clientKey qBoth -> do
+                        forM_ (justThere qBoth) $ \q -> runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
+                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ That res
                           tryCloseTimes $ Map.fromList [(tPrev, 1), (tNew, 1)]
+                        forM_ (justHere qBoth >>= flip restrictCoverage p) $ \res -> do
+                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ This res
 
-            fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface push pull))
+            fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull))
             fanBwd = IvBackwardSequential
               { _ivBackwardSequential_subscribeUnsubscribeRead = \subUnsubRead ->
                 join $ atomicModifyIORef' timeAndSubsVar $ \case
@@ -410,7 +415,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                       pure ()
               }
 
-        let myRegistrar  :: IvForwardSequential IO ('Interface push pull) -> IO (IvBackwardSequential IO ('Interface push pull), IO ())
+        let myRegistrar  :: IvForwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) -> IO (IvBackwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull), IO ())
             myRegistrar rcpt = do
               clientKey <- atomicModifyIORef' clientRecipients $ \(ClientKeyState nextId rcpts) ->
                 (ClientKeyState (succ nextId) (Map.insert nextId rcpt rcpts), nextId)
@@ -450,20 +455,20 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
 --  2. Separately handles messages coming in over the "api" and "viewselector" channels
 --  3. Transforms the incoming wire-format query and produce responses for new inbound queries
 handleWebsocketConnection
-  :: forall r i qWire.
+  :: forall r i x qWire.
   (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), ConstraintsFor r ToJSON, ArgDict ToJSON r)
   => Text -- ^ Version
   -> Pipeline i qWire
   -- ^ Query morphism to translate between wire queries and queries with a
   -- reasonable group instance. cf. 'vesselFromWire'
   -> RequestHandler r IO -- ^ Handler for API requests
-  -> Registrar i
+  -> Registrar ('Interface (These x (Push i)) (Pull i))
   -> WS.Connection
   -> IO ()
 handleWebsocketConnection v fromWire rh register conn = do
   (q2i, push2q, pull2q) <- runPipeline fromWire
   let sender = IvForwardSequential
-        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< push2q)
+        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< maybe (pure Nothing) push2q . justThere)
         (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< pull2q)
   sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse qWire)
   bracket (runRegistrar register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
@@ -475,5 +480,7 @@ handleWebsocketConnection v fromWire rh register conn = do
         sendEncodedDataMessage conn
           (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
       WebSocketRequest_ViewSelector new -> do
-        mapM_ vsHandler =<< q2i new
+        q2i new >>= \case
+          Nothing -> pure ()
+          Just new' -> vsHandler $ bimap (bimap That That) id new'
 

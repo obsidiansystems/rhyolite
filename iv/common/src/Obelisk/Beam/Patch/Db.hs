@@ -1,5 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-} -- TODO Eliminate this
+{-# OPTIONS_GHC -Werror=missing-methods #-} -- TODO Eliminate this
 
 
 module Obelisk.Beam.Patch.Db
@@ -42,6 +43,8 @@ import Obelisk.Beam.View.Db
 import Obelisk.Beam.View.Table
 import Obelisk.View.Misc
 import Reflex.Query.Class
+import Obelisk.View.Coverable
+import Obelisk.View.Coverage
 
 import Data.Constraint.Compose
 import Data.Patch
@@ -211,3 +214,42 @@ instance forall p tbls. (DPointed tbls, HasT (ComposeC Semigroup p) tbls) => Mon
 
 
 makePrisms ''QueryResultPatch
+
+instance HasCov (QueryResultPatch tbls TablePatch) where
+  type Cov (QueryResultPatch tbls TablePatch) = QueryResultPatch tbls Proxy
+
+instance DZippable tbls => Coverable (QueryResultPatch tbls TablePatch) where
+  covered (QueryResultPatch xs) = QueryResultPatch $ runIdentity $ dmap (\(ComposeMaybe x) -> Identity $ ComposeMaybe $ Proxy <$ x) xs
+  restrictCoverage (QueryResultPatch xs) (QueryResultPatch ys) =
+    let (something, results) = dzip (\(ComposeMaybe x) (ComposeMaybe y) ->
+          let z = liftA2 (\Proxy -> id) x y
+          in (() <$ z, ComposeMaybe z)) xs ys
+    in QueryResultPatch results <$ something
+
+instance (DPointed tbls, Eq (tbls (ComposeMaybe Proxy))) => Coverage (QueryResultPatch tbls Proxy) where
+  type WithFullCoverage (QueryResultPatch tbls Proxy) = QueryResultPatch tbls Proxy
+  intersectionCoverage (QueryResultPatch xs) (QueryResultPatch ys) =
+    let (something, results) = dzip (\(ComposeMaybe x) (ComposeMaybe y) ->
+          let z = intersectionMaybeCoverage x y
+          in (() <$ z, ComposeMaybe z)) xs ys
+    in QueryResultPatch results <$ something
+  differenceCoverage (QueryResultPatch xs) (QueryResultPatch ys) =
+    let (something, results) = dzip (\(ComposeMaybe x) (ComposeMaybe y) ->
+          let z = differenceMaybeCoverage x y
+          in (() <$ z, ComposeMaybe z)) xs ys
+    in QueryResultPatch results <$ something
+  xorCoverage (QueryResultPatch xs) (QueryResultPatch ys) =
+    let (something, results) = dzip (\(ComposeMaybe x) (ComposeMaybe y) ->
+          let z = xorMaybeCoverage x y
+          in (() <$ z, ComposeMaybe z)) xs ys
+    in QueryResultPatch results <$ something
+
+  unionCoverage (QueryResultPatch xs) (QueryResultPatch ys) =
+    let Identity results = dzip (\(ComposeMaybe x) (ComposeMaybe y) ->
+          let z = unionCoverage x y
+          in Identity (ComposeMaybe z)) xs ys
+    in QueryResultPatch results
+
+instance (DPointed tbls, Eq (tbls (ComposeMaybe Proxy))) => FullCoverage (QueryResultPatch tbls Proxy) where
+  fullCoverage = QueryResultPatch $ runIdentity $ dpure $ Identity $ ComposeMaybe $ Just Proxy
+
