@@ -8,12 +8,14 @@
 module Rhyolite.SemiMap where
 
 import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Data.Align
 import Data.Coerce (coerce)
 import Data.Map.Monoidal as Map
 import Data.Maybe (isJust)
 import Data.Semigroup (First(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.These
 import GHC.Generics (Generic)
 
 -- | A SemiMap is a structure built on top on the 'MonoidalMap' that lets you
@@ -62,6 +64,23 @@ instance (Ord k) => Semigroup (SemiMap k v) where
                 maybeToEither = \case
                   Nothing -> Left ()
                   Just r -> Right r
+
+-- | Given a new and an old Map, create a Partial SemiMap which would produce
+-- the new one given the old one
+semiMapDiff
+  :: ( Ord k
+     , Eq v
+     )
+  => MonoidalMap k v -- ^ New
+  -> MonoidalMap k v -- ^ Old
+  -> SemiMap k v
+semiMapDiff new old = SemiMap_Partial $ Map.mapMaybe id $ alignWith f new old
+  where f = \case
+          This newV -> Just $ First $ Just newV
+          That _ -> Just $ First Nothing
+          These newV oldV
+            | newV == oldV -> Nothing
+            | otherwise -> Just $ First $ Just newV
 
 instance (ToJSON k, ToJSON v, ToJSONKey k) => ToJSON (SemiMap k v)
 instance (Ord k, FromJSON k, FromJSON v, FromJSONKey k) => FromJSON (SemiMap k v)

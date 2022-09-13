@@ -1,0 +1,141 @@
+cabal-version: 2.2
+name: iv-backend
+version: 0.1
+build-type: Simple
+
+common common
+  build-depends: iv-common
+               , aeson
+               , aeson-gadt-th
+               , async
+               , attoparsec
+               , beam-core
+               , beam-migrate
+               , beam-automigrate
+               , beam-postgres
+               , binary
+               , template-haskell
+               , bytestring
+               , clientsession
+               , concurrency
+               , constraints
+               , constraints-extras
+               , containers
+               , criterion
+               , data-default
+               , directory
+               , gargoyle
+               , gargoyle-postgresql-nix
+               , dejafu
+               , dependent-map
+               , dependent-monoidal-map
+               , dependent-sum
+               , dependent-sum-aeson-orphans
+               , dependent-sum-template
+               , exceptions
+               , filepath
+               , generic-deriving
+               , ghc-prim
+               , groom
+               , lens
+               , mime-mail
+               , monad-loops
+               , monoidal-containers
+               , mtl
+               , obelisk-aeson-orphans
+               , obelisk-backend
+               , obelisk-executable-config-lookup
+               , obelisk-route
+               , patch
+               , postgresql-libpq
+               , postgresql-simple
+               , pwstore-fast
+               , ref-tf
+               , reflex-dom
+               , resource-pool
+               , semialign
+               , smtp-mail
+               , snap-core
+               , split
+               , stm
+               , tabulation
+               , tasty
+               , tasty-expected-failure
+               , tasty-hunit
+               , temporary
+               , text
+               , these
+               , these-lens
+               , time
+               , transformers
+               , unordered-containers
+               , validation
+               , vessel
+               , websockets
+               , websockets-snap
+               , witherable
+               , writer-cps-mtl
+               , reflex
+               , rhyolite-backend
+               , rhyolite-common
+  default-extensions:
+    AllowAmbiguousTypes
+    BangPatterns
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    OverloadedStrings
+    PolyKinds
+    QuasiQuotes
+    RankNTypes
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+  ghc-options:
+    -- Showing valid hole fits is too slow
+    -Wall
+    -fno-show-valid-hole-fits
+    -- Missing fields in records is almost always a bug
+    -Werror=missing-fields
+    -Werror=missing-home-modules
+
+library
+  import: common
+  hs-source-dirs: src
+  if impl(ghcjs)
+    buildable: False
+  build-depends: base
+  exposed-modules:
+    Obelisk.View.App
+    Obelisk.Api
+    Obelisk.Beam
+    Obelisk.Beam.Misc
+    Obelisk.Beam.Patch.Decode.Postgres
+    Obelisk.Db
+    Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
+    Obelisk.Postgres.QQ
+    Obelisk.Postgres.Replication
+    Obelisk.Postgres.Snapshot
+    Obelisk.View.DbDriver.Postgres
+    Obelisk.View.Postgres
+    Obelisk.View.Sequential
+  ghc-options: -Wall

@@ -17,3 +17,4 @@ deriveJSON defaultOptions ''Mail.PartContent
 deriveJSON defaultOptions ''Mail.Mail
 
 deriving instance Read Mail.Address
+deriving instance Eq Mail.Mail

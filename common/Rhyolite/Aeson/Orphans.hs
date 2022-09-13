@@ -11,7 +11,6 @@ module Rhyolite.Aeson.Orphans where
 import Data.Aeson ((.=), FromJSON(..), ToJSON(..))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Encoding as Aeson (pair)
-import Data.Functor.These
 import qualified Data.HashMap.Strict as HM
 import Data.These
 

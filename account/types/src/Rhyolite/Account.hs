@@ -6,8 +6,12 @@ Description:
 {-# Language FlexibleInstances #-}
 {-# Language StandaloneDeriving #-}
 {-# Language TypeFamilies #-}
+{-# Language UndecidableInstances #-}
+{-# Language ConstraintKinds #-}
+{-# Language GeneralizedNewtypeDeriving #-}
 module Rhyolite.Account where
 
+import Data.Kind (Constraint)
 import Data.Aeson
 import Data.ByteString (ByteString)
 import Data.Functor.Identity
@@ -26,6 +30,16 @@ data Account f = Account
   , _account_passwordResetNonce :: Columnar f (Maybe UTCTime)
   } deriving (Generic)
 
+type HasAccountConstrant (c :: * -> Constraint) f =
+  ( c (Columnar f (SqlSerial Int64))
+  , c (Columnar f Text)
+  , c (Columnar f (Maybe ByteString))
+  , c (Columnar f (Maybe UTCTime))
+  )
+
+deriving instance HasAccountConstrant Eq f => Eq (Account f)
+deriving instance HasAccountConstrant Ord f => Ord (Account f)
+
 instance Beamable Account
 
 instance Table Account where
@@ -37,14 +51,16 @@ instance Table Account where
 
 instance Beamable (PrimaryKey Account)
 
-deriving instance Eq (PrimaryKey Account Identity)
-deriving instance Ord (PrimaryKey Account Identity)
-deriving instance Show (PrimaryKey Account Identity)
+type HasAccountIdConstrant (c :: * -> Constraint) f = c (Columnar f (SqlSerial Int64))
 
-instance ToJSON (PrimaryKey Account Identity)
-instance FromJSON (PrimaryKey Account Identity)
-instance ToJSONKey (PrimaryKey Account Identity)
-instance FromJSONKey (PrimaryKey Account Identity)
+deriving instance HasAccountIdConstrant ToJSON f => ToJSON (PrimaryKey Account f)
+deriving instance HasAccountIdConstrant FromJSON f => FromJSON (PrimaryKey Account f)
+deriving instance HasAccountIdConstrant ToJSONKey f => ToJSONKey (PrimaryKey Account f)
+deriving instance HasAccountIdConstrant FromJSONKey f => FromJSONKey (PrimaryKey Account f)
+
+deriving instance HasAccountIdConstrant Eq f => Eq (PrimaryKey Account f)
+deriving instance HasAccountIdConstrant Ord f => Ord (PrimaryKey Account f)
+deriving instance HasAccountIdConstrant Show f => Show (PrimaryKey Account f)
 
 newtype PasswordResetToken = PasswordResetToken
   { unPasswordResetToken :: (PrimaryKey Account Identity, UTCTime)
@@ -53,3 +69,4 @@ newtype PasswordResetToken = PasswordResetToken
 
 instance ToJSON PasswordResetToken
 instance FromJSON PasswordResetToken
+

@@ -1,0 +1,16 @@
+name: obelisk-aeson-orphans
+version: 0.1
+cabal-version: >= 1.2
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base
+               , aeson
+               , bytestring
+               , base64-bytestring
+               , containers
+               , text
+  exposed-modules:
+    Obelisk.Aeson.Orphans
+  ghc-options: -Wall
