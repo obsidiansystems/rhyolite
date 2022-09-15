@@ -190,7 +190,12 @@ viewPipeline toCov toView = Pipeline $ do
             let sub = newSub' `differenceCoverage` currentSub
                 unsub = currentSub `differenceCoverage` newSub'
             in align (align sub unsub) sub
-    , pure . Just . mapV toView . getIView
+    , \push -> do
+        let v = mapV toView $ getIView push
+        pure $
+          if nullV v
+          then Nothing
+          else Just v
     , pure . Just . mapV toView . getIView
     )
 
