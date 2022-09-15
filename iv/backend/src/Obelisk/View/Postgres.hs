@@ -25,11 +25,9 @@ import Control.Monad.MVar.Restricted
 import Control.Monad.Ref.Restricted
 import Data.Constraint.Compose
 import Data.Constraint.Empty
-import Data.Foldable
 import Data.Functor.Misc
 import Data.IntMap.Strict (IntMap)
 import Data.Maybe
-import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.Text (Text)
 import Data.Void
@@ -45,7 +43,6 @@ import Obelisk.View.NonEmptyInterval
 import Obelisk.View.Time
 import qualified Control.Concurrent
 import qualified Data.IntMap.Strict as IntMap
-import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Patch.MapWithPatchingMove
@@ -206,10 +203,9 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
               onInitialReaderReady reader = do
                 addReader initialTime reader
                 putMVar readyToStartVar ()
-              onSubsequentReaderReady patches t reader = do
+              onSubsequentReaderReady p t reader = do
                 addReader t reader
                 setTime t
-                let p = mconcat $ reverse $ toList patches
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
@@ -224,6 +220,9 @@ walkTransactionLog
   :: forall m db
   .  ( MonadConc m
      , HasT (TableHas_ EmptyConstraint) db
+     , HasT (TableHas_ (ComposeC Semigroup TablePatch)) db
+     , HasT IsTable db
+     , DPointed db
      , DZippable db
      )
   => Logger m
@@ -231,7 +230,7 @@ walkTransactionLog
   -> Time -- ^ The initial logical time; the walker will consider its initial reader to be at this time, and all subsequent readers to be at subsequent times.  The actual magnitude is not important, and typically `1` will be passed here.
   -> TChan (STM m) (Either TxidSnapshot (Xid, QueryResultPatch (TablesV db) TablePatch)) -- ^ The channel from which the walker can retrieve transactions and snapshot fences.  This is expected to come from a logical decoding slot on the upstream server.
   -> (DbReader db m -> m ()) -- ^ The walker will call this when the initial reader is opened; there's no patch associated with the initial reader.
-  -> (Seq (QueryResultPatch (TablesV db) TablePatch) -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
+  -> (QueryResultPatch (TablesV db) TablePatch -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
   -> m Void
 walkTransactionLog putLog openReader initialTime transactions initialReaderReady subsequentReaderReady = do
   let burnOldTransactions :: TxidSnapshot -> m ()
@@ -245,15 +244,15 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
               else atomically $ unGetTChan transactions $ Right txn --TODO: Do something more elegant than unGetTChan
       stepTransaction
         :: TxidSnapshot
-        -> Seq (QueryResultPatch (TablesV db) TablePatch)
-        -> m (Seq (QueryResultPatch (TablesV db) TablePatch), TxidSnapshot, DbReader db m)
+        -> QueryResultPatch (TablesV db) TablePatch
+        -> m (QueryResultPatch (TablesV db) TablePatch, TxidSnapshot, DbReader db m)
       stepTransaction caughtUpToSnapshot alreadyReceivedTransactions = do
         putLog "Opening reader"
         (snapshot, reader) <- openReader
         putLog "Reader opened"
         -- Get the Xids we need to wait for
         neededXids <- _dbReader_getVisibleTransactionsSince reader caughtUpToSnapshot snapshot
-        let collectContiguousXids :: Set Xid -> Seq (QueryResultPatch (TablesV db) TablePatch) -> m (Seq (QueryResultPatch (TablesV db) TablePatch), TxidSnapshot, DbReader db m)
+        let collectContiguousXids :: Set Xid -> QueryResultPatch (TablesV db) TablePatch -> m (QueryResultPatch (TablesV db) TablePatch, TxidSnapshot, DbReader db m)
             collectContiguousXids pendingXids receivedTransactions =
               if Set.null pendingXids then pure (receivedTransactions, snapshot, reader) else do
                 -- putLog "Waiting for replication data"
@@ -269,12 +268,12 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
                     --     else tshow (toList pendingXids)
                     case xid `Set.member` pendingXids of
                       True -> do
-                        collectContiguousXids (Set.delete xid pendingXids) (receivedTransactions <> Seq.singleton transaction) --TODO: Is there any reason to retain the transactions here, or should we just mappend the transactions right away?
+                        collectContiguousXids (Set.delete xid pendingXids) (transaction <> receivedTransactions)
                       -- We received a transaction that we weren't waiting for, so we need to bail out and try to find a new transaction
                       False -> do
                         putLog "Non-contiguous transactions: trying again with another reader"
                         _dbReader_close reader
-                        stepTransaction (insertTxidSnapshot xid caughtUpToSnapshot) (receivedTransactions <> Seq.singleton transaction)
+                        stepTransaction (insertTxidSnapshot xid caughtUpToSnapshot) (transaction <> receivedTransactions)
         collectContiguousXids neededXids alreadyReceivedTransactions
   putLog $ "Opening reader for time " <> tshow initialTime
   (initialSnapshot, initialReader) <- openReader
