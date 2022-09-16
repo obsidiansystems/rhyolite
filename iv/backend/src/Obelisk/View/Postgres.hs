@@ -25,13 +25,11 @@ import Control.Monad.MVar.Restricted
 import Control.Monad.Ref.Restricted
 import Data.Constraint.Compose
 import Data.Constraint.Empty
-import Data.Foldable
 import Data.Functor.Misc
 import Data.IntMap.Strict (IntMap)
-import Data.Sequence (Seq)
+import Data.Maybe
 import Data.Set (Set)
 import Data.Text (Text)
-import Data.Time.Clock
 import Data.Void
 import Obelisk.Beam.Constraints
 import Obelisk.Beam.DZippable
@@ -45,10 +43,8 @@ import Obelisk.View.NonEmptyInterval
 import Obelisk.View.Time
 import qualified Control.Concurrent
 import qualified Data.IntMap.Strict as IntMap
-import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Patch.MapWithPatchingMove
 import Obelisk.Api
 import Obelisk.View.Orphans ()
@@ -207,10 +203,9 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
               onInitialReaderReady reader = do
                 addReader initialTime reader
                 putMVar readyToStartVar ()
-              onSubsequentReaderReady patches t reader = do
+              onSubsequentReaderReady p t reader = do
                 addReader t reader
                 setTime t
-                let p = mconcat $ reverse $ toList patches
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
@@ -223,13 +218,19 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
 -- | Given a way of opening read transactions, a starting time, and stream of transactions, call the given callbacks in such a way as to "walk" through the transaction log, processing contiguous blocks of transactions and providing open transactions at each of the points betweeen those blocks.
 walkTransactionLog
   :: forall m db
-  .  (MonadConc m)
+  .  ( MonadConc m
+     , HasT (TableHas_ EmptyConstraint) db
+     , HasT (TableHas_ (ComposeC Semigroup TablePatch)) db
+     , HasT IsTable db
+     , DPointed db
+     , DZippable db
+     )
   => Logger m
   -> m (TxidSnapshot, DbReader db m) -- ^ The command to open a reader
   -> Time -- ^ The initial logical time; the walker will consider its initial reader to be at this time, and all subsequent readers to be at subsequent times.  The actual magnitude is not important, and typically `1` will be passed here.
   -> TChan (STM m) (Either TxidSnapshot (Xid, QueryResultPatch (TablesV db) TablePatch)) -- ^ The channel from which the walker can retrieve transactions and snapshot fences.  This is expected to come from a logical decoding slot on the upstream server.
   -> (DbReader db m -> m ()) -- ^ The walker will call this when the initial reader is opened; there's no patch associated with the initial reader.
-  -> (Seq (QueryResultPatch (TablesV db) TablePatch) -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
+  -> (QueryResultPatch (TablesV db) TablePatch -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
   -> m Void
 walkTransactionLog putLog openReader initialTime transactions initialReaderReady subsequentReaderReady = do
   let burnOldTransactions :: TxidSnapshot -> m ()
@@ -241,22 +242,25 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
             if fst txn `transactionVisibleInSnapshot` snapshot
               then burnOldTransactions snapshot
               else atomically $ unGetTChan transactions $ Right txn --TODO: Do something more elegant than unGetTChan
-      stepTransaction :: TxidSnapshot -> Set Xid -> Seq (QueryResultPatch (TablesV db) TablePatch) -> m (Seq (QueryResultPatch (TablesV db) TablePatch), TxidSnapshot, DbReader db m)
-      stepTransaction lastSnapshot alreadyReceivedXids alreadyReceivedTransactions = do
+      stepTransaction
+        :: TxidSnapshot
+        -> QueryResultPatch (TablesV db) TablePatch
+        -> m (QueryResultPatch (TablesV db) TablePatch, TxidSnapshot, DbReader db m)
+      stepTransaction caughtUpToSnapshot alreadyReceivedTransactions = do
         putLog "Opening reader"
         (snapshot, reader) <- openReader
         putLog "Reader opened"
         -- Get the Xids we need to wait for
-        xidsSinceLastSnapshot <- _dbReader_getVisibleTransactionsSince reader lastSnapshot snapshot
-        let collectContiguousXids :: Set Xid -> Set Xid -> Seq (QueryResultPatch (TablesV db) TablePatch) -> m (Seq (QueryResultPatch (TablesV db) TablePatch), TxidSnapshot, DbReader db m)
-            collectContiguousXids pendingXids receivedXids receivedTransactions =
+        neededXids <- _dbReader_getVisibleTransactionsSince reader caughtUpToSnapshot snapshot
+        let collectContiguousXids :: Set Xid -> QueryResultPatch (TablesV db) TablePatch -> m (QueryResultPatch (TablesV db) TablePatch, TxidSnapshot, DbReader db m)
+            collectContiguousXids pendingXids receivedTransactions =
               if Set.null pendingXids then pure (receivedTransactions, snapshot, reader) else do
                 -- putLog "Waiting for replication data"
                 atomically (readTChan transactions) >>= \case
                   Left s -> do
                     let (finishedXids, remainingXids) = Set.partition (`transactionVisibleInSnapshot` s) pendingXids
                     unless (Set.null finishedXids) $ putLog $ "Fence discharged " <> tshow (Set.toList finishedXids) <> ", leaving " <> tshow (Set.size remainingXids)
-                    collectContiguousXids remainingXids (receivedXids `Set.union` finishedXids) receivedTransactions
+                    collectContiguousXids remainingXids receivedTransactions
                   Right (xid, transaction) -> do
                     -- putLog $ "Got transaction " <> tshow xid <> " while waiting for transactions " <>
                     --   if Set.size pendingXids > 25
@@ -264,35 +268,36 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
                     --     else tshow (toList pendingXids)
                     case xid `Set.member` pendingXids of
                       True -> do
-                        collectContiguousXids (Set.delete xid pendingXids) (Set.insert xid receivedXids) (receivedTransactions <> Seq.singleton transaction) --TODO: Is there any reason to retain the transactions here, or should we just mappend the transactions right away?
+                        collectContiguousXids (Set.delete xid pendingXids) (transaction <> receivedTransactions)
                       -- We received a transaction that we weren't waiting for, so we need to bail out and try to find a new transaction
                       False -> do
                         putLog "Non-contiguous transactions: trying again with another reader"
                         _dbReader_close reader
-                        stepTransaction lastSnapshot (Set.insert xid receivedXids) (receivedTransactions <> Seq.singleton transaction)
-        collectContiguousXids (xidsSinceLastSnapshot `Set.difference` alreadyReceivedXids) alreadyReceivedXids alreadyReceivedTransactions
+                        stepTransaction (insertTxidSnapshot xid caughtUpToSnapshot) (transaction <> receivedTransactions)
+        collectContiguousXids neededXids alreadyReceivedTransactions
   putLog $ "Opening reader for time " <> tshow initialTime
   (initialSnapshot, initialReader) <- openReader
   putLog $ "Reader " <> tshow initialTime <> " opened at snapshot " <> tshow initialSnapshot
   initialReaderReady initialReader
   burnOldTransactions initialSnapshot --TODO: Instead, when creating the replication slot, use EXPORT_SNAPSHOT, and then use that snapshot to create this transaction; otherwise, we might end up with the write transactions visible from this reader not corresponding to a contiguous ordering of transactions, which we can't easily detect or recover from
-  let loop !t lastSnapshot = do
+  let loop !t caughtUpToSnapshot = do
         --TODO: Get rid of this hack
-        let waitForTransaction = do
-              fence <- atomically $ do -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
+        let waitForTransaction caughtUpToSnapshot' = do
+              k <- atomically $ do -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
                 readTChan transactions >>= \case
                   Left f -> do
-                    pure $ Just f
-                  Right txn -> do
-                    unGetTChan transactions $ Right txn
-                    pure Nothing
-              case fence of
-                Nothing -> pure ()
-                Just f -> do
-                  putLog $ "Discarding fence: " <> tshow f
-                  waitForTransaction
-        waitForTransaction
-        (patches, snapshot, reader) <- stepTransaction lastSnapshot mempty mempty
+                    pure $ do
+                      waitForTransaction $ unionTxidSnapshot f caughtUpToSnapshot'
+                  Right txn@(xid, changes) ->
+                    if isNothing $ nonEmptyQueryResultPatch changes
+                    then do
+                      pure $ waitForTransaction $ insertTxidSnapshot xid caughtUpToSnapshot'
+                    else do
+                      unGetTChan transactions $ Right txn
+                      pure $ pure caughtUpToSnapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
+              k
+        caughtUpToSnapshot' <- waitForTransaction caughtUpToSnapshot
+        (patches, snapshot, reader) <- stepTransaction caughtUpToSnapshot' mempty
         subsequentReaderReady patches t reader
         loop (succ t) snapshot
   loop (succ initialTime) initialSnapshot
