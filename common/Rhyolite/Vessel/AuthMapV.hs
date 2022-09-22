@@ -12,6 +12,7 @@
 {-# Language UndecidableInstances #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language RankNTypes #-}
+{-# Language MultiParamTypeClasses #-}
 
 module Rhyolite.Vessel.AuthMapV where
 
@@ -141,7 +142,13 @@ mapDecomposedV' f v = cropV recompose v <$> (f $ mapV (\_ -> Proxy) v)
     recompose :: Compose (MMap.MonoidalMap c) g a -> h a -> Compose (MMap.MonoidalMap c) h a
     recompose (Compose s) i = Compose $ i <$ s
 
-
+instance (View v, Ord token) => Keyed
+    token
+    (ErrorV () v g)
+    (AuthMapV token v g)
+    (AuthMapV token v g')
+    (ErrorV () v g') where
+  key k = Path (AuthMapV . singletonSubVessel k) (lookupSubVessel k . unAuthMapV)
 
 -- | Given a way to verify that a token corresponds to a valid identity and
 -- a way to handle queries whose result does not depend on the particular
