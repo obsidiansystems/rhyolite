@@ -158,6 +158,11 @@ unsafeObserveErrorV (ErrorV v) =
     err = fmap unSingleV $ lookupV ErrorVK_Error v
   in (err, lookupV ErrorVK_View v)
 
+noErrorP :: View v => Path (v g) (ErrorV err v g) (ErrorV err v g') (v g')
+noErrorP = Path liftErrorV (snd . unsafeObserveErrorV)
+
+errorP :: View v => Path (SingleV err g) (ErrorV err v g) (ErrorV err v g') (SingleV err g')
+errorP = Path (ErrorV . singletonV ErrorVK_Error) (lookupV ErrorVK_Error . unErrorV)
 
 -- | A morphism that only cares about error results.
 unsafeProjectE
