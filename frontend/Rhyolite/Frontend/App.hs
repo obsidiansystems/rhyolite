@@ -146,7 +146,7 @@ instance HasDocument m => HasDocument (RhyoliteWidget q r t m) where
 
 instance HasConfigs m => HasConfigs (RhyoliteWidget q r t m)
 
-instance (MonadWidget' t m, PrimMonad m) => Requester t (RhyoliteWidget q r t m) where
+instance (Monad m, Reflex t) => Requester t (RhyoliteWidget q r t m) where
   type Request (RhyoliteWidget q r t m) = r
   type Response (RhyoliteWidget q r t m) = Identity
   requesting = RhyoliteWidget . requesting
