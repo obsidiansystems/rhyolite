@@ -92,7 +92,7 @@ withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> w
               let feedTransactions = forever $ do
                     Unclassy.atomically (Unclassy.readTChan transactions) >>= \case
                       Left msg -> do
-                        putStrLn $ "Received message: " <> show msg
+                        putMyLog $ "Received message: " <> show msg
                         when (_message_prefix msg == snapshotFencePrefix) $ do
                           case parseOnly (txidSnapshotParser <* endOfInput) $ _message_content msg of
                             Right s -> releaseSnapshot s
