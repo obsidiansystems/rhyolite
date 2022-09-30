@@ -59,31 +59,6 @@ snapshotFencePrefix = "obelisk/snapshotFence"
 withDbDriver
   :: forall db a . _ => (Text -> IO ()) -> ByteString -> AnnotatedDatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
 withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
-  withResource pool $ \conn -> do
-    let expectedHaskellSchema = fromAnnotatedDbSettings annotatedDb (Proxy @'[])
-    actualDatabaseSchema <- getSchema conn
-    case diff expectedHaskellSchema actualDatabaseSchema of
-      Left err -> do
-        putStrLn "Error detecting database migration requirements: "
-        print err
-      Right [] ->
-        putStrLn "No database migration required, continuing startup."
-      Right edits -> do
-        putStrLn "Database migration required, attempting..."
-        putStrLn $ Text.unpack $ Text.unlines
-          -- TODO:  fix up the output of prettyEditActionDescription to be
-          -- valid haskell, add a note to the output here to tell devs how to
-          -- use that output to write an explicit migration
-          -- -- fmap (prettyEditActionDescription . _editAction . fst . unPriority) edits
-
-          $ fmap (prettyEditSQL . fst . unPriority) edits
-
-        try (runMigrationWithEditUpdate Prelude.id conn expectedHaskellSchema) >>= \case
-          Left (e :: SomeException) ->
-            error $ "Database migration error: " <> displayException e
-          Right _ ->
-            pure ()
-
   readerIdVar <- newRef (1 :: Int)
   let db = deAnnotateDatabase annotatedDb
       dbDriver = DbDriver
