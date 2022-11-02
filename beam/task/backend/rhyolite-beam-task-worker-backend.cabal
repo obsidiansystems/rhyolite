@@ -57,6 +57,7 @@ test-suite test
     , filepath
     , gargoyle-postgresql-connect
     , hspec
+    , HUnit
     , lens
     , monad-logger
     , postgresql-simple
