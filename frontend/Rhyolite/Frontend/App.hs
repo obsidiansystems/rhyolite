@@ -43,6 +43,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint.Extras
 import Data.Default (Default)
+import Data.Monoid (Dual (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
 import Data.Some
@@ -391,7 +392,12 @@ fromNotifications :: forall m (t :: *) q.
   -> Event t (QueryResult q)
   -> m (Dynamic t (QueryResult q))
 fromNotifications vs ePatch = do
-  ePatchThrottled <- throttleBatchWithLag lag ePatch
+  -- Note: throttleBatchWithLag appends each new item on the righthand side of
+  -- the accumulation buffer.  Our patches expect to be appended on the left,
+  -- i.e. (new <> old).  Therefore, we use Data.Monoid.Dual to make the patches
+  -- accumulate in the correct order.  Otherwise, when batching occurs, the
+  -- frontend will end up displaying old data instead of new data.
+  ePatchThrottled <- fmap (fmap getDual) $ throttleBatchWithLag lag (Dual <$> ePatch)
   foldDyn (\(vs', p) v -> crop vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
   where
     lag e = performEventAsync $ ffor e $ \a cb -> liftIO $ cb a
