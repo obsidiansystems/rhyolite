@@ -24,9 +24,11 @@ import Data.Aeson
 import Data.Constraint.Extras
 import Data.Maybe
 import qualified Data.Map.Monoidal as MMap
+import qualified Data.Map as DataMap
 import qualified Data.Map.Strict as Map
 import Data.Patch
 import Data.Semigroup
+import Data.Semigroup.Commutative
 import qualified Data.Set as Set
 import Data.Vessel
 import Data.Vessel.SubVessel
@@ -49,14 +51,14 @@ getAuthMapV
   :: Ord auth
   => AuthMapV auth v g
   -> SubVessel auth v g
-getAuthMapV (AuthMapV v) = mapMaybeWithKeySubVesselSlow (\_ -> snd . unsafeObserveErrorV) v
+getAuthMapV (AuthMapV v) = mkSubVessel $ MMap.mapMaybeWithKey (\_ -> snd . unsafeObserveErrorV) $ getSubVessel v
 
 -- | Construct an authorised 'AuthMapV'
 makeAuthMapV
   :: (Ord auth, View v)
   => SubVessel auth v g
   -> AuthMapV auth v g
-makeAuthMapV = AuthMapV . mapMaybeWithKeySubVesselSlow (\_ -> Just . liftErrorV)
+makeAuthMapV = AuthMapV . mkSubVessel . MMap.mapMaybeWithKey (\_ -> Just . liftErrorV) . getSubVessel
 
 deriving instance (Ord auth, Eq (view g), Eq (g (First (Maybe ())))) => Eq (AuthMapV auth view g)
 
@@ -79,15 +81,19 @@ deriving instance
 
 deriving instance
   ( Ord auth
-  , Has' Group (ErrorVK () v) (FlipAp g)
+  , Semigroup (g (First (Maybe ())))
+  , Semigroup (v g)
+  , Group (g (First (Maybe ())))
+  , Group (v g)
   , View v
   ) => Group (AuthMapV auth v g)
 
 deriving instance
   ( Ord auth
-  , Has' Additive (ErrorVK () v) (FlipAp g)
+  , Semigroup (g (First (Maybe ())))
+  , Semigroup (v g)
   , View v
-  ) => Additive (AuthMapV auth v g)
+  ) => Commutative (AuthMapV auth v g)
 
 deriving instance (Ord auth, PositivePart (g (First (Maybe ()))), PositivePart (v g)) => PositivePart (AuthMapV auth v g)
 
@@ -222,7 +228,12 @@ handlePersonalAuthMapQuery readToken handler vt = do
       disperseTokens = Compose . MMap.MonoidalMap
         . foldMap (\(t, a) -> Map.fromSet (const (Identity a)) t)
 
-  (vtReadToken, invalidTokens) <- runWriterT $ traverseMaybeSubVesselSlow authoriseAction $ getAuthMapV vt
+  (vtReadToken, invalidTokens) <- runWriterT
+    $ fmap (mkSubVessel . MMap.MonoidalMap)
+    $ DataMap.traverseMaybeWithKey authoriseAction
+    $ MMap.getMonoidalMap
+    $ getSubVessel
+    $ getAuthMapV vt
 
   vt' <- handler injectResult $ mapV condenseTokens $ condenseV $ getSubVessel vtReadToken
 
