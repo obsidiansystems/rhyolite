@@ -55,6 +55,7 @@ import qualified Data.Map.Monoidal as Map
 import Data.MonoidMap (MonoidMap(..), monoidMap)
 import Data.Pool (Pool)
 import Data.Semigroup ((<>), Semigroup)
+import Data.Semigroup.Commutative
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import qualified Data.Text.IO as T
@@ -64,7 +65,7 @@ import Data.Witherable (Filterable(..))
 import qualified Database.PostgreSQL.Simple as Pg
 import Debug.Trace (trace)
 import qualified Network.WebSockets as WS
-import Reflex (Additive, Group(..))
+import Reflex (Group(..))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
 import Snap.Core (Snap)
@@ -283,7 +284,7 @@ fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler q
 -- "notifications" indicate that some data in the database has changed, and
 -- that connected clients may need to be made aware of the change.
 feedPipeline
-  :: (Group q, Additive q, PositivePart q, Monoid (QueryResult q))
+  :: (Group q, Commutative q, PositivePart q, Monoid (QueryResult q))
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available.
@@ -471,7 +472,7 @@ serveDbOverWebsockets
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => Pool Pg.Connection
@@ -514,7 +515,7 @@ serveDbOverWebsocketsRaw
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => ((WS.Connection -> IO ()) -> m a)
@@ -552,7 +553,7 @@ serveVessel ::
   , Query (v count)
   , Group (v (Compose clients count))
   , Group (v count)
-  , Additive (v (Compose clients count))
+  , Commutative (v (Compose clients count))
   , PositivePart (v (Compose clients count))
   , QueryResult (v (Const ())) ~ v Identity
   , QueryResult (v count) ~ v Identity
