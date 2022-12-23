@@ -222,7 +222,6 @@ serveDbOverWebsocketsNew
     ( ConstraintsForT db IsTable
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
-    , ConstraintsFor r ToJSON
     , GZipDatabase Postgres
       (AnnotatedDatabaseEntity Postgres db) (AnnotatedDatabaseEntity Postgres db) (DatabaseEntity Postgres db)
       (Rep (db (AnnotatedDatabaseEntity Postgres db))) (Rep (db (AnnotatedDatabaseEntity Postgres db)))
@@ -249,7 +248,7 @@ serveDbOverWebsocketsNew
     , ToJSON (QueryResult qWire)
     , FromJSON qWire
     , FromJSON (Some r)
-    , ArgDict ToJSON r
+    , Has ToJSON r
     , Coverage (Cov push)
     , Coverage (Cov pull)
     , Show push
@@ -461,7 +460,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
 --  3. Transforms the incoming wire-format query and produce responses for new inbound queries
 handleWebsocketConnection
   :: forall r i x qWire.
-  (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), ConstraintsFor r ToJSON, ArgDict ToJSON r)
+  (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), Has ToJSON r)
   => Text -- ^ Version
   -> Pipeline i qWire
   -- ^ Query morphism to translate between wire queries and queries with a

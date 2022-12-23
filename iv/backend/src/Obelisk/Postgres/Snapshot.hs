@@ -17,7 +17,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Builder
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Database.PostgreSQL.Simple.FromField (FromField (..), typename)
+import Database.PostgreSQL.Simple.FromField
 import Database.PostgreSQL.Simple.ToField (ToField (..), Action (..))
 import Data.Attoparsec.ByteString.Char8 (Parser)
 import qualified Data.Attoparsec.ByteString.Char8 as A
@@ -41,13 +41,13 @@ data TxidSnapshot = TxidSnapshot
 
 instance FromField TxidSnapshot where
   fromField f = \case
-    Nothing -> fail "TxidSnapshot cannot be null"
+    Nothing -> returnError ConversionFailed f $ "TxidSnapshot cannot be null"
     Just d -> do
       typ <- typename f -- Is this check worth it?
-      when (typ /= "txid_snapshot") $ fail $ "TxidSnapshot has wrong postgres type: " <> show typ
+      when (typ /= "txid_snapshot") $ returnError ConversionFailed f $ "TxidSnapshot has wrong postgres type: " <> show typ
       case A.parseOnly (txidSnapshotParser <* A.endOfInput) d of
         Right s -> pure s
-        Left l -> fail $ show l
+        Left l -> returnError ConversionFailed f $ show l
 
 instance ToField TxidSnapshot where
   toField = Escape . LBS.toStrict . toLazyByteString . txidSnapshotToBuilder
