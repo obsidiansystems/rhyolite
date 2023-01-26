@@ -74,8 +74,9 @@ with this Rhyolite thunk:
   "owner": "obsidiansystems",
   "repo": "rhyolite",
   "branch": "master",
-  "rev": "06b9851a101408a86a4ec0b7df5b2f71bc532ab0",
-  "sha256": "18adbc1nnj94qhggpcxmpd5i1rz0zx93cpphl09mw4c7s65rzah7"
+  "private": false,
+  "rev": "9f13d8d8a2233aae54e15c39acf68181893b859a",
+  "sha256": "1vhbw9bdqpfddavfjfdrq6kk5wwsd8hbgb8pnna9i2db3x3cmzvy"
 }
 ```
 
