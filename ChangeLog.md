@@ -2,7 +2,7 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## 2023-01-26
 * Breaking: Rhyolite.Frontend.Cookie now always Base64 encodes cookies
 * change taskWorker to not manage the hasRun flag.  For the old behavior, use `taskWorker1` which adds back the at-most-once execution behavior.  The old `_task_hasRun` field of Task is a separate argument.
 * Task type no longer uses lenses for field accessors.  use field labels or regular functions instead.
