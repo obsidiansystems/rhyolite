@@ -5,7 +5,7 @@ module Obelisk.View.App where
 import Control.Applicative
 import Data.Foldable
 import Control.Category
-import Control.Exception (bracket)
+import Control.Exception (bracket, SomeException, handle, throw)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
@@ -478,11 +478,13 @@ handleWebsocketConnection v fromWire rh register conn = do
   bracket (runRegistrar register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
     (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
     case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
-        -- TODO: forkIO
-        a <- runRequestHandler rh req
-        sendEncodedDataMessage conn
-          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
+      WebSocketRequest_Api (TaggedRequest reqId (Some req)) ->
+        -- TODO: don't leak all error messages from the backend to the frontend by blanket sending the text of uncaught errors.
+        handle (\(e :: SomeException) -> sendEncodedDataMessage conn ((WebSocketResponse_Api $ TaggedResponse_Error reqId (tshow e)) :: WebSocketResponse qWire) >> throw e) $ do
+          -- TODO: forkIO
+          a <- runRequestHandler rh req
+          sendEncodedDataMessage conn
+            (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
       WebSocketRequest_ViewSelector new -> do
         q2i new >>= \case
           Nothing -> pure ()

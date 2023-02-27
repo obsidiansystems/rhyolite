@@ -359,7 +359,7 @@ runRhyoliteWidget toWire url child = do
             ( _appWebSocket_notification appWebSocket
             , _appWebSocket_response appWebSocket
             )
-      (request', response') <- matchResponsesWithRequests reqEncoder request $ ffor response $ \(TaggedResponse t v) -> (t, v)
+      (request', response') <- matchResponsesWithRequests reqEncoder request $ fforMaybe response $ \case { (TaggedResponse t v) -> Just (t, v); _ -> Nothing; }
       let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
             Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
             _ -> Nothing)) request'
