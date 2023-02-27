@@ -174,7 +174,7 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
               let add = atomicModifyRef' allWorkersRef $ \w -> (Set.insert tid w, ())
                   remove = atomicModifyRef' allWorkersRef $ \w -> (Set.delete tid w, ())
               bracket_ add remove a
-        handle (\(SomeException e) -> putLog (tshow e) >> throwM e) $ do
+        handle (\(SomeException e) -> putLog ("runDbIv: shutting down due to exception: " <> tshow e) >> throwM e) $ do
           let closeTime i = do
                 (toClose, stale) <- atomicModifyRef' openReadTransactionsRef $ \conns ->
                   let (before, toClose, after) = sliceIntMap i conns
