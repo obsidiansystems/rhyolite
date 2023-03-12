@@ -55,8 +55,7 @@ data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a
   deriving (Show)
 
-instance (ArgDict c public, ArgDict c private) => ArgDict c (ApiRequest cred public private) where
-  type ConstraintsFor (ApiRequest cred public private) c = (ConstraintsFor public c, ConstraintsFor private c)
+instance (Has c public, Has c private) => Has c (ApiRequest cred public private) where
   argDict = \case
     ApiRequest_Public x -> argDict x
     ApiRequest_Private _ x -> argDict x

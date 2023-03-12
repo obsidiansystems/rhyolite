@@ -21,6 +21,7 @@ library
     , attoparsec
     , base
     , bytestring
+    , commutative-semigroups
     , constraints
     , constraints-extras
     , containers

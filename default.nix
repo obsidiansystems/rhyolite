@@ -42,27 +42,25 @@ let
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
-    bytestring-trie = repos.bytestring-trie;
-    dependent-monoidal-map = repos.dependent-monoidal-map;
+    #bytestring-trie = repos.bytestring-trie;
+    #dependent-monoidal-map = repos.dependent-monoidal-map;
     groundhog = repos.groundhog + "/groundhog";
     groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
     groundhog-th = repos.groundhog + "/groundhog-th";
-    monoid-map = repos.monoid-map;
-    postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
-    postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
+    #monoid-map = repos.monoid-map;
+    #postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
+    #postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
 
-    # Newer versions than those in reflex-platform
-    gargoyle = repos.gargoyle + "/gargoyle";
-    gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
-    gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
-    gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
-    database-id-class = repos.database-id + "/class";
+    ## Newer versions than those in reflex-platform
+    #gargoyle = repos.gargoyle + "/gargoyle";
+    #gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
+    #gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
+    #gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
+    #database-id-class = repos.database-id + "/class";
     database-id-groundhog = repos.database-id + "/groundhog";
-    database-id-obelisk = repos.database-id + "/obelisk";
+    #database-id-obelisk = repos.database-id + "/obelisk";
     push-notifications = repos.push-notifications;
-    vessel = repos.vessel;
-    dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
-
+    #dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -97,6 +95,11 @@ let
         pkg = "monad-logger-extras";
         ver = "0.1.1.1";
         sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
+      } {};
+      monoid-map = self.callHackageDirect {
+        pkg = "monoid-map";
+        ver = "0.2.0.0";
+        sha256 = "sha256-TYeyFzOZ6VbLHQ2GYEx9aXBMn98c7NINyrU3cyjGYlI=";
       } {};
       monoid-subclasses = self.callHackageDirect {
         pkg = "monoid-subclasses";

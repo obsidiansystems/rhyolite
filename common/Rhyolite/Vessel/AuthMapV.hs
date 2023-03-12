@@ -27,14 +27,15 @@ import qualified Data.Map.Monoidal as MMap
 import qualified Data.Map.Strict as Map
 import Data.Patch
 import Data.Semigroup
+import Data.Semigroup.Commutative
 import qualified Data.Set as Set
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Data.Witherable
 import GHC.Generics
 import Reflex.Query.Class
+import Witherable
 
 import Rhyolite.App
 import Rhyolite.Vessel.ErrorV
@@ -79,15 +80,17 @@ deriving instance
 
 deriving instance
   ( Ord auth
+  , Has' Semigroup (ErrorVK () v) (FlipAp g)
   , Has' Group (ErrorVK () v) (FlipAp g)
   , View v
   ) => Group (AuthMapV auth v g)
 
 deriving instance
   ( Ord auth
-  , Has' Additive (ErrorVK () v) (FlipAp g)
+  , Has' Semigroup (ErrorVK () v) (FlipAp g)
+  , Has' Commutative (ErrorVK () v) (FlipAp g)
   , View v
-  ) => Additive (AuthMapV auth v g)
+  ) => Commutative (AuthMapV auth v g)
 
 deriving instance (Ord auth, PositivePart (g (First (Maybe ()))), PositivePart (v g)) => PositivePart (AuthMapV auth v g)
 

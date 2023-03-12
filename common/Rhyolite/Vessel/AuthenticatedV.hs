@@ -12,6 +12,7 @@
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
 {-# Language StandaloneDeriving #-}
+{-# LANGUAGE ConstraintKinds #-}
 -- TODO Upstream for DMap
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
@@ -30,6 +31,7 @@ import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Vessel
 import Data.Semigroup
+import Data.Semigroup.Commutative
 import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
@@ -94,8 +96,7 @@ instance GCompare (AuthenticatedVKey public private personal) where
       AuthenticatedVKey_Private -> GGT
       AuthenticatedVKey_Personal -> GEQ
 
-instance ArgDict c (AuthenticatedVKey public private personal) where
-  type ConstraintsFor (AuthenticatedVKey public private personal) c = (c public, c private, c personal)
+instance (c public, c private, c personal) => Has c (AuthenticatedVKey public private personal) where
   argDict = \case
     AuthenticatedVKey_Public -> Dict
     AuthenticatedVKey_Private -> Dict
@@ -104,7 +105,7 @@ instance ArgDict c (AuthenticatedVKey public private personal) where
 -- | A functor-parametric container that has a public part and a private part.
 newtype AuthenticatedV public private personal g = AuthenticatedV
   { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
-  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart, DecidablyEmpty)
+  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Commutative, PositivePart, DecidablyEmpty)
 
 instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 

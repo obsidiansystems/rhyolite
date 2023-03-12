@@ -54,19 +54,20 @@ import qualified Data.Map.Monoidal as Map
 import Data.MonoidMap (MonoidMap(..), monoidMap)
 import Data.Pool (Pool)
 import Data.Semigroup ((<>), Semigroup)
+import Data.Semigroup.Commutative (Commutative)
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
 import Data.Vessel
-import Data.Witherable (Filterable(..))
 import qualified Database.PostgreSQL.Simple as Pg
 import Debug.Trace (trace)
 import qualified Network.WebSockets as WS
-import Reflex (Additive, Group(..))
+import Reflex (Group(..))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
 import Snap.Core (Snap)
+import Witherable (Filterable(..))
 
 import Data.Signed (Signed)
 import Data.Signed.ClientSession as CS (Key, readSignedWithKey)
@@ -144,7 +145,7 @@ extendRegistrar (Pipeline p) (Registrar r) = Registrar $ \recipient -> do
 -- | Prints queries for debugging
 tracePipelineQuery :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipelineQuery tag = Pipeline $ \qh r -> do
-  return 
+  return
     ( QueryHandler $ \q -> do
         putStrLn $ tag ++ "(query): " ++ show q
         qr <- runQueryHandler qh q
@@ -157,7 +158,7 @@ tracePipelineQuery tag = Pipeline $ \qh r -> do
 tracePipeline :: (Show q, Show (QueryResult q)) => String -> Pipeline IO q q
 tracePipeline tag = Pipeline $ \qh r -> do
   putStrLn $ tag ++ "(start)"
-  return 
+  return
     ( QueryHandler $ \q -> do
         putStrLn $ tag ++ "(query): " ++ show q
         qr <- runQueryHandler qh q
@@ -229,7 +230,7 @@ multiplexQuery lookupQueryHandler = do
           qOld <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
             ((nextCid, Map.update (\(r, _) -> Just (r, q)) cid recipients), maybe mempty snd $ Map.lookup cid recipients)
           runQueryHandler (lookupQueryHandler cid) (q ~~ qOld)
-              
+
         unregisterRecipient = do
           antiQ <- liftIO $ atomicModifyIORef' clients $ \(nextCid, recipients) ->
             case Map.updateLookupWithKey (\_ _ -> Nothing) cid recipients of
@@ -282,7 +283,7 @@ fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler q
 -- "notifications" indicate that some data in the database has changed, and
 -- that connected clients may need to be made aware of the change.
 feedPipeline
-  :: (Group q, Additive q, PositivePart q, Monoid (QueryResult q))
+  :: (Group q, Commutative q, PositivePart q, Monoid (QueryResult q))
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available.
@@ -470,7 +471,7 @@ serveDbOverWebsockets
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => Pool Pg.Connection
@@ -513,7 +514,7 @@ serveDbOverWebsocketsRaw
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => ((WS.Connection -> IO ()) -> m a)
@@ -551,7 +552,7 @@ serveVessel ::
   , Query (v count)
   , Group (v (Compose clients count))
   , Group (v count)
-  , Additive (v (Compose clients count))
+  , Commutative (v (Compose clients count))
   , PositivePart (v (Compose clients count))
   , QueryResult (v (Const ())) ~ v Identity
   , QueryResult (v count) ~ v Identity
@@ -709,7 +710,7 @@ mapQueryHandlerAndRecipient qm qh s = (mapQueryHandler qm qh, mapRecipient qm s)
 fmapQueryMorphism ::
   ( Functor f
   , QueryResult (f q) ~ f (QueryResult q)
-  , QueryResult (f q') ~ f (QueryResult q') 
+  , QueryResult (f q') ~ f (QueryResult q')
   )
   => QueryMorphism q q'
   -> QueryMorphism (f q) (f q')
