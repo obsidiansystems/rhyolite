@@ -1,4 +1,13 @@
-module Obelisk.Db (withDb, withDbUri, withConnectionPool) where
+module Obelisk.Db
+  ( withDb
+  , withDbUri
+  , withDbUriOptions
+  , withConnectionPool
+  -- * Options
+  , Options
+  , options_extraPostgresConfig
+  , defaultOptions
+  ) where
 
 import Control.Exception (bracket)
 import Data.ByteString (ByteString)
@@ -22,8 +31,25 @@ withDb
   -> IO a
 withDb dbPath a = withDbUri dbPath $ \dbUri -> withConnectionPool dbUri a
 
-withDbUri :: FilePath -> (ByteString -> IO a) -> IO a
-withDbUri dbPath a = do
+data Options = Options
+  { options_extraPostgresConfig :: [String]
+    -- ^ Extra lines to add to @postgresql.conf@.
+  }
+
+defaultOptions :: Options
+defaultOptions = Options
+  { options_extraPostgresConfig = []
+  }
+
+withDbUri :: FilePath  -> (ByteString -> IO a)  -> IO a
+withDbUri = withDbUriOptions defaultOptions
+
+withDbUriOptions
+  :: Options -- Use 'defaultOptions' for no additional options
+  -> FilePath
+  -> (ByteString -> IO a)
+  -> IO a
+withDbUriOptions options dbPath a = do
   dbExists <- doesFileExist dbPath
   if dbExists
     -- use the file contents as the uri for an existing server
@@ -36,13 +62,14 @@ withDbUri dbPath a = do
       let myConfig = defaultConfig
             { _gargoyle_init = \workDir -> do
                 _gargoyle_init defaultConfig workDir
-                appendFile (workDir </> "postgresql.conf") $ unlines
+                appendFile (workDir </> "postgresql.conf") $ unlines $
                   [ ""
                   , "# Added by Obelisk.Db"
                   , "wal_level = logical"
                   , "max_wal_senders = 10"
-                  , ""
-                  ]
+                  ] ++ options_extraPostgresConfig options
+                    ++ [""]
+
                 appendFile (workDir </> "pg_hba.conf") $ unlines
                   [ ""
                   , "# Added by Obelisk.Db"
