@@ -3,6 +3,8 @@ module Obelisk.Db
   , withDbUri
   , withDbUriOptions
   , withConnectionPool
+  , postgresNixLogicalReplication
+  , postgresNixLogicalReplicationOptions
   -- * Options
   , Options
   , options_extraPostgresConfig
@@ -58,26 +60,35 @@ withDbUriOptions options dbPath a = do
       a dbUri
     -- otherwise assume its a folder for a local database
     else do
-      defaultConfig <- postgresNix
-      let myConfig = defaultConfig
-            { _gargoyle_init = \workDir -> do
-                _gargoyle_init defaultConfig workDir
-                appendFile (workDir </> "postgresql.conf") $ unlines $
-                  [ ""
-                  , "# Added by Obelisk.Db"
-                  , "wal_level = logical"
-                  , "max_wal_senders = 10"
-                  ] ++ options_extraPostgresConfig options
-                    ++ [""]
-
-                appendFile (workDir </> "pg_hba.conf") $ unlines
-                  [ ""
-                  , "# Added by Obelisk.Db"
-                  , "local replication postgres trust"
-                  , ""
-                  ]
-            }
+      myConfig <- postgresNixLogicalReplicationOptions options
       withGargoyle myConfig dbPath a
+
+-- | A version of 'postgresNix' with logical replication enabled
+postgresNixLogicalReplication :: IO (Gargoyle FilePath ByteString)
+postgresNixLogicalReplication = postgresNixLogicalReplicationOptions defaultOptions
+
+-- | A version of 'postgresNix' with logical replication enabled
+postgresNixLogicalReplicationOptions :: Options -> IO (Gargoyle FilePath ByteString)
+postgresNixLogicalReplicationOptions options = do
+  defaultConfig <- postgresNix
+  pure $ defaultConfig
+        { _gargoyle_init = \workDir -> do
+            _gargoyle_init defaultConfig workDir
+            appendFile (workDir </> "postgresql.conf") $ unlines $
+              [ ""
+              , "# Added by Obelisk.Db"
+              , "wal_level = logical"
+              , "max_wal_senders = 10"
+              ] ++ options_extraPostgresConfig options
+                ++ [""]
+
+            appendFile (workDir </> "pg_hba.conf") $ unlines
+              [ ""
+              , "# Added by Obelisk.Db"
+              , "local replication postgres trust"
+              , ""
+              ]
+        }
 
 openDbUri :: ByteString -> IO (Pool PG.Connection)
 openDbUri dbUri = do
