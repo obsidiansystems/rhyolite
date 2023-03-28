@@ -13,7 +13,6 @@ author:             Obsidian Systems LLC
 maintainer:         maintainer@obsidian.systems
 copyright:          2021 Obsidian Systems LLC
 category:           Data
-extra-source-files: CHANGELOG.md
 
 library
   exposed-modules:  Data.Signed.ClientSession
