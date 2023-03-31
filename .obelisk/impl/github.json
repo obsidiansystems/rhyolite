@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "develop",
+  "branch": "dylang/ob_mars_com",
   "private": false,
-  "rev": "e7ccc91806b94b424b086bf75087a0a5fd3ff0b5",
-  "sha256": "1xmfz5ck3bg7daxmalvzr4a58zmfrsp1h6y5zcii9ccxqmf3xl6g"
+  "rev": "71d167e0eab07a55dec6c0f3cb070d61bbda88fe",
+  "sha256": "01ygra7s2bnjz22v1zmbyn8wk4iqrln8fw3zixypa5i111ma2kw9"
 }

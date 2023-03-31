@@ -1,4 +1,4 @@
-{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs" "inNixShell"])
+{ obelisk ? import ../obelisk (builtins.removeAttrs args ["pkgs" "inNixShell"])
 , pkgs ? obelisk.nixpkgs
 , ... } @ args:
 
@@ -39,122 +39,23 @@ let
     rhyolite-account-types = ./account/types;
   };
 
-  # srcs used for overrides
-  overrideSrcs = rhyolitePackages // {
-    bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
-    bytestring-trie = repos.bytestring-trie;
-    dependent-monoidal-map = repos.dependent-monoidal-map;
-    groundhog = repos.groundhog + "/groundhog";
-    groundhog-postgresql = repos.groundhog + "/groundhog-postgresql";
-    groundhog-th = repos.groundhog + "/groundhog-th";
-    monoid-map = repos.monoid-map;
-    postgresql-simple = repos.postgresql-simple;  # v0.5.4.0 with a fix
-    postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
-
-    # Newer versions than those in reflex-platform
-    gargoyle = repos.gargoyle + "/gargoyle";
-    gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
-    gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
-    gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
-    database-id-class = repos.database-id + "/class";
-    database-id-groundhog = repos.database-id + "/groundhog";
-    database-id-obelisk = repos.database-id + "/obelisk";
-    push-notifications = repos.push-notifications;
-    vessel = repos.vessel;
-    dependent-sum-aeson-orphans = repos.dependent-sum-aeson-orphans;
-
-  };
-
-  # You can use these manually if you don’t want to use rhyolite.project.
-  # It will be needed if you need to combine with multiple overrides.
-  haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
-    (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
-    (self: super: {
-      frontend = super.frontend.override {
-        obelisk-executable-config-lookup = self.obelisk-executable-config-lookup;
-      };
-      beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
-      bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
-      dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
-        librarySystemDepends = [ pkgs.postgresql ];
-      };
-      postgresql-simple = haskellLib.dontCheck (
-          haskellLib.overrideCabal super.postgresql-simple {
-            revision = null;
-            editedCabalFile = null;
-          }
-        );
-      validation = haskellLib.dontCheck super.validation;
-
-      postgresql-lo-stream = self.callHackageDirect {
-        pkg = "postgresql-lo-stream";
-        ver = "0.1.1.1";
-        sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
-      } {};
-
-      monad-logger-extras = self.callHackageDirect {
-        pkg = "monad-logger-extras";
-        ver = "0.1.1.1";
-        sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
-      } {};
-      monoid-subclasses = self.callHackageDirect {
-        pkg = "monoid-subclasses";
-        ver = "1.1";
-        sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
-      } {};
-      HaskellNet = self.callHackage "HaskellNet" "0.6" {};
-      HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
-
-      base-orphans = self.callHackageDirect {
-        pkg = "base-orphans";
-        ver = "0.8.6";
-        sha256 = "sha256:17hplm1mgw65jbszg5z4vqk4i24ilxv8mbszr3s8lhpll5naik26";
-      } {};
-
-      # 'locale' is broken on nix darwin which is required by postgres 'initdb'
-      rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
-      then
-        haskellLib.dontCheck super.rhyolite-beam-task-worker-backend
-      else
-        super.rhyolite-beam-task-worker-backend;
-    })
-  ];
-
-in obelisk // {
-
-  inherit haskellOverrides;
-
-  rhyolitePackages = haskellPackages: builtins.intersectAttrs rhyolitePackages (haskellPackages.extend haskellOverrides);
-
-  # Function similar to obelisk.project that handles overrides for you.
-  project = base: projectDefinition:
-    obelisk.project base ({...}@args:
-      let def = projectDefinition args;
-      in def // {
-        overrides = lib.composeExtensions haskellOverrides (def.overrides or (_: _: {}));
-      });
-
-  # Used to build this project. Should only be needed by CI, devs.
-  proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
-    overrides = haskellOverrides;
-    packages = {
-      rhyolite-backend = ./backend;
-      rhyolite-common = ./common;
-      semimap = ./semimap;
-      rhyolite-frontend = ./frontend;
-      rhyolite-test-suite = ./test;
-    };
-    shells = rec {
-      ghc = [
-        "rhyolite-backend"
-        "rhyolite-test-suite"
-      ] ++ ghcjs;
-      ghcjs = [
-        "rhyolite-common"
-        "rhyolite-frontend"
-      ];
-    };
-    tools = ghc: [ pkgs.postgresql (pkgs.haskell.lib.markUnbroken reflex-platform.ghc.standalone-haddock) ];
+  genOverlays = attr: builtins.map (x: { name = x; version = "0.1"; src = attr."${x}";  }) (builtins.attrNames attr);
+  rhyoliteOverlays = genOverlays rhyolitePackages;
+in {
+  inherit rhyolitePackages;
+  inherit rhyoliteOverlays;
+  proj = obelisk.project {} ({ ... }: {
+    name = "skeleton";
+    src = ./.;
+    shells = ps: with ps; [
+      backend
+    ];
+    overrides = [
+      ({pkgs, lib, config, ... }: {
+          packages.obelisk-run.components.library.build-tools = with pkgs; [
+            iproute
+          ];
+      })
+    ];
   });
 }

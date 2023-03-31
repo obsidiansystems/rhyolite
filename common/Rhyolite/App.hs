@@ -43,7 +43,6 @@ import Data.These
 import Data.These.Combinators
 import Data.Typeable (Typeable)
 import Data.Vessel
-import Data.Vessel.Void
 import Data.Vessel.Internal (VSum(..))
 import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
@@ -99,7 +98,6 @@ deriving instance PositivePart (g v) => PositivePart (IdentityV v g)
 deriving instance PositivePart (g f) => PositivePart (FlipAp f g)
 deriving instance (GCompare f, Has' PositivePart f (FlipAp g)) => PositivePart (Vessel f g)
 deriving instance (Ord k, PositivePart (f g)) => PositivePart (SubVessel k f g)
-instance PositivePart (VoidV x) where positivePart = const Nothing
 
 instance PositivePart a => PositivePart [a] where positivePart = composePositivePart
 instance PositivePart a => PositivePart (Maybe a) where positivePart = composePositivePart

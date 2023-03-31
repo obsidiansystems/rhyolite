@@ -2,6 +2,7 @@ packages:
   account/backend/
   account/types/
   backend/
+  beam/orphans/
   beam/db/
   beam/task/backend/
   beam/task/types/
@@ -22,3 +23,9 @@ packages:
   signed-data/signed-data-clientsession/
   test/
   widgets/
+
+allow-newer: postgresql-lo-stream:base,
+             database-id-groundhog:base,
+             database-id-groundhog:groundhog,
+             database-id-class:base,
+             aeson
