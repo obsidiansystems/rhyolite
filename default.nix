@@ -70,6 +70,9 @@ let
   haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
     (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
     (self: super: {
+      frontend = super.frontend.override {
+        obelisk-executable-config-lookup = self.obelisk-executable-config-lookup;
+      };
       beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
       bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
       dependent-monoidal-map = haskellLib.doJailbreak super.dependent-monoidal-map;
