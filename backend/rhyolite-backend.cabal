@@ -19,6 +19,7 @@ library
     , commutative-semigroups
     , constraints
     , constraints-extras
+    , containers
     , lens
     , monoid-map
     , monoidal-containers
@@ -33,6 +34,7 @@ library
     , signed-data-clientsession
     , snap-core
     , some
+    , stm
     , text
     , vessel
     , websockets

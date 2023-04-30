@@ -157,6 +157,8 @@ data DbNotification n = DbNotification
   -- a GADT. See 'notify'.
   } deriving (Generic)
 
+deriving instance (Eq (DSum n Identity)) => Eq (DbNotification n)
+deriving instance (Ord (DSum n Identity)) => Ord (DbNotification n)
 deriving instance (Show (DSum n Identity)) => Show (DbNotification n)
 
 instance

@@ -28,6 +28,7 @@ such APIs. To actually define a request/response API, see `Rhyolite.Api`. For
 viewselector APIs, see `Data.Vessel`.
 -}
 {-# Language FlexibleContexts #-}
+{-# Language LambdaCase #-}
 {-# Language OverloadedStrings #-}
 {-# Language QuantifiedConstraints #-}
 {-# Language RankNTypes #-}
@@ -40,6 +41,8 @@ module Rhyolite.Backend.App where
 
 import Control.Category (Category)
 import qualified Control.Category as Cat
+import Control.Concurrent (forkFinally)
+import qualified Control.Concurrent.STM as STM
 import Control.Exception (SomeException(..), bracket, try)
 import Control.Lens (imapM_)
 import Control.Monad
@@ -49,6 +52,7 @@ import Data.Align
 import Data.Constraint.Extras
 import Data.Foldable (fold)
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
+import qualified Data.Map
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Data.Map.Monoidal as Map
 import Data.MonoidMap (MonoidMap(..), monoidMap)
@@ -283,29 +287,61 @@ fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler q
 -- "notifications" indicate that some data in the database has changed, and
 -- that connected clients may need to be made aware of the change.
 feedPipeline
-  :: (Group q, Commutative q, PositivePart q, Monoid (QueryResult q))
-  => IO (q -> IO (QueryResult q))
+  :: (Group q, Commutative q, PositivePart q, Monoid (QueryResult q), Ord notifyMessage)
+  => IO notifyMessage
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available.
+  -> (notifyMessage -> q -> IO (QueryResult q))
+  -- ^ Handler for notifications of changes to the datasource
   -> QueryHandler q IO
   -- ^ Retrieve data when requested by pipeline
   -> Recipient q IO
   -- ^ A way to push data into the pipeline
   -> IO (QueryHandler q IO, IO ())
   -- ^ A way for the pipeline to request data
-feedPipeline getNextNotification qh r = do
+feedPipeline getNextNotification nh qh r = do
   currentQuery <- newIORef mempty
   let qhSaveQuery = QueryHandler $ \new -> do
         atomicModifyIORef' currentQuery $ \old -> (new <> old, ())
         case positivePart new of
           Nothing -> return mempty
           Just q -> runQueryHandler qh q
-  stopWorker <- worker 10000 $ do
-    nm <- getNextNotification
-    q <- readIORef currentQuery
-    qr <- nm q
-    tellRecipient r qr
-  return (qhSaveQuery, stopWorker)
+
+  nmRegistry <- STM.atomically $ STM.newTVar mempty
+  nmPayloadChan <- STM.atomically STM.newTChan
+  let registerNotification nm = STM.atomically $ do
+        nmState <- STM.stateTVar nmRegistry $ \old ->
+          let new = Data.Map.alter
+                ( \case
+                    Nothing -> Just False
+                    Just False -> Just True
+                    Just True -> Just True
+                ) nm old
+          in (Data.Map.lookup nm new, new)
+        when (nmState == Just False) $ STM.writeTChan nmPayloadChan nm
+      unregisterNotification nm = STM.atomically $ do
+        nmState <- STM.stateTVar nmRegistry $ \old ->
+          let new = Data.Map.alter
+                ( \case
+                    Nothing -> Nothing
+                    Just False -> Nothing
+                    Just True -> Just False
+                ) nm old
+          in (Data.Map.lookup nm new, new)
+        when (nmState == Just False) $ STM.writeTChan nmPayloadChan nm
+
+  stopRegistrar <- worker 0 $ registerNotification =<< getNextNotification
+  stopWorker <- worker 0 $ do
+    nm <- STM.atomically $ STM.readTChan nmPayloadChan
+    forkFinally
+      ( do
+          q <- readIORef currentQuery
+          qr <- nh nm q
+          tellRecipient r qr
+      )
+      (\_ -> unregisterNotification nm)
+
+  return (qhSaveQuery, stopRegistrar >> stopWorker)
 
 -- ** Connecting a client (via websockets)
 -- $connect_client
@@ -468,6 +504,7 @@ serveDbOverWebsockets
      , Group q
      , Monoid (QueryResult q)
      , DecidablyEmpty (QueryResult q)
+     , Ord notifyMessage
      , FromJSON notifyMessage
      , Query q'
      , Group q'
@@ -511,6 +548,7 @@ serveDbOverWebsocketsRaw
      , Group q
      , Monoid (QueryResult q)
      , DecidablyEmpty (QueryResult q)
+     , Ord notifyMessage
      , FromJSON notifyMessage
      , Query q'
      , Group q'
@@ -528,7 +566,7 @@ serveDbOverWebsocketsRaw
   -> IO (m a, IO ())
 serveDbOverWebsocketsRaw withWsConn version fromWire db handleApi handleNotify handleQuery pipe = do
   (getNextNotification, finalizeListener) <- startNotificationListener db
-  rec (qh, finalizeFeed) <- feedPipeline (handleNotify <$> getNextNotification) handleQuery r
+  rec (qh, finalizeFeed) <- feedPipeline getNextNotification handleNotify handleQuery r
       (qh', r) <- unPipeline pipe qh r'
       (r', handleListen) <- connectPipelineToWebsocketsRaw withWsConn version fromWire handleApi qh'
   return (handleListen, finalizeFeed >> finalizeListener)
@@ -543,6 +581,7 @@ serveVessel ::
   , Has FromJSON r
   , ToJSON (QueryResult (v (Const ())))
   , forall a. ToJSON (r a)
+  , Ord notifyMessage
   , FromJSON notifyMessage
   , FromJSON (v (Const ()))
   , FromJSON (Some r)
