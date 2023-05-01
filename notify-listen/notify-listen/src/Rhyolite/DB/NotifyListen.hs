@@ -32,9 +32,10 @@ module Rhyolite.DB.NotifyListen
   , getSearchPath
   ) where
 
-import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Concurrent.STM (TChan)
 import qualified Control.Concurrent.STM as STM
+import Control.Exception (SomeException(..), catch, displayException)
 import Control.Monad (forever)
 import Data.Aeson (FromJSON, ToJSON, encode, decodeStrict')
 import qualified Data.ByteString as BS
@@ -81,21 +82,26 @@ notificationListener
   -- ^ @notifyMessage@ is usually a 'DbNotification'
 notificationListener db = do
   nChan <- STM.newBroadcastTChanIO
-  daemonThread <- forkIO $ withResource db $ \conn -> do
-    let cmd = listenCmd defaultNotificationChannel
-    _ <- PG.execute_ conn cmd
-    forever $ do
-      -- Handle notifications
-      PG.Notification _ channel message <- PG.getNotification conn
-      case channel of
-        _ | channel ==  channelToByteString defaultNotificationChannel -> do
-          -- Notification is on the expected NOTIFY channel
-          case decodeStrict' message of
-            Just a -> STM.atomically $ STM.writeTChan nChan a
+  let listener = withResource db $ \conn -> do
+        let cmd = listenCmd defaultNotificationChannel
+        _ <- PG.execute_ conn cmd
+        forever $ do
+          -- Handle notifications
+          PG.Notification _ channel message <- PG.getNotification conn
+          case channel of
+            _ | channel ==  channelToByteString defaultNotificationChannel -> do
+              -- Notification is on the expected NOTIFY channel
+              case decodeStrict' message of
+                Just a -> STM.atomically $ STM.writeTChan nChan a
+                _ -> putStrLn $ errorMessage defaultNotificationChannel $
+                  "Could not parse message: " <> show message
             _ -> putStrLn $ errorMessage defaultNotificationChannel $
-              "Could not parse message: " <> show message
-        _ -> putStrLn $ errorMessage defaultNotificationChannel $
-          "Received a message on unexpected channel: " <> show channel
+              "Received a message on unexpected channel: " <> show channel
+      daemon = listener `catch` \(SomeException e) -> do
+        putStrLn $ errorMessage defaultNotificationChannel $ displayException e
+        threadDelay 1000000
+        daemon
+  daemonThread <- forkIO daemon
   return (nChan, killThread daemonThread)
   where
     channelToByteString :: NotificationChannel -> BS.ByteString
