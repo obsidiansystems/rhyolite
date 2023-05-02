@@ -291,7 +291,7 @@ feedPipeline
   => IO notifyMessage
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available.
-  -> (notifyMessage -> q -> IO (QueryResult q))
+  -> (notifyMessage -> IO q -> IO (QueryResult q))
   -- ^ Handler for notifications of changes to the datasource
   -> QueryHandler q IO
   -- ^ Retrieve data when requested by pipeline
@@ -335,8 +335,7 @@ feedPipeline getNextNotification nh qh r = do
     nm <- STM.atomically $ STM.readTChan nmPayloadChan
     forkFinally
       ( do
-          q <- readIORef currentQuery
-          qr <- nh nm q
+          qr <- nh nm (readIORef currentQuery)
           tellRecipient r qr
       )
       (\_ -> unregisterNotification nm)
@@ -515,7 +514,7 @@ serveDbOverWebsockets
   -- ^ The database
   -> RequestHandler r IO
   -- ^ Handler for the request/response api
-  -> (notifyMessage -> q' -> IO (QueryResult q'))
+  -> (notifyMessage -> IO q' -> IO (QueryResult q'))
   -- ^ Handler for notifications of changes to the database
   -> QueryHandler q' IO
   -- ^ Handler for new viewselectors
@@ -560,7 +559,7 @@ serveDbOverWebsocketsRaw
   -> QueryMorphism qWire q -- ^ Query morphism to translate between wire queries and queries with a reasonable group instance. cf. functorFromWire, vesselFromWire
   -> Pool Pg.Connection
   -> RequestHandler r IO
-  -> (notifyMessage -> q' -> IO (QueryResult q'))
+  -> (notifyMessage -> IO q' -> IO (QueryResult q'))
   -> QueryHandler q' IO
   -> Pipeline IO (MonoidalMap ClientKey q) q'
   -> IO (m a, IO ())
@@ -602,7 +601,7 @@ serveVessel ::
   -- ^ Database connection pool (the datasource)
   -> RequestHandler r IO
   -- ^ Request/response api handler
-  -> (notifyMessage -> v (Compose clients count) -> IO (QueryResult (v (Compose clients count))))
+  -> (notifyMessage -> IO (v (Compose clients count)) -> IO (QueryResult (v (Compose clients count))))
   -- ^ Notification handler
   -> QueryHandler (v (Compose clients count)) IO
   -- ^ Handler for aggregated vesselized queries
