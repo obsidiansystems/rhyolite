@@ -49,7 +49,6 @@ library
     , witherable
 
   exposed-modules:
-    Data.Vessel.Void
     Rhyolite.Aeson.Orphans
     Rhyolite.Api
     Rhyolite.App
