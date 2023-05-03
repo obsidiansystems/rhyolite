@@ -50,6 +50,7 @@ let
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     monoid-map = repos.monoid-map;
+    postgresql-simple = repos.postgresql-simple;
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
 
     # Newer versions than those in reflex-platform
@@ -73,6 +74,7 @@ let
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
         librarySystemDepends = [ pkgs.postgresql ];
       };
+      postgresql-simple = haskellLib.dontCheck super.postgresql-simple;
       validation = haskellLib.dontCheck super.validation;
 
       postgresql-lo-stream = haskellLib.doJailbreak (self.callHackageDirect {
