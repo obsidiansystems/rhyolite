@@ -49,6 +49,7 @@ type family FieldPatches be x where
   FieldPatches be (S1 f (K1 Generic.R (Exposed a))) = S1 f (K1 Generic.R (FieldDecoder be a))
   FieldPatches be (S1 f (K1 Generic.R (tbl Exposed))) = S1 f (K1 Generic.R (tbl (FieldDecoder be)))
   FieldPatches be (S1 f (K1 Generic.R (tbl (Nullable Exposed)))) = S1 f (K1 Generic.R (tbl (Nullable (FieldDecoder be))))
+  FieldPatches be U1 = U1
 
 class GPatchFields be exposedRep where
   gPatchFields :: FieldPatches be exposedRep ()
@@ -76,6 +77,9 @@ instance ( GPatchFields be (Rep (tbl (Nullable Exposed)))
          , Generic (tbl (Nullable (FieldDecoder be)))
          ) => GPatchFields be (S1 f (K1 Generic.R (tbl (Nullable Exposed)))) where
   gPatchFields = M1 $ K1 $ to' $ gPatchFields @be @(Rep (tbl (Nullable Exposed)))
+
+instance GPatchFields be U1 where
+  gPatchFields = U1
 
 class PatchEntity be e where
   patchEntity :: EntityPatchDecoder be e
