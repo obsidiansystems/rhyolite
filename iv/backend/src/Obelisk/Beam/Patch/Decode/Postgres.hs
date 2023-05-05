@@ -60,6 +60,7 @@ decodeRow conn settings decoders r = zipBeamFieldsM d settings decoders
                 "smallint" -> pure $ TI.typoid TI.int2
                 "int4" -> pure $ TI.typoid TI.int4
                 "integer" -> pure $ TI.typoid TI.int4
+                "numeric" -> pure $ TI.typoid TI.numeric
                 "character varying" -> pure $ TI.typoid TI.text
                 "boolean" -> pure $ TI.typoid TI.bool
                 "bytea" -> pure $ TI.typoid TI.bytea
