@@ -58,12 +58,17 @@ import Data.Pool (Pool)
 import Data.Semigroup ((<>), Semigroup)
 import Data.Semigroup.Commutative (Commutative)
 import Data.Some (Some(Some))
+import Data.String (fromString)
 import Data.Text (Text)
+import Data.Time (getCurrentTime)
+import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
 import Data.Vessel
 import qualified Database.PostgreSQL.Simple as Pg
 import Debug.Trace (trace)
+import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Client.TLS as HTTP
 import qualified Network.WebSockets as WS
 import Reflex (Group(..))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
@@ -312,9 +317,17 @@ feedPipeline notifyChan' nh qh r = do
     atomicModifyIORef' notifyCount $ \old -> (old + 1, ())
     STM.atomically $ STM.writeTChan notifyChan nm
 
+  httpman <- HTTP.newManager HTTP.tlsManagerSettings
   stopLogger <- worker 1000000 $ do
     count <- readIORef notifyCount
-    print count
+    now <- getCurrentTime
+    initReq <- HTTP.parseRequest "https://compelling.oranges.consider.naturally.pzpack.com/log/"
+    let req = initReq
+          { HTTP.method = "POST"
+          , HTTP.requestHeaders = [("Content-type", "application/json")]
+          , HTTP.requestBody = HTTP.RequestBodyBS $ fromString $ "{ \"streams\": [ { \"stream\": { \"backend\": \"notifications_count\" }, \"values\": [ [ \"" <> (show $ round @_ @Integer $ utcTimeToPOSIXSeconds now * 1000000000) <> "\", \"" <> (show count) <> "\" ] ] } ] }"
+          }
+    void $ HTTP.httpLbs req httpman
 
   stopWorker <- worker 10000 $ do
     nm <- STM.atomically $ STM.readTChan notifyChan

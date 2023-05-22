@@ -20,6 +20,8 @@ library
     , constraints
     , constraints-extras
     , containers
+    , http-client
+    , http-client-tls
     , lens
     , monoid-map
     , monoidal-containers
@@ -36,6 +38,7 @@ library
     , some
     , stm
     , text
+    , time
     , vessel
     , websockets
     , websockets-snap
