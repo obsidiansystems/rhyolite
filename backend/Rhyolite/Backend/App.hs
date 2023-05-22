@@ -297,7 +297,7 @@ feedPipeline
   -- ^ A way to push data into the pipeline
   -> IO (QueryHandler q IO, IO ())
   -- ^ A way for the pipeline to request data
-feedPipeline getNextNotification nh qh r = do
+feedPipeline notifyChan' nh qh r = do
   currentQuery <- newIORef mempty
   let qhSaveQuery = QueryHandler $ \new -> do
         atomicModifyIORef' currentQuery $ \old -> (new <> old, ())
@@ -305,12 +305,24 @@ feedPipeline getNextNotification nh qh r = do
           Nothing -> return mempty
           Just q -> runQueryHandler qh q
 
+  notifyChan <- STM.atomically STM.newTChan
+  notifyCount <- newIORef (0 :: Integer)
+  stopCounter <- worker 0 $ do
+    nm <- STM.atomically $ STM.readTChan notifyChan'
+    atomicModifyIORef' notifyCount $ \old -> (old + 1, ())
+    STM.atomically $ STM.writeTChan notifyChan nm
+
+  stopLogger <- worker 1000000 $ do
+    count <- readIORef notifyCount
+    print count
+
   stopWorker <- worker 10000 $ do
-    nm <- STM.atomically $ STM.readTChan getNextNotification
+    nm <- STM.atomically $ STM.readTChan notifyChan
     qr <- nh nm (readIORef currentQuery)
+    atomicModifyIORef' notifyCount $ \old -> (old - 1, ())
     tellRecipient r qr
 
-  return (qhSaveQuery, stopWorker)
+  return (qhSaveQuery, stopWorker >> stopCounter >> stopLogger)
 
 -- ** Connecting a client (via websockets)
 -- $connect_client
