@@ -49,6 +49,7 @@ let
     gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
     gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
     push-notifications = repos.push-notifications;
+    vessel = repos.vessel;
 
   };
 
