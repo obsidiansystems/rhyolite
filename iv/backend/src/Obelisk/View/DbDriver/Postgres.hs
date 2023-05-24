@@ -66,7 +66,7 @@ withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> w
       dbDriver = DbDriver
         { _dbDriver_withFeed = \sendTransaction releaseSnapshot innerGo -> do
             withLogicalDecodingTransactions logger def dbUri $ \transactions -> do
-              let feedTransactions wdt = do
+              let feedTransactions wdt = forever $ do
                     wdt
                     Unclassy.atomically (Unclassy.readTChan transactions) >>= \case
                       Left msg -> do
