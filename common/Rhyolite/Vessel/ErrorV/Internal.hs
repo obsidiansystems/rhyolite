@@ -118,16 +118,16 @@ liftErrorV :: View v => v g -> ErrorV e v g
 liftErrorV = ErrorV . singletonV ErrorVK_View
 
 -- | The successful part of the view will never be present
-failureErrorV :: e -> ErrorV e v Identity
-failureErrorV = ErrorV . singletonV ErrorVK_Error . SingleV . Identity . First . Just
+failureErrorV :: Applicative f => e -> ErrorV e v f
+failureErrorV = ErrorV . singletonV ErrorVK_Error . SingleV . pure . First . Just
 
 -- | Given an 'ErrorV' query and a way to provide a possibly failing result,
 -- construct an ErrorV result.
 buildErrorV
-  :: (View v, Monad m)
-  => (v Proxy -> m (Either e (v Identity)))
-  -> ErrorV e v Proxy
-  -> m (ErrorV e v Identity)
+  :: (View v, Monad m, Applicative g)
+  => (v f -> m (Either e (v g)))
+  -> ErrorV e v f
+  -> m (ErrorV e v g)
 buildErrorV f (ErrorV v) = case lookupV ErrorVK_View v of
   Nothing -> pure (ErrorV emptyV)
   Just v' -> f v' >>= \case

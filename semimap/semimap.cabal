@@ -19,6 +19,8 @@ library
     , lens
     , monoidal-containers
     , reflex
+    , semialign
+    , these
 
   exposed-modules:  Rhyolite.SemiMap
   other-extensions: TemplateHaskell

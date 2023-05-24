@@ -10,6 +10,7 @@ module Rhyolite.Backend.Account
   ( createAccount
   , login
   , ensureAccountExists
+  , ensureAccountExistsNoNotify
   , setAccountPassword
   , setAccountPasswordHash
   , makePasswordHash
@@ -85,6 +86,32 @@ login accountTable email pass = runMaybeT $ do
   pwHash <- MaybeT $ pure mPwHash
   guard $ verifyPasswordWith pbkdf2 (2^) (T.encodeUtf8 pass) pwHash
   pure (AccountId aid)
+
+ensureAccountExistsNoNotify
+  :: (Database Postgres db)
+  => DatabaseEntity Postgres db (TableEntity Account)
+  -> Text
+  -> Pg (Bool, PrimaryKey Account Identity)
+ensureAccountExistsNoNotify accountTable email = do
+  existingAccountId <- runSelectReturningOne $ select $ fmap primaryKey $ filter_ (\x ->
+    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ accountTable
+  case existingAccountId of
+    Just existing -> return (False, existing)
+    Nothing -> do
+      results <- runInsertReturningList $ insert accountTable $ insertExpressions
+        [ Account
+            { _account_id = default_
+            , _account_email = lower_ (val_ email)
+            , _account_password = nothing_
+            , _account_passwordResetNonce = nothing_
+            }
+        ]
+      case results of
+        [acc] -> do
+          let aid = primaryKey acc
+          -- notify NotificationType_Insert (notification accountTable) aid
+          pure (True, aid)
+        _ -> error "ensureAccountExists: Creating account failed"
 
 ensureAccountExists
   :: (Database Postgres db, HasNotification n Account, Has' ToJSON n Identity, ForallF ToJSON n)
