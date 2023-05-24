@@ -8,9 +8,17 @@ import Control.Monad.Conc.Class
 import Control.Concurrent.Classy.Async
 import Control.Concurrent.Classy.STM.TVar
 import Control.Monad
+import Data.Fixed
 
-withSingleWorker :: MonadConc m => m a -> m b -> m b
-withSingleWorker f g = withAsync f $ \a -> link a >> g
+withSingleWorker :: MonadConc m => Text -> m a -> m b -> m b
+withSingleWorker threadName f g = do
+  result <- race f g
+  case result of
+    Left _ -> error $ "Worker thread " <> T.unpack threadName <> " terminated unexpectedly"
+    Right a -> pure a
+
+threadDelayNDT :: MonadConc m => NominalDiffTime -> m ()
+threadDelayNDT ndt = threadDelay (fromEnum (realToFrac ndt :: Micro))
 
 withWatchdog :: forall m a. (MonadConc m, MonadIO m) => (Text -> IO ()) -> Text -> (m () -> m a) -> m a
 withWatchdog logger threadName f = do
@@ -20,9 +28,10 @@ withWatchdog logger threadName f = do
         restartTimer = do
           current <- liftIO getCurrentTime
           atomically $ writeTVar watchdogVar current
+        baseThreshold :: NominalDiffTime
         baseThreshold = 30
         watchdog currentThreshold = do
-          threadDelay (fromEnum $ baseThreshold * 1000 * 1000)
+          threadDelayNDT baseThreshold
           lastRestarted <- readTVarConc watchdogVar
           currentTime <- liftIO getCurrentTime
           let lag = diffUTCTime currentTime lastRestarted
@@ -33,11 +42,12 @@ withWatchdog logger threadName f = do
             else if lag < baseThreshold
                    then watchdog baseThreshold
                    else watchdog currentThreshold
-    withSingleWorker (watchdog baseThreshold) (f restartTimer)
+    withSingleWorker (threadName <> "-watchdog") (watchdog baseThreshold) (f restartTimer)
 
 withSingleWorkerWatchdog :: (MonadIO m, MonadConc m) => (Text -> IO ()) -> Text -> (m () -> m a) -> m b -> m b
 -- Something is wrong with the watchdog timers, disable for the moment.
 -- withSingleWorkerWatchdog logger threadName f g = withAsync (withWatchdog logger threadName f) $ \a -> link a >> g
-withSingleWorkerWatchdog logger threadName f g = withSingleWorker (f (pure ())) g
+-- withSingleWorkerWatchdog logger threadName f g = withSingleWorker threadName (f (pure ())) g
+withSingleWorkerWatchdog logger threadName f g = withSingleWorker threadName (withWatchdog logger threadName f) g
 
 
