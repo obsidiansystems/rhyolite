@@ -32,7 +32,6 @@ import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Data.Witherable
 import GHC.Generics
 import Reflex.Query.Class
 
