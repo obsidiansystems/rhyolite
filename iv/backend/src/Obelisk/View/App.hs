@@ -5,7 +5,7 @@ module Obelisk.View.App where
 import Control.Applicative
 import Data.Foldable
 import Control.Category
-import Control.Exception (bracket)
+import Control.Exception (bracket, SomeException, handle, throw)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
@@ -190,7 +190,12 @@ viewPipeline toCov toView = Pipeline $ do
             let sub = newSub' `differenceCoverage` currentSub
                 unsub = currentSub `differenceCoverage` newSub'
             in align (align sub unsub) sub
-    , pure . Just . mapV toView . getIView
+    , \push -> do
+        let v = mapV toView $ getIView push
+        pure $
+          if nullV v
+          then Nothing
+          else Just v
     , pure . Just . mapV toView . getIView
     )
 
@@ -217,7 +222,6 @@ serveDbOverWebsocketsNew
     ( ConstraintsForT db IsTable
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
-    , ConstraintsFor r ToJSON
     , GZipDatabase Postgres
       (AnnotatedDatabaseEntity Postgres db) (AnnotatedDatabaseEntity Postgres db) (DatabaseEntity Postgres db)
       (Rep (db (AnnotatedDatabaseEntity Postgres db))) (Rep (db (AnnotatedDatabaseEntity Postgres db)))
@@ -244,7 +248,7 @@ serveDbOverWebsocketsNew
     , ToJSON (QueryResult qWire)
     , FromJSON qWire
     , FromJSON (Some r)
-    , ArgDict ToJSON r
+    , Has ToJSON r
     , Coverage (Cov push)
     , Coverage (Cov pull)
     , Show push
@@ -456,7 +460,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
 --  3. Transforms the incoming wire-format query and produce responses for new inbound queries
 handleWebsocketConnection
   :: forall r i x qWire.
-  (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), ConstraintsFor r ToJSON, ArgDict ToJSON r)
+  (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), Has ToJSON r)
   => Text -- ^ Version
   -> Pipeline i qWire
   -- ^ Query morphism to translate between wire queries and queries with a
@@ -474,11 +478,13 @@ handleWebsocketConnection v fromWire rh register conn = do
   bracket (runRegistrar register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
     (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
     case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
-        -- TODO: forkIO
-        a <- runRequestHandler rh req
-        sendEncodedDataMessage conn
-          (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
+      WebSocketRequest_Api (TaggedRequest reqId (Some req)) ->
+        -- TODO: don't leak all error messages from the backend to the frontend by blanket sending the text of uncaught errors.
+        handle (\(e :: SomeException) -> sendEncodedDataMessage conn ((WebSocketResponse_Api $ TaggedResponse_Error reqId (tshow e)) :: WebSocketResponse qWire) >> throw e) $ do
+          -- TODO: forkIO
+          a <- runRequestHandler rh req
+          sendEncodedDataMessage conn
+            (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
       WebSocketRequest_ViewSelector new -> do
         q2i new >>= \case
           Nothing -> pure ()

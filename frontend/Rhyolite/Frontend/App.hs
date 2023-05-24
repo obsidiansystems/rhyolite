@@ -43,8 +43,10 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint.Extras
 import Data.Default (Default)
+import Data.Monoid (Dual (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
+import Data.Semigroup.Commutative
 import Data.Some
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -127,7 +129,7 @@ newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: Rhyolite
 
 deriving instance
   ( Group q
-  , Additive q
+  , Commutative q
   , Query q
   , Reflex t
   , Monad m
@@ -146,7 +148,7 @@ instance HasDocument m => HasDocument (RhyoliteWidget q r t m) where
 
 instance HasConfigs m => HasConfigs (RhyoliteWidget q r t m)
 
-instance (MonadWidget' t m, PrimMonad m) => Requester t (RhyoliteWidget q r t m) where
+instance (Monad m, Reflex t) => Requester t (RhyoliteWidget q r t m) where
   type Request (RhyoliteWidget q r t m) = r
   type Response (RhyoliteWidget q r t m) = Identity
   requesting = RhyoliteWidget . requesting
@@ -164,7 +166,7 @@ instance TriggerEvent t m => TriggerEvent t (RhyoliteWidget q r t m) where
 
 instance NotReady t m => NotReady t (RhyoliteWidget q r t m)
 
-instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group q, Additive q, Eq q, Query q) => DomBuilder t (RhyoliteWidget q r t m) where
+instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group q, Commutative q, Eq q, Query q) => DomBuilder t (RhyoliteWidget q r t m) where
   type DomBuilderSpace (RhyoliteWidget q r t m) = DomBuilderSpace m
   textNode = liftTextNode
   element elementTag cfg (RhyoliteWidget child) = RhyoliteWidget $ element elementTag cfg child
@@ -174,7 +176,7 @@ instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m
   placeRawElement = RhyoliteWidget . placeRawElement
   wrapRawElement e = RhyoliteWidget . wrapRawElement e
 
-instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq q, Group q, Additive q, Query q) => Adjustable t (RhyoliteWidget q r t m) where
+instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq q, Group q, Commutative q, Query q) => Adjustable t (RhyoliteWidget q r t m) where
   runWithReplace a0 a' = RhyoliteWidget $ runWithReplace (coerce a0) (coerceEvent a')
   traverseDMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
@@ -218,7 +220,7 @@ deriving instance
     , MonadFix m
     , Eq q
     , Group q
-    , Additive q
+    , Commutative q
     , Query q
   ) => Prerender t (RhyoliteWidget q r t m)
 
@@ -244,7 +246,7 @@ class
   , R.Request m ~ r
   , Response m ~ Identity
   , Group q
-  , Additive q
+  , Commutative q
   , MonadQuery t q m
   ) => MonadRhyoliteWidget q r t m | m -> q r where
 
@@ -254,7 +256,7 @@ instance
   , R.Request m ~ r
   , Response m ~ Identity
   , Group q
-  , Additive q
+  , Commutative q
   , MonadQuery t q m
   ) => MonadRhyoliteWidget q r t m
 
@@ -294,7 +296,7 @@ runObeliskRhyoliteWidget ::
   , Request req
   , Query qFrontend
   , Group qFrontend
-  , Additive qFrontend
+  , Commutative qFrontend
   , Eq qWire
   , Monoid (QueryResult qFrontend)
   , FromJSON (QueryResult qWire)
@@ -330,7 +332,7 @@ runRhyoliteWidget
       , Request req
       , Query qFrontend
       , Group qFrontend
-      , Additive qFrontend
+      , Commutative qFrontend
       , Eq qWire
       , Monoid (QueryResult qFrontend)
       , FromJSON (QueryResult qWire)
@@ -357,7 +359,7 @@ runRhyoliteWidget toWire url child = do
             ( _appWebSocket_notification appWebSocket
             , _appWebSocket_response appWebSocket
             )
-      (request', response') <- matchResponsesWithRequests reqEncoder request $ ffor response $ \(TaggedResponse t v) -> (t, v)
+      (request', response') <- matchResponsesWithRequests reqEncoder request $ fforMaybe response $ \case { (TaggedResponse t v) -> Just (t, v); _ -> Nothing; }
       let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
             Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
             _ -> Nothing)) request'
@@ -391,7 +393,12 @@ fromNotifications :: forall m (t :: *) q.
   -> Event t (QueryResult q)
   -> m (Dynamic t (QueryResult q))
 fromNotifications vs ePatch = do
-  ePatchThrottled <- throttleBatchWithLag lag ePatch
+  -- Note: throttleBatchWithLag appends each new item on the righthand side of
+  -- the accumulation buffer.  Our patches expect to be appended on the left,
+  -- i.e. (new <> old).  Therefore, we use Data.Monoid.Dual to make the patches
+  -- accumulate in the correct order.  Otherwise, when batching occurs, the
+  -- frontend will end up displaying old data instead of new data.
+  ePatchThrottled <- fmap (fmap getDual) $ throttleBatchWithLag lag (Dual <$> ePatch)
   foldDyn (\(vs', p) v -> crop vs' $ p <> v) mempty $ attach (current vs) ePatchThrottled
   where
     lag e = performEventAsync $ ffor e $ \a cb -> liftIO $ cb a
@@ -565,9 +572,9 @@ mapAuth
      , PostBuild t m
      , Query q
      , Group q
-     , Additive q
+     , Commutative q
      , Group q'
-     , Additive q'
+     , Commutative q'
      )
   => cred
   -- ^ The application's authentication token, used to transform api calls made by the authenticated child widget

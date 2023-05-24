@@ -10,6 +10,7 @@ common common
                , base64-bytestring
                , beam-core
                , bytestring
+               , commutative-semigroups
                , constraints
                , constraints-extras
                , containers

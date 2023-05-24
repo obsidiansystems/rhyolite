@@ -58,7 +58,7 @@ instance FromJSON (Some r) => FromJSON (TaggedRequest r)
 instance ToJSON (Some r) => ToJSON (TaggedRequest r)
 
 -- | A response tagged with an identifier matching the one in the 'TaggedRequest'. The identifier is the first argument.
-data TaggedResponse = TaggedResponse Int Value
+data TaggedResponse = TaggedResponse Int Value | TaggedResponse_Error Int Text
   deriving (Typeable, Generic)
 
 instance FromJSON TaggedResponse

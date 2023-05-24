@@ -2,6 +2,15 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+(Creating a separate list, because the previous changes probably deserve their own release)
+
+* Breaking: Drop groundhog support
+* Breaking: Use Commutative from commutative-semigroups instead of Additive from patch
+* Update to vessel-0.3
+* Support ghc-8.10
+* Add Data.Vessel.Void
+
 ## 2023-01-26
 * Breaking: Rhyolite.Frontend.Cookie now always Base64 encodes cookies
 * change taskWorker to not manage the hasRun flag.  For the old behavior, use `taskWorker1` which adds back the at-most-once execution behavior.  The old `_task_hasRun` field of Task is a separate argument.

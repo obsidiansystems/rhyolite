@@ -26,6 +26,7 @@ import Data.Foldable
 import Data.Functor.Identity
 import Data.Functor.Misc
 import Data.Maybe (fromMaybe, isNothing)
+import Data.Semigroup.Commutative
 import Data.Sequence ((|>), Seq(..))
 import Data.These
 import Data.Vessel
@@ -91,7 +92,7 @@ instance ( DZippable db
 
 instance ( HasT' Semigroup db (TableOnly (ComposeMaybe (Compose (Const SelectedCount) p)))
          , DZippable db
-         ) => Additive (DbPatchV db p (Const SelectedCount))
+         ) => Commutative (DbPatchV db p (Const SelectedCount))
 
 deriving instance Show (db (TableOnly (ComposeMaybe (Compose f p)))) => Show (DbPatchV db p f)
 deriving instance (DZippable db, HasT (TableHas Eq (ComposeMaybe (Compose f p))) db) => Eq (DbPatchV db p f)

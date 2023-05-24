@@ -26,10 +26,3 @@ deriving instance ToJSON (f a) => ToJSON (ComposeMaybe f a)
 
 deriving instance Semigroup (Maybe (g a)) => Semigroup (ComposeMaybe g a)
 deriving instance Monoid (Maybe (g a)) => Monoid (ComposeMaybe g a)
-
-instance (Eq a, Num a) => Patch (Sum a) where
-  type PatchTarget (Sum a) = a
-  apply (Sum a) b = let s = a + b in
-    if s == 0
-    then Nothing
-    else Just s
