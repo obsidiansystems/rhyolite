@@ -36,4 +36,8 @@ withWatchdog logger threadName f = do
     withSingleWorker (watchdog baseThreshold) (f restartTimer)
 
 withSingleWorkerWatchdog :: (MonadIO m, MonadConc m) => (Text -> IO ()) -> Text -> (m () -> m a) -> m b -> m b
-withSingleWorkerWatchdog logger threadName f g = withAsync (withWatchdog logger threadName f) $ \a -> link a >> g
+-- Something is wrong with the watchdog timers, disable for the moment.
+-- withSingleWorkerWatchdog logger threadName f g = withAsync (withWatchdog logger threadName f) $ \a -> link a >> g
+withSingleWorkerWatchdog logger threadName f g = withSingleWorker (f (pure ())) g
+
+
