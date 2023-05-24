@@ -14,6 +14,7 @@ module Obelisk.Api where
 
 import Prelude hiding ((.))
 
+import Obelisk.Concurrency
 import Obelisk.Postgres.Replication
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
 
@@ -28,6 +29,7 @@ import Data.Attoparsec.ByteString
 import Data.ByteString (ByteString)
 import Data.Default
 import Data.Pool (Pool, withResource)
+import Data.Text (Text)
 import Database.Beam (MonadBeam(..))
 import Database.Beam.Postgres
 import qualified Database.PostgreSQL.Simple as PG
@@ -77,24 +79,26 @@ unsafeReadDb f = ReadDb $ lift . f =<< ask
 unsafeWriteDb :: (PG.Connection -> IO a) -> WriteDb a
 unsafeWriteDb f = WriteDb $ lift . f =<< ask
 
-withLogicalDecodingTransactions :: LogicalDecodingOptions -> ByteString -> (TChan (Either Message Transaction) -> IO a) -> IO a
-withLogicalDecodingTransactions opts dbUri go = do
-  withLogicalDecoding dbUri "test_decoding" opts $ \decodedLines -> do
+withLogicalDecodingTransactions :: (Text -> IO ()) -> LogicalDecodingOptions -> ByteString -> (TChan (Either Message Transaction) -> IO a) -> IO a
+withLogicalDecodingTransactions logger opts dbUri go = do
+  withLogicalDecoding logger dbUri "test_decoding" opts $ \decodedLines -> do
     transactions :: TChan (Either Message Transaction) <- newTChanIO
     processLine <- linesToTransactions
-    let processLines = forever $ do
+    let processLines wdt = forever $ do
+          wdt
           lineRaw <- atomically $ readTChan decodedLines
           l <- case parseOnly (line <* endOfInput) lineRaw of
             Right l -> pure l
-            Left e -> fail $ "Error while parsing replication message: " <> e
+            Left e -> do
+              fail $ "Error while parsing replication message: " <> e
           Right mTransaction <- processLine l
-          forM_ mTransaction $ \transaction ->
+          forM_ mTransaction $ \transaction -> do
             atomically $ writeTChan transactions transaction
-    withAsync processLines $ \a -> link a >> do
+    withSingleWorkerWatchdog logger "withLogicalDecodingTransactions-processLines" processLines $
       go transactions
 
-withNonEmptyTransactions :: ByteString -> (TChan (Either Message Transaction) -> IO a) -> IO a
-withNonEmptyTransactions = withLogicalDecodingTransactions $ def
+withNonEmptyTransactions :: (Text -> IO ()) -> ByteString -> (TChan (Either Message Transaction) -> IO a) -> IO a
+withNonEmptyTransactions logger = withLogicalDecodingTransactions logger $ def
   { _logicalDecodingOptions_pluginOptions = [("skip-empty-xacts", Nothing)]
   }
 

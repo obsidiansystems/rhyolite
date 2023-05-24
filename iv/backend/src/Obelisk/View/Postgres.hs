@@ -37,6 +37,7 @@ import Obelisk.Beam.Patch.Db
 import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
+import Obelisk.Concurrency
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding (Xid)
 import Obelisk.Postgres.Snapshot
 import Obelisk.View.NonEmptyInterval
@@ -209,7 +210,8 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
-          withAsync (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ \_ -> do
+          -- Would be nice to use withSingleWorkerWatchdog here but I haven't quite found where the loop is to put it in.
+          withSingleWorker "walkTransactionLog" (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ do
             takeMVar readyToStartVar
             (sendPatch, bOut) <- startMyIv closeTime readAtTime
             putMVar sendPatchVar sendPatch

@@ -130,6 +130,7 @@ library
     Obelisk.Beam
     Obelisk.Beam.Misc
     Obelisk.Beam.Patch.Decode.Postgres
+    Obelisk.Concurrency
     Obelisk.Db
     Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
     Obelisk.Postgres.QQ
