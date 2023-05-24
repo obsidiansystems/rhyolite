@@ -46,16 +46,18 @@ import qualified Data.Binary.Get as Binary
 import qualified Data.Binary.Put as Binary
 import Data.Char
 
+import Obelisk.Concurrency
 import Obelisk.Postgres.QQ
 
 -- | Start a replication session using logical decoding
 withLogicalDecoding
-  :: ByteString -- ^ Database URI
+  :: (Text -> IO ()) -- ^ Logging function
+  -> ByteString -- ^ Database URI
   -> PG.Identifier -- ^ Logical decoding plugin
   -> LogicalDecodingOptions -- ^ Options; use `def` for default
   -> (TChan ByteString -> IO a) -- ^ Action to run while replication session is active
   -> IO a
-withLogicalDecoding dbUri pluginName opts go = bracket (PQ.connectdb $ dbUri <> "?connect_timeout=0&replication=database") PQ.finish $ \unwrappedConn -> do
+withLogicalDecoding putLog dbUri pluginName opts go = bracket (PQ.connectdb $ dbUri <> "?connect_timeout=0&replication=database") PQ.finish $ \unwrappedConn -> do
   wrappedConn <- newMVar unwrappedConn
   let withConn :: forall a. (PQ.Connection -> IO a) -> IO a
       withConn = withMVar wrappedConn
@@ -101,8 +103,8 @@ withLogicalDecoding dbUri pluginName opts go = bracket (PQ.connectdb $ dbUri <> 
         PQ.CopyInOk <- PQ.putCopyData unwrappedConn encodedMessage
         PQ.FlushOk <- PQ.flush unwrappedConn
         pure ()
-  withAsync (forever $ sendStatus >> threadDelay (10*1000*1000)) $ \_ ->
-    withAsync (forever get) $ \_ -> do
+  withSingleWorkerWatchdog putLog "sendStatus" (\wdt -> forever $ sendStatus >> threadDelay (10*1000*1000) >> wdt) $
+    withSingleWorkerWatchdog putLog "getReplicationMessage" (\wdt -> forever $ wdt >> get) $ do
       go chan
 
 data LogicalDecodingOptions = LogicalDecodingOptions

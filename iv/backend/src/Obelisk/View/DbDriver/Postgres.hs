@@ -33,6 +33,7 @@ import Obelisk.Beam.Patch.Decode.Postgres
 import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
+import Obelisk.Concurrency
 import Obelisk.Db
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
 import Obelisk.Postgres.Snapshot
@@ -58,28 +59,29 @@ snapshotFencePrefix = "obelisk/snapshotFence"
 
 withDbDriver
   :: forall db a . _ => (Text -> IO ()) -> ByteString -> AnnotatedDatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
-withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
+withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> withResource pool $ \decodingConn -> do
   readerIdVar <- newRef (1 :: Int)
+  logger "withDbDriver - dedicated connections allocated from pool, starting loops"
   let db = deAnnotateDatabase annotatedDb
       dbDriver = DbDriver
         { _dbDriver_withFeed = \sendTransaction releaseSnapshot innerGo -> do
-            withLogicalDecodingTransactions def dbUri $ \transactions -> do
-              let feedTransactions = forever $ do
+            withLogicalDecodingTransactions logger def dbUri $ \transactions -> do
+              let feedTransactions wdt = do
+                    wdt
                     Unclassy.atomically (Unclassy.readTChan transactions) >>= \case
                       Left msg -> do
-                        logger $ "Received message: " <> tshow msg
                         when (_message_prefix msg == snapshotFencePrefix) $ do
                           case parseOnly (txidSnapshotParser <* endOfInput) $ _message_content msg of
                             Right s -> releaseSnapshot s
                             Left l -> fail $ "Error decoding fence snapshot: " <> l
                       Right (myXid, changes) -> do
-                        TablesV patch <- withResource pool $ \conn -> decodeTransaction db conn changes
+                        TablesV patch <- decodeTransaction db decodingConn changes
                         let filterEmpty (TablePatch p@(PatchMapWithPatchingMove m)) = ComposeMaybe $
                               if null m
                               then Nothing
                               else Just $ TablePatch p
                         sendTransaction (myXid, QueryResultPatch $ TablesV $ mapTablesOnly filterEmpty patch)
-              withAsync feedTransactions $ \_ -> innerGo
+              withSingleWorkerWatchdog logger "withDbDriver-feedTransactions" feedTransactions innerGo
         , _dbDriver_openReader = do
             readerId <- atomicModifyRef' readerIdVar $ \old -> (succ old, old)
             let putMyLog x = logger $ "reader " <> tshow readerId <> ": " <> x
