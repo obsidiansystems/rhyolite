@@ -10,6 +10,7 @@ This project's release branch is `master`. This log is written from the perspect
 * Update to vessel-0.3
 * Support ghc-8.10
 * Add Data.Vessel.Void
+* Move .obelisk/impl to dep/obelisk
 
 ## 2023-01-26
 * Breaking: Rhyolite.Frontend.Cookie now always Base64 encodes cookies
