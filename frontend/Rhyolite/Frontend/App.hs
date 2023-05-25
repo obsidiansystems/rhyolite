@@ -48,11 +48,10 @@ import Data.Semigroup ((<>))
 import Data.Some
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Witherable (Filterable)
 import GHC.Generics (Generic)
-import Network.URI (URI, parseURI)
+import Network.URI (URI, uriPath)
 import Obelisk.Frontend.Cookie
 import Obelisk.Route.Frontend (RouteToUrl(..), Routed(..), SetRoute(..))
 import qualified Reflex as R
@@ -290,7 +289,6 @@ runObeliskRhyoliteWidget ::
   , MonadHold t m
   , MonadFix m
   , Prerender t m
-  , HasConfigs m
   , Request req
   , Query qFrontend
   , Group qFrontend
@@ -302,20 +300,14 @@ runObeliskRhyoliteWidget ::
   )
   => QueryMorphism qFrontend qWire
   -- ^ Wire format morphism
-  -> Text -- ^ Typically "config/route", config file containing an http/https URL at which the backend will be served.
+  -> URI -- ^ http/https URL at which the backend will be served.
   -> Encoder Identity Identity (R (FullRoute backendRoute frontendRoute)) PageName -- ^ Checked route encoder
   -> R backendRoute -- ^ The "listen" backend route which is handled by the action produced by 'Rhyolite.Backend.App.serveDbOverWebsockets'
-  -> RoutedT t (R frontendRoute) (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
-  -> RoutedT t (R frontendRoute) m (Dynamic t (AppWebSocket t qWire), a)
-runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
-  obR <- askRoute
-  r' <- fmap (parseURI . T.unpack . T.strip . T.decodeUtf8) <$> getConfig configRoute
-  let route = case r' of
-        Nothing -> error $ T.unpack $ "route config missing: " <> configRoute
-        Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
-        Just (Just r) -> r
-  let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
-  lift $ runRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  -> RoutedT t route (RhyoliteWidget qFrontend req t m) a -- ^ Child widget
+  -> RoutedT t route m (Dynamic t (AppWebSocket t qWire), a)
+runObeliskRhyoliteWidget toWire route enc listenRoute child = do
+  let wsUrl = T.pack $ show $ (websocketUri route) { uriPath = T.unpack $ T.takeWhile (/= '?') $ renderBackendRoute enc listenRoute }
+  mapRoutedT (runRhyoliteWidget toWire wsUrl) child
 
 -- | Runs a rhyolite frontend widget that opens a websocket connection and can
 -- issue requests and queries over that connection.

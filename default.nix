@@ -1,8 +1,11 @@
-{ obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs" "inNixShell"])
+{ config ? {}
+, obelisk ? import ./.obelisk/impl (builtins.removeAttrs args ["pkgs" "inNixShell"])
 , pkgs ? obelisk.nixpkgs
 , ... } @ args:
 
 let
+  obelisk = import ./.obelisk/impl { inherit config; };
+  pkgs = obelisk.nixpkgs;
   reflex-platform = obelisk.reflex-platform;
   inherit (pkgs) lib;
   haskellLib = pkgs.haskell.lib;
