@@ -162,7 +162,7 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
   :: (Monad m, Ord token, View public, View private, View personal, Ord user)
-  => (token -> m (Maybe user))
+  => (token -> Maybe user)
   -> (public Proxy -> m (public Identity))
   -> (private Proxy -> m (private Identity))
   -- ^ The result of private queries is only available to authenticated identities
