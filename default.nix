@@ -39,7 +39,6 @@ let
   # srcs used for overrides
   overrideSrcs = rhyolitePackages // {
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
-    bytestring-trie = repos.bytestring-trie;
     monoid-map = repos.monoid-map;
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
 
@@ -61,30 +60,13 @@ let
       frontend = super.frontend.override {
         obelisk-executable-config-lookup = self.obelisk-executable-config-lookup;
       };
-      beam-automigrate = haskellLib.doJailbreak super.beam-automigrate;
-      bytestring-trie = haskellLib.dontCheck super.bytestring-trie;
+      beam-automigrate = self.callHackage "beam-automigrate" "0.1.3.0" {};
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
         librarySystemDepends = [ pkgs.postgresql ];
       };
       validation = haskellLib.dontCheck super.validation;
 
-      postgresql-lo-stream = haskellLib.doJailbreak (self.callHackageDirect {
-        pkg = "postgresql-lo-stream";
-        ver = "0.1.1.1";
-        sha256 = "0ifr6i6vygckj2nikv7k7yqia495gnn27pq6viasckmmh6zx6gwi";
-      } {});
-
-      monad-logger-extras = self.callHackageDirect {
-        pkg = "monad-logger-extras";
-        ver = "0.1.1.1";
-        sha256 = "17dr2jwg1ig1gd4hw7160vf3l5jcx5p79b2lz7k17f6v4ygx3vbz";
-      } {};
-      monoid-subclasses = self.callHackageDirect {
-        pkg = "monoid-subclasses";
-        ver = "1.1";
-        sha256 = "02ggjcwjdjh6cmy7zaji5mcmnq140sp33cg9rvwjgply6hkddrvb";
-      } {};
-      HaskellNet = self.callHackage "HaskellNet" "0.6" {};
+      monoid-subclasses = super.monoid-subclasses_1_1;
       HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
 
       base-orphans = self.callHackageDirect {
