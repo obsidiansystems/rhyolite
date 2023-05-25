@@ -7,3 +7,4 @@ result-*
 .attr-cache
 tags
 TAGS
+beam/task/backend/psql-test*
