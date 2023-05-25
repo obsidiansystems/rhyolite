@@ -65,6 +65,7 @@ let
         librarySystemDepends = [ pkgs.postgresql ];
       };
       validation = haskellLib.dontCheck super.validation;
+      postgresql-lo-stream = haskellLib.markUnbroken super.postgresql-lo-stream;
 
       monoid-subclasses = super.monoid-subclasses_1_1;
       HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
