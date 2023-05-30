@@ -10,7 +10,6 @@ author:             Obsidian Systems LLC
 maintainer:         maintainer@obsidian.systems
 copyright:          2021 Obsidian Systems LLC
 category:           Web
-extra-source-files: README.md
 
 library
   exposed-modules:

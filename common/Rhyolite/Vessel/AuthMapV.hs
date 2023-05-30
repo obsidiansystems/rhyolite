@@ -35,7 +35,6 @@ import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Data.Witherable
 import GHC.Generics
 import Reflex.Query.Class
 
@@ -166,8 +165,10 @@ instance (View v, Ord token) => Keyed
 handleAuthMapQuery
   :: forall m v token user f g.
      (Monad m, Ord token, View v, Applicative g)
-  => (token -> m (Maybe user))
-  -- ^ How to figure out the identity corresponding to a token
+  => (token -> Maybe user)
+  -- ^ How to figure out the identity corresponding to a token. Note: this is pure because it absolutely must be cheap, and we don't want people
+  -- attempting to put a database query inside it, which would result in terrible performance failures. Fast IO would be permissible, but generally
+  -- decrypting a token with a known CSK can be done with a pure function.
   -> (forall proxy. v proxy -> m (v g))
   -- ^ Handle the aggregate query for all identities
   -> AuthMapV token v f
@@ -176,7 +177,7 @@ handleAuthMapQuery
 handleAuthMapQuery readToken handler (AuthMapV vt) = do
   let unfilteredVt = getSubVessel vt
       unvalidatedTokens = MMap.keys unfilteredVt
-  validTokens <- Set.fromList <$> witherM (\t -> (t <$) <$> readToken t) unvalidatedTokens
+      validTokens = Set.fromList (filter (isJust . readToken) unvalidatedTokens)
   let filteredVt = MMap.intersectionWith const unfilteredVt (MMap.fromSet (\_ -> ()) validTokens)
       invalidTokens = MMap.fromSet (\_ -> failureErrorV ()) $
         Set.difference (Set.fromList unvalidatedTokens) validTokens
@@ -209,8 +210,9 @@ type instance ViewQueryResult (TaggedQuery w a) = (w, a)
 handlePersonalAuthMapQuery
   :: forall m token v user p q.
      (Monad m, Ord token, View v, Ord user, Applicative q)
-  => (token -> m (Maybe user))
-  -- ^ How to figure out the identity corresponding to a token
+  => (token -> Maybe user)
+  -- ^ How to figure out the identity corresponding to a token. Note: this is pure because it absolutely must be cheap. See the corresponding comment on
+  -- 'handleAuthMapQuery'.
   -> (forall f g.
      ViewQueryResult f ~ g
      => (forall x. x -> f x -> g x)
@@ -224,8 +226,8 @@ handlePersonalAuthMapQuery
 handlePersonalAuthMapQuery readToken handler vt = do
   let unauthorisedAuthMapSingleton token = Map.singleton token $ failureErrorV ()
 
-      authoriseAction t v = do
-        lift (readToken t) >>= \case
+      authoriseAction t v =
+        case readToken t of
           Nothing -> do
             tell $ unauthorisedAuthMapSingleton t
             pure Nothing
