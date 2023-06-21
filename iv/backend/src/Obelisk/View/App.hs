@@ -387,12 +387,14 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                     Nothing -> tryCloseTimes Map.empty -- we might just be done right away.
                     Just currentSub -> do
                       logger $ T.unwords ["processing at", tshow tPrev, "..", tshow tNew]
+                      let covs = Map.mapMaybe justThere currentSub
+                          mergedCov = unionCoverages covs
+                      forM_ mergedCov $ \q -> runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
+                        _ivForwardSequential_notify fwdSeq $ flip Map.mapMaybe covs $ \cov -> That <$> restrictCoverage cov res
+                      tryCloseTimes $ Map.fromList [(tPrev, numSubs), (tNew, numSubs)]
                       -- readAtTime is "non-blocking" and will call it's callback later.
                       -- So we need to "wait" until all notifications are actually sent.
                       void $ flip Map.traverseWithKey currentSub $ \clientKey qBoth -> do
-                        forM_ (justThere qBoth) $ \q -> runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
-                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ That res
-                          tryCloseTimes $ Map.fromList [(tPrev, 1), (tNew, 1)]
                         forM_ (justHere qBoth >>= flip restrictCoverage p) $ \res -> do
                           _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ This res
 
