@@ -112,7 +112,7 @@ withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> w
                       putMyLog "Committed; returning to pool"
                       putResource localPool conn
                       putMyLog "Returned to pool"
-                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> sendRsp =<< unsafeRunInOpenReadTransaction conn qs0
+                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> sendRsp =<< try (unsafeRunInOpenReadTransaction conn qs0)
                   }
             pure (txidSnapshot, reader)
         }
