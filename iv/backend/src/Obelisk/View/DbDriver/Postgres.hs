@@ -112,7 +112,11 @@ withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> w
                       putMyLog "Committed; returning to pool"
                       putResource localPool conn
                       putMyLog "Returned to pool"
-                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> sendRsp =<< try (unsafeRunInOpenReadTransaction conn qs0)
+                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> do
+                      PG.execute_ conn "SAVEPOINT ob_read_only_catch_errors"
+                      rv <- try $ unsafeRunInOpenReadTransaction conn qs0
+                      PG.execute_ conn "ROLLBACK TO ob_read_only_catch_errors"
+                      sendRsp rv
                   }
             pure (txidSnapshot, reader)
         }
