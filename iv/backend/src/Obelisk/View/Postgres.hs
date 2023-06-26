@@ -188,7 +188,7 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
                 forM_ toClose $ \conn -> do
                   fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception while closing transaction: " <> tshow e)) $ do --We want to close all transactions ASAP, even if some are long-running
                     _dbReader_close conn
-              readAtTime t req = void $ fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception in readAtTime: " <> tshow e) {- >> throwOn mainThread -}) $ do
+              readAtTime t req = void $ fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception in readAtTime for " <> tshow t <> ": " <> tshow e) {- >> throwOn mainThread -}) $ do
                 openReadTransactions <- readRef openReadTransactionsRef
                 case IntMap.lookup t openReadTransactions of
                   Nothing -> fail $ "Expected transaction " <> show t <> " to be open"

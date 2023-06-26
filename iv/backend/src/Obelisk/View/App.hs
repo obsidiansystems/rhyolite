@@ -341,7 +341,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                       responses
                   newClosedTimes = Set.difference (Map.keysSet pendingReads) (Map.keysSet pendingReads')
               in (,) (t, s, pendingReads') $ do
-                logger $ T.unwords ["tryCloseTimes", tshow pendingReads]
+                logger $ T.unwords ["tryCloseTimes", tshow pendingReads, "new closed:", tshow newClosedTimes]
                 traverse_ (closeTime . singletonInterval) newClosedTimes
 
         let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
@@ -360,7 +360,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                       let covs = Map.mapMaybe justThere currentSub
                           mergedCov = unionCoverages covs
                           decrementTimeRefcounts = tryCloseTimes $ Map.fromList [(tPrev, numSubs), (tNew, numSubs)]
-                      finally decrementTimeRefcounts $ forM_ mergedCov $ \q -> do
+                      flip finally decrementTimeRefcounts $ forM_ mergedCov $ \q -> do
                         res <- runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q)
                         _ivForwardSequential_notify fwdSeq $ flip Map.mapMaybe covs $ \cov -> That <$> restrictCoverage cov res
                       -- readAtTime is "non-blocking" and will call it's callback later.
@@ -385,7 +385,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                     in (,) (tCurrent, newSubs, pendingReads') $ do
                       forM_ @Maybe readsMaybe $ \reads_ ->
                         flip Map.traverseWithKey reads_ $ \clientKey read_ ->
-                          finally (tryCloseTimes $ Map.singleton tCurrent 1) $
+                          flip finally (tryCloseTimes $ Map.singleton tCurrent 1) $
                             readAtTime tCurrent $ AsyncReadDb (qh read_) $ \resultEither -> do
                               case resultEither of
                                 Left err -> throw err
