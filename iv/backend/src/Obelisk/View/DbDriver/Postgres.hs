@@ -7,6 +7,7 @@ import Prelude hiding ((.))
 
 import Control.Category
 import Control.Concurrent.Classy.Async
+import Control.Concurrent.MVar
 import Control.Exception
 import Control.Monad hiding (fail)
 import Control.Monad.Ref.Restricted
@@ -45,6 +46,7 @@ import qualified Data.ByteString.Lazy.Char8 as LChar8
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Database.PostgreSQL.Simple as PG
+import qualified Database.PostgreSQL.Simple.Transaction as PG
 
 traceQuery :: (Monad m, Show a) => (SqlSelect Postgres a -> m [a]) -> SqlSelect Postgres a -> m [a]
 traceQuery fn q@(SqlSelect (PgSelectSyntax s)) = do
@@ -98,21 +100,29 @@ withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> w
             --NOTE: The fence needs to be sent on another connection, because non-transactional pg_logical_emit_message commands do not promptly propagate to replication connections when sent from inside a transaction.  They *do* appear to propagate promptly when sent from *outside* a transaction, so that's what we do here.  We can't do it on the same connection, because we're in the transaction already.
             [Only (lsn :: Text)] <- PG.query fenceConn [sql| SELECT pg_logical_emit_message(false, ?, ?)::text; |] (snapshotFencePrefix, txidSnapshot)
             putMyLog $ "Emitted fence at " <> lsn <> "; ready for queries"
+            connVar <- newMVar conn
             let reader = DbReader
-                  { _dbReader_getVisibleTransactionsSince = \prevSnapshot snapshot -> do
+                  { _dbReader_getVisibleTransactionsSince = \prevSnapshot snapshot -> withMVar connVar $ \connFromVar ->  do
                       putMyLog "Getting visible transactions"
                       let potentialXids = transactionsBetweenSnapshots prevSnapshot snapshot
-                      xids :: [Only Int64] <- PG.query conn [sql| select a.a from (?) a (a) where txid_status(a.a) = 'committed' |] $ Only (Values [ "int8" ] $ Only @Int64 . fromIntegral . unXid <$> Set.toList potentialXids)
+                      xids :: [Only Int64] <- PG.query connFromVar [sql| select a.a from (?) a (a) where txid_status(a.a) = 'committed' |] $ Only (Values [ "int8" ] $ Only @Int64 . fromIntegral . unXid <$> Set.toList potentialXids)
                       let result = Set.fromList $ Xid . fromIntegral . fromOnly <$> xids
                       putMyLog $ "Got " <> tshow (Set.size result) <> " visible transactions"
                       pure result
                   , _dbReader_close = do
+                      -- _not_ using the MVar so we force the commit if some query is slow.
                       putMyLog "Committing"
                       PG.commit conn
                       putMyLog "Committed; returning to pool"
                       putResource localPool conn
                       putMyLog "Returned to pool"
-                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> sendRsp =<< unsafeRunInOpenReadTransaction conn qs0
+                  , _dbReader_runRead = \(AsyncReadDb qs0 sendRsp) -> do
+                      putMyLog "Entering subtransaction"
+                      withMVar connVar $ \connFromVar -> do
+                        sp <- PG.newSavepoint connFromVar
+                        rv <- try $ unsafeRunInOpenReadTransaction connFromVar qs0
+                        PG.rollbackToAndReleaseSavepoint connFromVar sp
+                        sendRsp rv
                   }
             pure (txidSnapshot, reader)
         }
