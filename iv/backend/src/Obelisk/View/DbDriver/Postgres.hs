@@ -46,6 +46,7 @@ import qualified Data.ByteString.Lazy.Char8 as LChar8
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Database.PostgreSQL.Simple as PG
+import qualified Database.PostgreSQL.Simple.Transaction as PG
 
 traceQuery :: (Monad m, Show a) => (SqlSelect Postgres a -> m [a]) -> SqlSelect Postgres a -> m [a]
 traceQuery fn q@(SqlSelect (PgSelectSyntax s)) = do
