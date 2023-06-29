@@ -6,8 +6,9 @@ import Control.Applicative
 import Control.Monad.Trans.Reader
 import Data.Foldable
 import Control.Category
+import Control.Concurrent
 import Control.Concurrent.MVar
-import Control.Exception (bracket, SomeException, handle, throw, finally)
+import Control.Exception (bracket, SomeException, handle, throw, finally, Exception)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
@@ -95,12 +96,15 @@ newtype ReadDbPatch a = ReadDbPatch { unReadDbPatch :: ReaderT (AsyncReadDb IO -
 runReadDbPatch :: (AsyncReadDb IO -> IO ()) -> (AsyncReadDb IO -> IO ()) -> ReadDbPatch a -> IO a
 runReadDbPatch readOld readNew x0 = runReaderT (unReadDbPatch x0) (readOld, readNew)
 
-readDbToAsyncReadDb :: ReadDb a -> (AsyncReadDb IO -> IO ()) -> IO a
-readDbToAsyncReadDb req run = do
+callbackToSync :: Exception e => (((Either e a) -> IO ()) -> IO ()) -> IO a
+callbackToSync cb = do
     returnVar <- newEmptyMVar
-    run $ AsyncReadDb req $ putMVar returnVar
+    cb $ putMVar returnVar
     returnValue <- takeMVar returnVar
     either (liftIO . throw) pure returnValue
+
+readDbToAsyncReadDb :: ReadDb a -> (AsyncReadDb IO -> IO ()) -> IO a
+readDbToAsyncReadDb req run = callbackToSync $ run . AsyncReadDb req
 
 liftOld :: ReadDb a -> ReadDbPatch a
 liftOld r = ReadDbPatch $ asks fst >>= liftIO . readDbToAsyncReadDb r
@@ -341,7 +345,7 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                       responses
                   newClosedTimes = Set.difference (Map.keysSet pendingReads) (Map.keysSet pendingReads')
               in (,) (t, s, pendingReads') $ do
-                logger $ T.unwords ["tryCloseTimes", tshow pendingReads, "new closed:", tshow newClosedTimes]
+                logger $ T.unwords ["tryCloseTimes", tshow pendingReads, "responded:", tshow responses, "new closed:", tshow newClosedTimes]
                 traverse_ (closeTime . singletonInterval) newClosedTimes
 
         let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
@@ -384,13 +388,10 @@ serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger
                         Just (i + length @Maybe readsMaybe, PendingReaderState_NoChange))) tCurrent pendingReads
                     in (,) (tCurrent, newSubs, pendingReads') $ do
                       forM_ @Maybe readsMaybe $ \reads_ ->
-                        flip Map.traverseWithKey reads_ $ \clientKey read_ ->
-                          flip finally (tryCloseTimes $ Map.singleton tCurrent 1) $
-                            readAtTime tCurrent $ AsyncReadDb (qh read_) $ \resultEither -> do
-                              case resultEither of
-                                Left err -> throw err
-                                Right result -> do
-                                  _ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey $ result
+                        flip Map.traverseWithKey reads_ $ \clientKey read_ -> do
+                          flip finally (tryCloseTimes $ Map.singleton tCurrent 1) $ do
+                            result <- callbackToSync $ readAtTime tCurrent . AsyncReadDb (qh read_)
+                            _ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey $ result
                       pure ()
               }
 
