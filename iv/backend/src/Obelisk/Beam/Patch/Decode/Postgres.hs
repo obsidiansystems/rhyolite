@@ -34,6 +34,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding
 import Data.Functor.Compose
 import Witherable (catMaybes)
@@ -62,6 +63,18 @@ lookupStaticTypeByName typeName = asum
       "timestamp without time zone" -> Just TI.timestamp
       "double precision" -> Just TI.float8
       _ -> Nothing
+  , -- arrays
+    case T.breakOn "[" typeName of
+      (_, "") -> Nothing
+      (tName, _) -> asum
+        [ -- postgres prefixes array types with '_'
+          Map.lookup ("_" <> tName) staticTypesByName
+        , do
+            t <- lookupStaticTypeByName tName
+            flip find staticTypes $ \case
+              TI.Array _ _ _ _ telem -> TI.typoid telem == TI.typoid t
+              _ -> False
+        ]
   ]
 
 decodeRow
