@@ -32,12 +32,37 @@ import qualified Database.PostgreSQL.LibPQ as PQ
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Data.Text.Encoding
 import Data.Functor.Compose
+import Witherable (catMaybes)
 
 import Data.Patch.MapWithPatchingMove
 
 deriving instance FromField a => FromField (SqlSerial a)
+
+staticTypes :: [TI.TypeInfo]
+staticTypes = catMaybes $ TI.staticTypeInfo <$> [Oid i | i <- [0..65535]]
+
+staticTypesByName :: Map Text TI.TypeInfo
+staticTypesByName = Map.fromList $ [(decodeUtf8 $ TI.typname t, t) | t <- staticTypes]
+
+lookupStaticTypeByName :: Text -> Maybe TI.TypeInfo
+lookupStaticTypeByName typeName = asum
+  [ Map.lookup typeName staticTypesByName
+  , -- aliases
+    case typeName of
+      "bigint" -> Just TI.int8
+      "smallint" -> Just TI.int2
+      "integer" -> Just TI.int4
+      "character varying" -> Just TI.text
+      "boolean" -> Just TI.bool
+      "timestamp with time zone" -> Just TI.timestamptz
+      "timestamp without time zone" -> Just TI.timestamp
+      "double precision" -> Just TI.float8
+      _ -> Nothing
+  ]
 
 decodeRow
   :: forall tbl tbl'
@@ -53,32 +78,10 @@ decodeRow conn settings decoders r = zipBeamFieldsM d settings decoders
           let n = _fieldName fieldSettings
           result <- case HashMap.lookup (Identifier n) r of
             Just (TypeName typeName, v) -> do
-              myTypeOid <- case typeName of
-                "text" -> pure $ TI.typoid TI.text
-                "int8" -> pure $ TI.typoid TI.int8
-                "bigint" -> pure $ TI.typoid TI.int8
-                "smallint" -> pure $ TI.typoid TI.int2
-                "int4" -> pure $ TI.typoid TI.int4
-                "integer" -> pure $ TI.typoid TI.int4
-                "numeric" -> pure $ TI.typoid TI.numeric
-                "character varying" -> pure $ TI.typoid TI.text
-                "boolean" -> pure $ TI.typoid TI.bool
-                "bytea" -> pure $ TI.typoid TI.bytea
-                "timestamp with time zone" -> pure $ TI.typoid TI.timestamptz
-                "timestamp without time zone" -> pure $ TI.typoid TI.timestamp
-                "date" -> pure $ TI.typoid TI.date
-                "json" -> pure $ TI.typoid TI.json
-                "jsonb" -> pure $ TI.typoid TI.jsonb
-                "uuid" -> pure $ TI.typoid TI.uuid
-                "double precision" -> pure $ TI.typoid TI.float8
-                "tstzrange" -> pure $ TI.typoid TI.tstzrange
-                --TODO: Include all static types from Database.PostgreSQL.Simple.TypeInfo.Static
-                _ -> do
-                  --TODO: Retrieve types properly; do we need to cache them?
-                  putStrLn $ "Unrecognized type: " <> show typeName
-                  error $ "Unrecognized type: " <> show typeName
-              let f = Field
-                    { typeOid = myTypeOid
+              let --TODO: Retrieve types properly; do we need to cache them?
+                  fieldType = fromMaybe (error $ "Unrecognized type: " <> show typeName) $ lookupStaticTypeByName typeName
+                  f = Field
+                    { typeOid = TI.typoid fieldType
                     , format = PQ.Text --TODO: Is this right?
                     , tableOid = Nothing
                     , name = Just $ encodeUtf8 n
