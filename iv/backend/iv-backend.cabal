@@ -21,7 +21,6 @@ common common
                , constraints
                , constraints-extras
                , containers
-               , criterion
                , data-default
                , directory
                , gargoyle
