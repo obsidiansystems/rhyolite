@@ -44,26 +44,6 @@ deriving instance (Show (PrimaryKey f h), Show (PrimaryKey g h)) => Show (Primar
 
 instance (Beamable (PrimaryKey f), Beamable (PrimaryKey g)) => Beamable (PrimaryKey (f :*: g))
 
--- TODO: upstream these to Data.GADT.Compare
-instance (GCompare f, GCompare g) => GCompare (f :+: g) where
-  gcompare = \case
-    L1 f -> \case
-      L1 f' -> gcompare f f'
-      R1 _ -> GLT
-    R1 g -> \case
-      L1 _ -> GLT
-      R1 g' -> gcompare g g'
-
-instance (GEq f, GEq g) => GEq (f :+: g) where
-  geq = \case
-    L1 f -> \case
-      L1 f' -> geq f f'
-      R1 _ -> Nothing
-    R1 g -> \case
-      L1 _ -> Nothing
-      R1 g' -> geq g g'
-
-
 instance (FromJSON (f a), FromJSON (g a)) => FromJSON ((f :*: g) a)
 instance (FromJSON (f a), FromJSON (g a)) => FromJSONKey ((f :*: g) a)
 
