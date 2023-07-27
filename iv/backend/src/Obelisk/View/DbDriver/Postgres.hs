@@ -7,7 +7,6 @@ import Prelude hiding ((.))
 
 import Control.Category
 import Control.Concurrent.Classy.Async
-import Control.Exception
 import Control.Monad hiding (fail)
 import Control.Monad.Ref.Restricted
 import Data.Attoparsec.ByteString.Char8 (parseOnly, endOfInput)
@@ -17,17 +16,16 @@ import Data.Functor.Misc
 import Data.Int
 import Data.Patch.MapWithPatchingMove
 import Data.Pool
-import Data.Proxy
 import Data.Text (Text)
 import Database.Beam
-import Database.Beam.AutoMigrate
-import Database.Beam.AutoMigrate.Postgres (getSchema)
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Syntax
 import Database.PostgreSQL.Simple.SqlQQ
 import Database.PostgreSQL.Simple.Types
 import Debug.Trace
 import Obelisk.Api
+import Obelisk.Beam.DZippable (DZippable)
+import Obelisk.Beam.Constraints (ConstraintsForT, HasT)
 import Obelisk.Beam.Patch.Db
 import Obelisk.Beam.Patch.Decode.Postgres
 import Obelisk.Beam.Patch.Table
@@ -42,7 +40,6 @@ import Obelisk.View.Postgres
 import qualified Control.Concurrent.STM as Unclassy
 import qualified Data.ByteString.Lazy.Char8 as LChar8
 import qualified Data.Set as Set
-import qualified Data.Text as Text
 import qualified Database.PostgreSQL.Simple as PG
 
 traceQuery :: (Monad m, Show a) => (SqlSelect Postgres a -> m [a]) -> SqlSelect Postgres a -> m [a]
@@ -57,11 +54,17 @@ snapshotFencePrefix :: ByteString
 snapshotFencePrefix = "obelisk/snapshotFence"
 
 withDbDriver
-  :: forall db a . _ => (Text -> IO ()) -> ByteString -> AnnotatedDatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
-withDbDriver logger dbUri annotatedDb go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
+  :: forall db a
+  . ( Database Postgres db
+    , ConstraintsForT db IsTable
+    , DecodableDatabase db
+    , HasT IsTable db
+    , DZippable db
+    )
+  => (Text -> IO ()) -> ByteString -> DatabaseSettings Postgres db -> (DbDriver db IO -> IO a) -> IO a
+withDbDriver logger dbUri db go = withConnectionPool dbUri $ \pool -> withResource pool $ \fenceConn -> do
   readerIdVar <- newRef (1 :: Int)
-  let db = deAnnotateDatabase annotatedDb
-      dbDriver = DbDriver
+  let dbDriver = DbDriver
         { _dbDriver_withFeed = \sendTransaction releaseSnapshot innerGo -> do
             withLogicalDecodingTransactions def dbUri $ \transactions -> do
               let feedTransactions = forever $ do

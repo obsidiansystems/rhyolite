@@ -20,8 +20,7 @@ import Data.Some (Some(Some))
 import Data.Text (Text)
 import Data.These (These(..))
 import Data.These.Combinators
-import Database.Beam.AutoMigrate.Annotated
-import Database.Beam.AutoMigrate.Generic
+import Database.Beam.AutoMigrate
 import Database.Beam.Postgres (Postgres)
 import Database.Beam.Schema.Tables
 import GHC.Generics
@@ -30,6 +29,7 @@ import Obelisk.Beam.Constraints
 import Obelisk.Beam.DZippable
 import Obelisk.Beam.Patch.Db
 import Obelisk.Beam.Patch.Decoder
+import Obelisk.Beam.Patch.Decode.Postgres (DecodableDatabase)
 import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
@@ -43,7 +43,6 @@ import Obelisk.View.Interface
 import Obelisk.View.NonEmptyInterval
 -- import Obelisk.View.OccurrenceMap
 import Obelisk.View.Postgres
-import Obelisk.View.Postgres (runDbIv)
 import Obelisk.View.Sequential
 -- import Obelisk.View.SubscriptionMap
 import Obelisk.View.Time
@@ -223,14 +222,10 @@ serveDbOverWebsocketsNew
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
     , GZipDatabase Postgres
-      (AnnotatedDatabaseEntity Postgres db) (AnnotatedDatabaseEntity Postgres db) (DatabaseEntity Postgres db)
-      (Rep (db (AnnotatedDatabaseEntity Postgres db))) (Rep (db (AnnotatedDatabaseEntity Postgres db)))
+      (DatabaseEntity Postgres db) (DatabaseEntity Postgres db) (DatabaseEntity Postgres db)
+      (Rep (db (DatabaseEntity Postgres db))) (Rep (db (DatabaseEntity Postgres db)))
       (Rep (db (DatabaseEntity Postgres db)))
-    , GSchema Postgres db '[] (Rep (db (AnnotatedDatabaseEntity Postgres db)))
     , Database Postgres db
-    , Generic (db (DatabaseEntity Postgres db))
-    , Generic (db (AnnotatedDatabaseEntity Postgres db))
-    , Generic (db (EntityPatchDecoder Postgres))
     , GPatchDatabase (Rep (db (EntityPatchDecoder Postgres)) ())
     , ArgDictT db
     , Collidable push
@@ -255,12 +250,13 @@ serveDbOverWebsocketsNew
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
     , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
+    , DecodableDatabase db
     )
   => (Text -> IO ())
   -- ^ logger
   -> ByteString -- Pool Pg.Connection
   -- ^ The database
-  -> AnnotatedDatabaseSettings Postgres db
+  -> DatabaseSettings Postgres db
   -> RequestHandler r IO
   -- ^ Handler for the request/response api
   -> (QueryResultPatch (TablesV db) TablePatch -> Cov push -> ReadDbPatch push)
@@ -272,8 +268,8 @@ serveDbOverWebsocketsNew
   -> ((Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull)) -> Snap () -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
-serveDbOverWebsocketsNew logger dburi checkedDb rh nh qh fromWire k =
-  serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
+serveDbOverWebsocketsNew logger dburi db rh nh qh fromWire k =
+  serveDbOverWebsocketsNewRaw logger dburi db nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
 
 serveDbOverWebsocketsNewRaw
   :: forall db push pull a.
@@ -281,14 +277,11 @@ serveDbOverWebsocketsNewRaw
     , ConstraintsForT db (TableHas_ EmptyConstraint)
     , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
     , GZipDatabase Postgres
-      (AnnotatedDatabaseEntity Postgres db) (AnnotatedDatabaseEntity Postgres db) (DatabaseEntity Postgres db)
-      (Rep (db (AnnotatedDatabaseEntity Postgres db))) (Rep (db (AnnotatedDatabaseEntity Postgres db)))
+      (DatabaseEntity Postgres db) (DatabaseEntity Postgres db) (DatabaseEntity Postgres db)
+      (Rep (db (DatabaseEntity Postgres db))) (Rep (db (DatabaseEntity Postgres db)))
       (Rep (db (DatabaseEntity Postgres db)))
-    , GSchema Postgres db '[] (Rep (db (AnnotatedDatabaseEntity Postgres db)))
+    --, GSchema Postgres db '[] (Rep (db (DatabaseEntity Postgres db)))
     , Database Postgres db
-    , Generic (db (DatabaseEntity Postgres db))
-    , Generic (db (AnnotatedDatabaseEntity Postgres db))
-    , Generic (db (EntityPatchDecoder Postgres))
     , GPatchDatabase (Rep (db (EntityPatchDecoder Postgres)) ())
     , ArgDictT db
     , Collidable push
@@ -309,12 +302,13 @@ serveDbOverWebsocketsNewRaw
     , Show pull
     , Show (db (TableOnly (ComposeMaybe TablePatch)))
     , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
+    , DecodableDatabase db
     )
   => (Text -> IO ())
   -- ^ logger
   -> ByteString -- Pool Pg.Connection
   -- ^ The database
-  -> AnnotatedDatabaseSettings Postgres db
+  -> DatabaseSettings Postgres db
   -> (QueryResultPatch (TablesV db) TablePatch -> Cov push -> ReadDbPatch push)
   -- ^ Handler for notifications of changes to the database
   -> (Cov pull -> ReadDb pull)
@@ -322,7 +316,7 @@ serveDbOverWebsocketsNewRaw
   -> (Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
-serveDbOverWebsocketsNewRaw logger dburi checkedDb nh qh k = withDbDriver logger dburi checkedDb $ \driver -> do
+serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi db $ \driver -> do
   let initialTime = 1
   -- the "current" time - reads and subscription changes apply to this
   --  , the subscriptions
