@@ -76,6 +76,8 @@ let
         sha256 = "sha256:17hplm1mgw65jbszg5z4vqk4i24ilxv8mbszr3s8lhpll5naik26";
       } {};
 
+      aeson-qq = self.callHackage "aeson-qq" "0.8.4" {};
+
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
       rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
       then
