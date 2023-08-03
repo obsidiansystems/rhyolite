@@ -49,6 +49,8 @@ let
     gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
     push-notifications = repos.push-notifications;
     vessel = repos.vessel;
+    postgresql-lo-stream = repos.postgresql-lo-stream;
+    beam-automigrate = repos.beam-automigrate;
 
   };
 
@@ -60,7 +62,6 @@ let
       frontend = super.frontend.override {
         obelisk-executable-config-lookup = self.obelisk-executable-config-lookup;
       };
-      beam-automigrate = self.callHackage "beam-automigrate" "0.1.3.0" {};
       gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
         librarySystemDepends = [ pkgs.postgresql ];
       };
@@ -77,6 +78,11 @@ let
       } {};
 
       aeson-qq = self.callHackage "aeson-qq" "0.8.4" {};
+      postgresql-syntax = haskellLib.dontCheck super.postgresql-syntax;
+      vessel = haskellLib.doJailbreak super.vessel;
+      monoid-map = haskellLib.doJailbreak super.monoid-map;
+
+      beam-migrate = self.callHackage "beam-migrate" "0.5.2.0" {};
 
       # 'locale' is broken on nix darwin which is required by postgres 'initdb'
       rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
