@@ -2,7 +2,13 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
-## Unreleased
+## v1.0.0.0 2023-05-25
+* Breaking: Drop groundhog support
+* Breaking: Use Commutative from commutative-semigroups instead of Additive from patch
+* Update to vessel-0.3
+* Support ghc-8.10
+* Add Data.Vessel.Void
+* Move .obelisk/impl to dep/obelisk
 * Breaking: handleAuthMapQuery and handlePersonalAuthMapQuery now take pure functions for decrypting user
   tokens. This is fine in practice because it should almost always be readSignedWithKey from signed-data,
   partially applied to a CSK. We had a major performance issue when someone stuck a database query inside

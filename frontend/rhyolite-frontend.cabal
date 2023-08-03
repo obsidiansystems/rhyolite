@@ -22,6 +22,7 @@ library
     , base
     , bytestring
     , base64-bytestring
+    , commutative-semigroups
     , constraints
     , constraints-extras
     , containers
