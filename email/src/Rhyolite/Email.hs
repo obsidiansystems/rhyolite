@@ -25,7 +25,7 @@ import Control.Monad.Trans.Except (ExceptT)
 import Control.Monad.Trans.Maybe (MaybeT)
 import Data.Aeson
 import Data.Default
-import Data.FileEmbed (embedFile)
+import Data.FileEmbed (makeRelativeToProject, embedFile)
 import Data.Foldable
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.List.NonEmpty (NonEmpty)
@@ -279,7 +279,7 @@ emailTemplateSimple productName mStyleHtml titleHtml contentHtml = do
   return $ H.docTypeHtml $ do
     H.head $ do
       H.style $ case mStyleHtml of
-        Nothing -> H.toHtml $ decodeUtf8 $(embedFile "email.css")
+        Nothing -> H.toHtml $ decodeUtf8 $(embedFile =<< makeRelativeToProject "email.css")
         Just styleHtml -> styleHtml
       H.title titleHtml
     H.body $ H.table $ do

@@ -21,6 +21,8 @@ library
       aeson
     , base
     , bytestring
+    , base64-bytestring
+    , commutative-semigroups
     , constraints
     , constraints-extras
     , containers
@@ -52,6 +54,8 @@ library
   exposed-modules:
     Rhyolite.Frontend.App
     Rhyolite.Frontend.Cookie
+    Rhyolite.Frontend.Auth
+    Rhyolite.Frontend.Auth.App
 
   ghc-options:
     -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields

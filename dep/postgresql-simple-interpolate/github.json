@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "postgresql-simple-interpolate",
-  "branch": "aa/iquery",
+  "branch": "master",
   "private": false,
-  "rev": "497583add970ee2d5da32b9620347de3eca6d42e",
-  "sha256": "09x1w8ffx5bq8llpvqiaxkm6psar8ir9aaskn3762qhy7rf5v0cq"
+  "rev": "fc34dd4d1e179b4dd8e2fa9419435d6f9bd29160",
+  "sha256": "0631fhycn8silm25rbajqc4fmhhh6n6kcnl6b0nddzx0bdmf1v0b"
 }

@@ -39,3 +39,24 @@ data Task be table payload checkout result = Task
   -- Note that it has to be a 'Beamable' type in its own right, so if the
   -- result is a mere 'Columnar' type it should be wrapped in a newtype.
   }
+
+-- | The TaskWithoutHasRun type describes how to use a database table to check out tasks
+-- and record back the results after processing them.
+--
+-- One can use 'Rhyolite.Task.Beam.Worker.taskWorkerWithoutHasRun' to process a job
+-- given a 'TaskWithoutHasRun' representing the job queue's interface.
+data TaskWithoutHasRun be table payload checkout result = TaskWithoutHasRun
+  { _taskWithoutHasRun_filter :: forall s. table (QExpr be s) -> QExpr be s Bool
+  -- ^ A user-supplied predicate for choosing suitable tasks. This
+  -- is combined with the logic that handles checkout and checkin
+  -- in 'Rhyolite.Task.Beam.Worker.taskWorker'.
+  , _taskWithoutHasRun_payload :: forall s. table (QExpr be s) -> payload (QExpr be s)
+  -- ^ How to extract the payload from the row
+  , _taskWithoutHasRun_checkedOutBy :: forall x. table x -> C x (Maybe checkout)
+  -- ^ How the field which records a checkout is embedded within a row;
+  -- a lens allows both reading and writing.
+  , _taskWithoutHasRun_result :: forall s. table (QField s) -> result (QField s)
+  -- ^ How the result data is embedded within a row.
+  -- Note that it has to be a 'Beamable' type in its own right, so if the
+  -- result is a mere 'Columnar' type it should be wrapped in a newtype.
+  }
