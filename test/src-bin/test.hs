@@ -16,17 +16,10 @@ import qualified Reflex.Dom.Widget.ExtensibleList
 -- psql-extras
 import qualified Database.PostgreSQL.Simple.Class
 import qualified Database.PostgreSQL.Simple.Beam
-import qualified Database.PostgreSQL.Simple.Groundhog
 
 -- notify-listen
 import qualified Rhyolite.DB.NotifyListen
 import qualified Rhyolite.DB.NotifyListen.Beam
-
--- groundhog-legacy
-import qualified Rhyolite.DB.Groundhog
-
--- groundhog-legacy-types
-import qualified "rhyolite-groundhog-legacy-types" Rhyolite.Account.Groundhog.Types
 
 -- email
 import qualified Rhyolite.Email

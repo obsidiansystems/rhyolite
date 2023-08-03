@@ -1,5 +1,7 @@
 {-| Description: Authenticated views -}
+{-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
+{-# Language TypeApplications #-}
 {-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
@@ -10,22 +12,32 @@
 {-# Language TemplateHaskell #-}
 {-# Language TypeFamilies #-}
 {-# Language UndecidableInstances #-}
+{-# Language StandaloneDeriving #-}
 -- TODO Upstream for DMap
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
+import Control.Applicative
+import Control.Monad
 import Data.Aeson
 import Data.Aeson.GADT.TH
 import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
+import Data.GADT.Show
+import Data.Orphans ()
 import Data.Patch
 import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Vessel
+import Data.Semigroup
+import Data.Semigroup.Commutative
+import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
+import Data.Map.Monoidal (MonoidalMap)
+import Data.Monoid.DecidablyEmpty
 
 -- TODO Upstream a function that lets you change DMap keys monotonically
 -- while mutating the value so we don't have to do it here.
@@ -36,6 +48,19 @@ import Data.Dependent.Sum
 
 import Rhyolite.App
 import Rhyolite.Vessel.AuthMapV
+import Rhyolite.Vessel.ErrorV
+
+import Control.Applicative (Alternative)
+import Prelude hiding ((.), id)
+import Control.Category
+import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorphism(..))
+import Data.Vessel.Vessel (vessel)
+import Data.Bifoldable
+
+-- TODO upstream this instance
+-- see https://github.com/obsidiansystems/vessel/pull/22/commits/b61428df85f0befa90a8cbd18cb860ebded70e21
+instance (Has' Semigroup k (FlipAp g), GCompare k, Has View k) => DecidablyEmpty (Vessel k g) where
+  isEmpty = nullV
 
 -- | An internal key type used to glue together parts of a view selector
 -- that have different authentication contexts.
@@ -76,8 +101,7 @@ instance GCompare (AuthenticatedVKey public private personal) where
       AuthenticatedVKey_Private -> GGT
       AuthenticatedVKey_Personal -> GEQ
 
-instance ArgDict c (AuthenticatedVKey public private personal) where
-  type ConstraintsFor (AuthenticatedVKey public private personal) c = (c public, c private, c personal)
+instance (c public, c private, c personal) => Has c (AuthenticatedVKey public private personal) where
   argDict = \case
     AuthenticatedVKey_Public -> Dict
     AuthenticatedVKey_Private -> Dict
@@ -86,7 +110,7 @@ instance ArgDict c (AuthenticatedVKey public private personal) where
 -- | A functor-parametric container that has a public part and a private part.
 newtype AuthenticatedV public private personal g = AuthenticatedV
   { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
-  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart)
+  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Commutative, PositivePart, DecidablyEmpty)
 
 instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 
@@ -107,17 +131,8 @@ instance
   , Semigroup (private Identity)
   , Semigroup (personal Identity)
   , View public, View private, View personal
-  ) => Query (AuthenticatedV public private personal (Const ())) where
-  type QueryResult (AuthenticatedV public private personal (Const ())) = AuthenticatedV public private personal Identity
-  crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
-
-instance
-  ( Semigroup (public Identity)
-  , Semigroup (private Identity)
-  , Semigroup (personal Identity)
-  , View public, View private, View personal
-  ) => Query (AuthenticatedV public private personal (Const SelectedCount)) where
-  type QueryResult (AuthenticatedV public private personal (Const SelectedCount)) = AuthenticatedV public private personal Identity
+  ) => Query (AuthenticatedV public private personal (Const g)) where
+  type QueryResult (AuthenticatedV public private personal (Const g)) = AuthenticatedV public private personal Identity
   crop (AuthenticatedV s) (AuthenticatedV r) = AuthenticatedV $ crop s r
 
 instance
@@ -152,13 +167,17 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- a map from authentication identities to private views. This
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
-  :: (Monad m, Ord token, View public, View private, View personal)
-  => (token -> m (Maybe user))
+  :: (Monad m, Ord token, View public, View private, View personal, Ord user)
+  => (token -> Maybe user)
   -> (public Proxy -> m (public Identity))
   -> (private Proxy -> m (private Identity))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
-  -> (user -> personal Proxy -> m (personal Identity))
+  -> ( forall f g.
+      ViewQueryResult f ~ g
+      => (forall x. x -> f x -> g x)
+      -> personal (Compose (MonoidalMap user) f)
+      -> m (personal (Compose (MonoidalMap user) g)))
   -- ^ The result of personal queries depends on the identity making the query
   -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Proxy
   -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Identity)
@@ -263,3 +282,132 @@ mapKeysMonotonic' f = \case
       (k' :=> v') -> DMap.Bin n k' v'
         (mapKeysMonotonic' f bl)
         (mapKeysMonotonic' f br)
+
+traverseKeysMonotonic'
+  :: forall m k1 f k2 g. Applicative m
+  => (forall v. k1 v -> f v -> m (DSum k2 g))
+  -> DMap k1 f
+  -> m (DMap k2 g)
+traverseKeysMonotonic' f = go
+  where
+    go :: DMap k1 f -> m (DMap k2 g)
+    go = \case
+      DMap.Tip -> pure DMap.Tip
+      DMap.Bin n k v bl br ->
+        (\(k' :=> v') -> DMap.Bin n k' v')
+          <$> (f k v)
+          <*> (go bl)
+          <*> (go br)
+
+type instance ViewQueryResult (AuthenticatedV public private personal g) = AuthenticatedV public private personal (ViewQueryResult g)
+
+instance View v => Keyed
+    (AuthenticatedVKey public private personal v)
+    (v g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (v g') where
+  key k = Path (AuthenticatedV . singletonV k) (lookupV k . unAuthenticatedV)
+
+authenticatedV
+  :: ( Monad m, Monad n, Alternative n
+     , View v, ViewQueryResult (v g) ~ v (ViewQueryResult g)
+     )
+  => AuthenticatedVKey public private personal v
+  -> ViewMorphism m n (v g) (AuthenticatedV public private personal g)
+authenticatedV k = ViewMorphism
+  (ViewHalfMorphism (pure . AuthenticatedV) (pure . unAuthenticatedV))
+  (ViewHalfMorphism (pure . unAuthenticatedV) (pure . AuthenticatedV))
+  . vessel k
+
+
+publicP :: forall public private personal g g'. View public
+  => Path
+    (public g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (public g')
+publicP = key (AuthenticatedVKey_Public @public @private @personal)
+
+privateP :: forall public private personal g g'. View private
+  => Path
+    (private g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (private g')
+privateP = key (AuthenticatedVKey_Private @public @private @personal)
+
+personalP :: forall public private personal g g'. View personal
+  => Path
+    (personal g)
+    (AuthenticatedV public private personal g)
+    (AuthenticatedV public private personal g')
+    (personal g')
+personalP = key (AuthenticatedVKey_Personal @public @private @personal)
+
+publicV :: forall m n public private personal g.
+  (ViewQueryResult (public g) ~ public (ViewQueryResult g), Monad m, Monad n, Alternative n, View public)
+  => ViewMorphism m n (public g) (AuthenticatedV public private personal g)
+publicV = authenticatedV (AuthenticatedVKey_Public @public @private @personal)
+
+privateV :: forall m n public private personal g.
+  (ViewQueryResult (private g) ~ private (ViewQueryResult g), Monad m, Monad n, Alternative n, View private)
+  => ViewMorphism m n (private g) (AuthenticatedV public private personal g)
+privateV = authenticatedV (AuthenticatedVKey_Private @public @private @personal)
+
+personalV :: forall m n public private personal g.
+  (ViewQueryResult (personal g) ~ personal (ViewQueryResult g), Monad m, Monad n, Alternative n, View personal)
+  => ViewMorphism m n (personal g) (AuthenticatedV public private personal g)
+personalV = authenticatedV (AuthenticatedVKey_Personal @public @private @personal)
+
+traverseAuthenticatedV ::
+  forall m public private personal public' private' personal' f g.
+  (Applicative m)
+  => (public f -> m (public' g))
+  -> (private f -> m (private' g))
+  -> (personal f -> m (personal' g))
+  -> AuthenticatedV public private personal f
+  -> m (AuthenticatedV public' private' personal' g)
+traverseAuthenticatedV f g h (AuthenticatedV (Vessel (MonoidalDMap v))) = AuthenticatedV . Vessel . MonoidalDMap <$> traverseKeysMonotonic' go v
+  where
+    go :: forall v. AuthenticatedVKey public private personal v
+             -> FlipAp f v
+             -> m (DSum
+                     (AuthenticatedVKey public' private' personal') (FlipAp g))
+    go = \case
+      AuthenticatedVKey_Public -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Public :=> FlipAp y) <$> f x
+      AuthenticatedVKey_Private -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Private :=> FlipAp y) <$> g x
+      AuthenticatedVKey_Personal -> \(FlipAp x) -> (\y -> AuthenticatedVKey_Personal :=> FlipAp y) <$> h x
+
+disperseAuthenticatedErrorV ::
+  ( View publicV , Semigroup (publicV Identity)
+  , EmptyView privateV , Semigroup (privateV Identity)
+  , EmptyView personalV , Semigroup (personalV Identity)
+  )
+  => QueryMorphism
+    (ErrorV () (AuthenticatedV publicV privateV personalV) (Const x))
+    (AuthenticatedV publicV (ErrorV () privateV) (ErrorV () personalV) (Const x))
+disperseAuthenticatedErrorV = QueryMorphism
+  (maybe emptyV (runIdentity . traverseAuthenticatedV
+      pure
+      (pure . liftErrorV)
+      (pure . liftErrorV))
+    . snd . unsafeObserveErrorV)
+  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) liftErrorV
+    . traverseAuthenticatedV
+      ((,) Nothing)
+      (fmap (maybe emptyV id) . unsafeObserveErrorV)
+      (fmap (maybe emptyV id) . unsafeObserveErrorV)
+      )
+
+deriving instance Show (AuthenticatedVKey publicV privateV personalV v)
+instance GShow (AuthenticatedVKey publicV privateV personalV) where
+  gshowsPrec = showsPrec
+
+deriving instance
+    ( Show (publicV f)
+    , Show (privateV f)
+    , Show (personalV f)
+    )
+    =>
+    Show (AuthenticatedV publicV privateV personalV f)

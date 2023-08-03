@@ -17,7 +17,6 @@ executable rhyolite-test-suite
     , bytestring-aeson-orphans
     , psql-simple-beam
     , psql-simple-class
-    , psql-simple-groundhog
     , rhyolite-account-backend
     , rhyolite-account-types
     , rhyolite-backend
@@ -25,8 +24,6 @@ executable rhyolite-test-suite
     , rhyolite-common
     , rhyolite-email
     , rhyolite-frontend
-    , rhyolite-groundhog-legacy
-    , rhyolite-groundhog-legacy-types
     , rhyolite-notify-listen
     , rhyolite-notify-listen-beam
     , rhyolite-widgets

@@ -54,6 +54,7 @@ import qualified Data.Map.Monoidal as Map
 import Data.MonoidMap (MonoidMap(..), monoidMap)
 import Data.Pool (Pool)
 import Data.Semigroup ((<>), Semigroup)
+import Data.Semigroup.Commutative
 import Data.Some (Some(Some))
 import Data.Text (Text)
 import qualified Data.Text.IO as T
@@ -63,7 +64,7 @@ import Data.Witherable (Filterable(..))
 import qualified Database.PostgreSQL.Simple as Pg
 import Debug.Trace (trace)
 import qualified Network.WebSockets as WS
-import Reflex (Additive, Group(..))
+import Reflex (Group(..))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
 import Snap.Core (Snap)
@@ -76,7 +77,7 @@ import Rhyolite.Backend.WebSocket (getDataMessage, sendEncodedDataMessage, withW
 import Rhyolite.Concurrent
 import Rhyolite.DB.NotifyListen (startNotificationListener)
 import Rhyolite.WebSocket (TaggedRequest(..), TaggedResponse(..), WebSocketRequest(..), WebSocketResponse(..))
-
+import Data.Monoid.DecidablyEmpty
 
 -- * Handling a request/response API
 -- $api
@@ -282,7 +283,7 @@ fanQuery lookupRecipient qh = (multiRecipient lookupRecipient, fanQueryHandler q
 -- "notifications" indicate that some data in the database has changed, and
 -- that connected clients may need to be made aware of the change.
 feedPipeline
-  :: (Group q, Additive q, PositivePart q, Monoid (QueryResult q))
+  :: (Group q, Commutative q, PositivePart q, Monoid (QueryResult q))
   => IO (q -> IO (QueryResult q))
   -- ^ Get the next notification to be sent to the pipeline. If no notification
   -- is available, this should block until one is available.
@@ -326,7 +327,7 @@ feedPipeline getNextNotification qh r = do
 handleWebsocketConnection
   :: forall r q qWire.
     ( Request r
-    , Eq (QueryResult q)
+    , DecidablyEmpty (QueryResult q)
     , ToJSON (QueryResult qWire)
     , FromJSON qWire
     , Monoid q
@@ -352,14 +353,14 @@ handleWebsocketConnection v fromWire rh register conn = do
           (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
       WebSocketRequest_ViewSelector new -> do
         qr <- runQueryHandler vsHandler (_queryMorphism_mapQuery fromWire new)
-        when (qr /= mempty) $ do
+        when (not $ isEmpty qr) $ do
           sendEncodedDataMessage conn (WebSocketResponse_View (_queryMorphism_mapQueryResult fromWire qr) :: WebSocketResponse qWire)
 
 -- | Like 'handleWebsocketConnection' but customized for 'Snap'.
 handleWebsocket
   :: forall r q qWire.
      ( Request r
-     , Eq (QueryResult q)
+     , DecidablyEmpty (QueryResult q)
      , Monoid (QueryResult q)
      , ToJSON (QueryResult qWire)
      , FromJSON qWire
@@ -383,7 +384,7 @@ connectPipelineToWebsocketsRaw
   :: ( Request r
      , Monoid q
      , Monoid (QueryResult q)
-     , Eq (QueryResult q)
+     , DecidablyEmpty (QueryResult q)
      , FromJSON qWire
      , ToJSON (QueryResult qWire)
      , Query q
@@ -427,7 +428,7 @@ connectPipelineToWebsockets
   :: ( Request r
      , Monoid q
      , Monoid (QueryResult q)
-     , Eq (QueryResult q)
+     , DecidablyEmpty (QueryResult q)
      , FromJSON qWire
      , ToJSON (QueryResult qWire)
      , Query q
@@ -459,18 +460,18 @@ serveDbOverWebsockets
   :: ( Request r
      , Monoid q'
      , Semigroup q'
-     , Eq q
+     , DecidablyEmpty q
      , Monoid q
      , FromJSON qWire
      , ToJSON (QueryResult qWire)
      , Query q
      , Group q
      , Monoid (QueryResult q)
-     , Eq (QueryResult q)
+     , DecidablyEmpty (QueryResult q)
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => Pool Pg.Connection
@@ -504,16 +505,16 @@ serveDbOverWebsocketsRaw
      , ToJSON (QueryResult qWire)
      , Monoid q'
      , Semigroup q'
-     , Eq q
+     , DecidablyEmpty q
      , Monoid q
      , Query q
      , Group q
      , Monoid (QueryResult q)
-     , Eq (QueryResult q)
+     , DecidablyEmpty (QueryResult q)
      , FromJSON notifyMessage
      , Query q'
      , Group q'
-     , Additive q'
+     , Commutative q'
      , PositivePart q'
      )
   => ((WS.Connection -> IO ()) -> m a)
@@ -545,13 +546,13 @@ serveVessel ::
   , FromJSON notifyMessage
   , FromJSON (v (Const ()))
   , FromJSON (Some r)
-  , Eq (QueryResult (v count))
-  , Eq (v count)
+  , DecidablyEmpty (QueryResult (v count))
+  , DecidablyEmpty (v count)
   , Query (v (Compose clients count))
   , Query (v count)
   , Group (v (Compose clients count))
   , Group (v count)
-  , Additive (v (Compose clients count))
+  , Commutative (v (Compose clients count))
   , PositivePart (v (Compose clients count))
   , QueryResult (v (Const ())) ~ v Identity
   , QueryResult (v count) ~ v Identity
@@ -649,7 +650,7 @@ queryMorphismPipeline qm = Pipeline $ \qh r -> pure $ mapQueryHandlerAndRecipien
 -- (i.e., between monoidal maps that can have keys with mempty values and a
 -- monoidal map where mempty is not admitted as a value).
 monoidMapQueryMorphism
-  :: (Eq q, Ord k, Monoid q)
+  :: (DecidablyEmpty q, Ord k, Monoid q)
   => QueryMorphism (MonoidalMap k q) (MonoidMap k q)
 monoidMapQueryMorphism = QueryMorphism
   { _queryMorphism_mapQuery = monoidMap
@@ -661,12 +662,12 @@ monoidMapQueryMorphism = QueryMorphism
 transposeMonoidMap
   :: forall a a' k q qr.
      ( Ord k
-     , Eq a
+     , DecidablyEmpty a
      , Monoid a
      , Semigroup a'
      , Monoid a'
-     , Eq (q (MonoidMap k a))
-     , Eq (QueryResult (q a))
+     , DecidablyEmpty (q (MonoidMap k a))
+     , DecidablyEmpty (QueryResult (q a))
      , Foldable qr
      , Functor q
      , Functor qr

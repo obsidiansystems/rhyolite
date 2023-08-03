@@ -1,5 +1,6 @@
 {-| Description: ErrorV implementation
 -}
+{-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
@@ -18,8 +19,11 @@ import Data.Aeson.GADT.TH
 import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
+import Data.GADT.Show
+import Data.Orphans ()
 import Data.Patch
 import Data.Semigroup
+import Data.Semigroup.Commutative
 import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Single
@@ -56,11 +60,17 @@ instance GCompare (ErrorVK err view) where
       ErrorVK_Error -> GGT
       ErrorVK_View -> GEQ
 
-instance ArgDict c (ErrorVK err view) where
-  type ConstraintsFor (ErrorVK err view) c = (c (SingleV err), c view)
+instance (c (SingleV err), c view) => Has c (ErrorVK err view) where
   argDict = \case
     ErrorVK_Error -> Dict
     ErrorVK_View -> Dict
+
+deriving instance Show (ErrorVK e v a)
+
+instance GShow (ErrorVK e v) where
+  gshowsPrec = showsPrec
+
+deriving instance (Show (v f), Show (f (First (Maybe e)))) => Show (ErrorV e v f)
 
 -- | A functor-parametric container which as a query will contain a value of the
 -- underlying view type and as a result may contain either an err value or a
@@ -77,8 +87,15 @@ instance (View view, FromJSON (g (First (Maybe err))), FromJSON (view g)) => Fro
 
 deriving instance (Has' Semigroup (ErrorVK err v) (FlipAp g), View v) => Semigroup (ErrorV err v g)
 deriving instance (Has' Semigroup (ErrorVK err v) (FlipAp g), View v) => Monoid (ErrorV err v g)
-deriving instance (Has' Additive (ErrorVK err v) (FlipAp g), View v) => Additive (ErrorV err v g)
-deriving instance (Has' Group (ErrorVK err v) (FlipAp g), View v) => Group (ErrorV err v g)
+
+deriving instance (Semigroup (g (First (Maybe err))), Semigroup (v g), View v) => Commutative (ErrorV err v g)
+deriving instance
+  ( Semigroup (g (First (Maybe err)))
+  , Group (g (First (Maybe err)))
+  , Semigroup (v g)
+  , Group (v g)
+  , View v
+  ) => Group (ErrorV err v g)
 deriving instance (PositivePart (g (First (Maybe err))), PositivePart (v g)) => PositivePart (ErrorV err v g)
 
 instance
@@ -92,17 +109,9 @@ instance
 instance
   ( Semigroup (v Identity)
   , View v
-  , QueryResult (v (Const ())) ~ v Identity
-  ) => Query (ErrorV err v (Const ())) where
-  type QueryResult (ErrorV err v (Const ())) = ErrorV err v Identity
-  crop (ErrorV s) (ErrorV r) = ErrorV $ crop s r
-
-instance
-  ( Semigroup (v Identity)
-  , View v
-  , QueryResult (v (Const SelectedCount)) ~ v Identity
-  ) => Query (ErrorV err v (Const SelectedCount)) where
-  type QueryResult (ErrorV err v (Const SelectedCount)) = ErrorV err v Identity
+  , QueryResult (v (Const g)) ~ v Identity
+  ) => Query (ErrorV err v (Const g)) where
+  type QueryResult (ErrorV err v (Const g)) = ErrorV err v Identity
   crop (ErrorV s) (ErrorV r) = ErrorV $ crop s r
 
 instance
@@ -147,6 +156,17 @@ observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
   Just err -> case lookupSingleV err of
     Nothing -> Right emptyV
     Just e -> Left e
+
+-- | Given an 'ErrorV' result, observe both error and result
+-- of the underlying view type.
+unsafeObserveErrorV
+  :: ErrorV e v f
+  -> (Maybe (f (First (Maybe e))), Maybe (v f))
+unsafeObserveErrorV (ErrorV v) =
+  let
+    err = fmap unSingleV $ lookupV ErrorVK_Error v
+  in (err, lookupV ErrorVK_View v)
+
 
 -- | A morphism that only cares about error results.
 unsafeProjectE

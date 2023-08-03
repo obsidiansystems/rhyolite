@@ -45,6 +45,7 @@ import Data.Constraint.Extras
 import Data.Default (Default)
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
+import Data.Semigroup.Commutative
 import Data.Some
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -127,7 +128,7 @@ newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: Rhyolite
 
 deriving instance
   ( Group q
-  , Additive q
+  , Commutative q
   , Query q
   , Reflex t
   , Monad m
@@ -164,7 +165,7 @@ instance TriggerEvent t m => TriggerEvent t (RhyoliteWidget q r t m) where
 
 instance NotReady t m => NotReady t (RhyoliteWidget q r t m)
 
-instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group q, Additive q, Eq q, Query q) => DomBuilder t (RhyoliteWidget q r t m) where
+instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m, Group q, Commutative q, Eq q, Query q) => DomBuilder t (RhyoliteWidget q r t m) where
   type DomBuilderSpace (RhyoliteWidget q r t m) = DomBuilderSpace m
   textNode = liftTextNode
   element elementTag cfg (RhyoliteWidget child) = RhyoliteWidget $ element elementTag cfg child
@@ -174,7 +175,7 @@ instance (DomBuilder t m, MonadHold t m, Ref (Performable m) ~ Ref m, MonadFix m
   placeRawElement = RhyoliteWidget . placeRawElement
   wrapRawElement e = RhyoliteWidget . wrapRawElement e
 
-instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq q, Group q, Additive q, Query q) => Adjustable t (RhyoliteWidget q r t m) where
+instance (Reflex t, MonadFix m, MonadHold t m, Adjustable t m, Eq q, Group q, Commutative q, Query q) => Adjustable t (RhyoliteWidget q r t m) where
   runWithReplace a0 a' = RhyoliteWidget $ runWithReplace (coerce a0) (coerceEvent a')
   traverseDMapWithKeyWithAdjust f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjust (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = RhyoliteWidget $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unRhyoliteWidget $ f k v) (coerce dm0) (coerceEvent dm')
@@ -218,7 +219,7 @@ deriving instance
     , MonadFix m
     , Eq q
     , Group q
-    , Additive q
+    , Commutative q
     , Query q
   ) => Prerender t (RhyoliteWidget q r t m)
 
@@ -244,7 +245,7 @@ class
   , R.Request m ~ r
   , Response m ~ Identity
   , Group q
-  , Additive q
+  , Commutative q
   , MonadQuery t q m
   ) => MonadRhyoliteWidget q r t m | m -> q r where
 
@@ -254,7 +255,7 @@ instance
   , R.Request m ~ r
   , Response m ~ Identity
   , Group q
-  , Additive q
+  , Commutative q
   , MonadQuery t q m
   ) => MonadRhyoliteWidget q r t m
 
@@ -294,7 +295,7 @@ runObeliskRhyoliteWidget ::
   , Request req
   , Query qFrontend
   , Group qFrontend
-  , Additive qFrontend
+  , Commutative qFrontend
   , Eq qWire
   , Monoid (QueryResult qFrontend)
   , FromJSON (QueryResult qWire)
@@ -330,7 +331,7 @@ runRhyoliteWidget
       , Request req
       , Query qFrontend
       , Group qFrontend
-      , Additive qFrontend
+      , Commutative qFrontend
       , Eq qWire
       , Monoid (QueryResult qFrontend)
       , FromJSON (QueryResult qWire)
@@ -565,9 +566,9 @@ mapAuth
      , PostBuild t m
      , Query q
      , Group q
-     , Additive q
+     , Commutative q
      , Group q'
-     , Additive q'
+     , Commutative q'
      )
   => cred
   -- ^ The application's authentication token, used to transform api calls made by the authenticated child widget
