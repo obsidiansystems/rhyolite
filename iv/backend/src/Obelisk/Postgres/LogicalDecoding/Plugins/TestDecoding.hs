@@ -31,6 +31,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Sequence (Seq, (|>))
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding
 import Database.PostgreSQL.Simple.Types
 import qualified Data.Map as Map
@@ -88,7 +89,14 @@ newtype TypeName = TypeName { unTypeName :: Text } deriving (Show, Read, Eq, Ord
 typeName :: Parser TypeName
 typeName = do
   let otherChar c = identifierOtherChar c || c `elem` (" ()," :: String)
-  TypeName <$> identifierLike identifierFirstChar otherChar
+  TypeName <$> do
+    tName <- identifierLike identifierFirstChar otherChar
+    tDims <- many $ do
+      _ <- char '['
+      size <- option Nothing $ Just <$> decimal @Word
+      _ <- char ']'
+      pure size
+    pure $ T.concat $ tName : ["[" <> maybe "" (T.pack . show) sizeM <> "]" | sizeM <- tDims]
 
 newtype Xid = Xid { unXid :: Word32 } deriving (Show, Read, Eq, Ord, Enum)
 

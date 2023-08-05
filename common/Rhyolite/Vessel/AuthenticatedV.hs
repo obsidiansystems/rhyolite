@@ -57,11 +57,6 @@ import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorp
 import Data.Vessel.Vessel (vessel)
 import Data.Bifoldable
 
--- TODO upstream this instance
--- see https://github.com/obsidiansystems/vessel/pull/22/commits/b61428df85f0befa90a8cbd18cb860ebded70e21
-instance (Has' Semigroup k (FlipAp g), GCompare k, Has View k) => DecidablyEmpty (Vessel k g) where
-  isEmpty = nullV
-
 -- | An internal key type used to glue together parts of a view selector
 -- that have different authentication contexts.
 data AuthenticatedVKey public private personal (ix :: (* -> *) -> *) where
@@ -168,7 +163,7 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
   :: (Monad m, Ord token, View public, View private, View personal, Ord user, Applicative q)
-  => (token -> m (Maybe user))
+  => (token -> Maybe user)
   -> (forall p'. public p' -> m (public q))
   -> (forall p'. private p' -> m (private q))
   -- ^ The result of private queries is only available to authenticated identities

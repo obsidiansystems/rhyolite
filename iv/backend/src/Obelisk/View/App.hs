@@ -3,9 +3,12 @@
 module Obelisk.View.App where
 
 import Control.Applicative
+import Control.Monad.Trans.Reader
 import Data.Foldable
 import Control.Category
-import Control.Exception (bracket, SomeException, handle, throw)
+import Control.Concurrent
+import Control.Concurrent.MVar
+import Control.Exception (bracket, SomeException, handle, throw, finally, Exception)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
@@ -85,57 +88,28 @@ data PendingReaderState
 -- Lens.makeLenses ''BufferRhyoliteAppState
 Lens.makeLenses ''ClientKeyState
 
-data ReadDbPatch a where
-  ReadDbPatch_Old :: ReadDb a -> ReadDbPatch a
-  ReadDbPatch_New :: ReadDb a -> ReadDbPatch a
-  ReadDbPatch_Bind :: ReadDbPatch a -> (a -> ReadDbPatch b) -> ReadDbPatch b
-  ReadDbPatch_Pure :: a -> ReadDbPatch a
-  ReadDbPatch_FMap :: (a -> b) -> ReadDbPatch a -> ReadDbPatch b
-  ReadDbPatch_LiftA2 :: (a -> b -> c) -> ReadDbPatch a -> ReadDbPatch b -> ReadDbPatch c
+
+newtype ReadDbPatch a = ReadDbPatch { unReadDbPatch :: ReaderT (AsyncReadDb IO -> IO (), AsyncReadDb IO -> IO ()) IO a }
+    deriving (Functor, Monad, Applicative)
+
+runReadDbPatch :: (AsyncReadDb IO -> IO ()) -> (AsyncReadDb IO -> IO ()) -> ReadDbPatch a -> IO a
+runReadDbPatch readOld readNew x0 = runReaderT (unReadDbPatch x0) (readOld, readNew)
+
+callbackToSync :: Exception e => (((Either e a) -> IO ()) -> IO ()) -> IO a
+callbackToSync cb = do
+    returnVar <- newEmptyMVar
+    cb $ putMVar returnVar
+    returnValue <- takeMVar returnVar
+    either (liftIO . throw) pure returnValue
+
+readDbToAsyncReadDb :: ReadDb a -> (AsyncReadDb IO -> IO ()) -> IO a
+readDbToAsyncReadDb req run = callbackToSync $ run . AsyncReadDb req
 
 liftOld :: ReadDb a -> ReadDbPatch a
-liftOld = ReadDbPatch_Old
+liftOld r = ReadDbPatch $ asks fst >>= liftIO . readDbToAsyncReadDb r
 
 liftNew :: ReadDb a -> ReadDbPatch a
-liftNew = ReadDbPatch_New
-
-runReadDbPatch :: (AsyncReadDb IO -> IO ()) -> (AsyncReadDb IO -> IO ()) -> ReadDbPatch a -> (a -> IO ()) -> IO ()
-runReadDbPatch readOld readNew x0 k0 = go k0 x0
-  where
-    go :: forall x. (x -> IO ()) -> ReadDbPatch x -> IO ()
-    go k = \case
-      ReadDbPatch_Old x -> readOld (AsyncReadDb x k)
-      ReadDbPatch_New x -> readNew (AsyncReadDb x k)
-      ReadDbPatch_Bind x f -> go (\y -> go k $ f y) x
-      ReadDbPatch_Pure x -> k x
-      ReadDbPatch_FMap f x -> go (k . f) x
-      ReadDbPatch_LiftA2 f x y -> do
-        flip go x $ \x' -> flip go y $ \y' -> k (f x' y')
-        -- res <- newIORef Nothing
-        -- _ <- forkIO $ flip go x $ \x' -> join $ atomicModifyIORef' res $ \case
-        --   Nothing -> (Just (Left x'), pure ())
-        --   Just (Left _) -> error "double fill"
-        --   Just (Right y') -> (Nothing, k $ f x' y')
-        -- flip go y $ \y' -> join $ atomicModifyIORef' res $ \case
-        --   Nothing -> (Just (Right y'), pure ())
-        --   Just (Right _) -> error "double fill"
-        --   Just (Left x') -> (Nothing, k $ f x' y')
-
-instance Functor ReadDbPatch where
-  fmap = ReadDbPatch_FMap
-
-instance Applicative ReadDbPatch where
-  pure = ReadDbPatch_Pure
-  liftA2 = ReadDbPatch_LiftA2
-
-instance Monad ReadDbPatch where
-  (>>=) = ReadDbPatch_Bind
-
-instance Semigroup w => Semigroup (ReadDbPatch w) where
-  (<>) = liftA2 (<>)
-
-instance Monoid w => Monoid (ReadDbPatch w) where
-  mempty = pure mempty
+liftNew r = ReadDbPatch $ asks snd >>= liftIO . readDbToAsyncReadDb r
 
 
 newtype Pipeline i q = Pipeline
@@ -365,7 +339,7 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
                       responses
                   newClosedTimes = Set.difference (Map.keysSet pendingReads) (Map.keysSet pendingReads')
               in (,) (t, s, pendingReads') $ do
-                logger $ T.unwords ["tryCloseTimes", tshow pendingReads]
+                logger $ T.unwords ["tryCloseTimes", tshow pendingReads, "responded:", tshow responses, "new closed:", tshow newClosedTimes]
                 traverse_ (closeTime . singletonInterval) newClosedTimes
 
         let notifyAtTime :: Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
@@ -381,12 +355,15 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
                     Nothing -> tryCloseTimes Map.empty -- we might just be done right away.
                     Just currentSub -> do
                       logger $ T.unwords ["processing at", tshow tPrev, "..", tshow tNew]
+                      let covs = Map.mapMaybe justThere currentSub
+                          mergedCov = unionCoverages covs
+                          decrementTimeRefcounts = tryCloseTimes $ Map.fromList [(tPrev, numSubs), (tNew, numSubs)]
+                      flip finally decrementTimeRefcounts $ forM_ mergedCov $ \q -> do
+                        res <- runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q)
+                        _ivForwardSequential_notify fwdSeq $ flip Map.mapMaybe covs $ \cov -> That <$> restrictCoverage cov res
                       -- readAtTime is "non-blocking" and will call it's callback later.
                       -- So we need to "wait" until all notifications are actually sent.
                       void $ flip Map.traverseWithKey currentSub $ \clientKey qBoth -> do
-                        forM_ (justThere qBoth) $ \q -> runReadDbPatch (readAtTime tPrev) (readAtTime tNew) (nh p q) $ \res -> do
-                          _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ That res
-                          tryCloseTimes $ Map.fromList [(tPrev, 1), (tNew, 1)]
                         forM_ (justHere qBoth >>= flip restrictCoverage p) $ \res -> do
                           _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ This res
 
@@ -405,11 +382,10 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
                         Just (i + length @Maybe readsMaybe, PendingReaderState_NoChange))) tCurrent pendingReads
                     in (,) (tCurrent, newSubs, pendingReads') $ do
                       forM_ @Maybe readsMaybe $ \reads_ ->
-                        flip Map.traverseWithKey reads_ $ \clientKey read_ ->
-                          readAtTime tCurrent $ AsyncReadDb (qh read_) $ \result -> do
+                        flip Map.traverseWithKey reads_ $ \clientKey read_ -> do
+                          flip finally (tryCloseTimes $ Map.singleton tCurrent 1) $ do
+                            result <- callbackToSync $ readAtTime tCurrent . AsyncReadDb (qh read_)
                             _ivForwardSequential_readResponse fwdSeq . Map.singleton clientKey $ result
-                            tryCloseTimes $ Map.singleton tCurrent 1
-
                       pure ()
               }
 

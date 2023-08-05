@@ -37,6 +37,7 @@ import Obelisk.Beam.Patch.Db
 import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
+import Obelisk.Concurrency
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding (Xid)
 import Obelisk.Postgres.Snapshot
 import Obelisk.View.NonEmptyInterval
@@ -91,7 +92,8 @@ killAllThreads putLog r = do
 
 --TODO: I think there may be some possible inconsistency: logical decoding steps forward by LSN, but new transaction snapshots do not necessarily match any particular LSN.  See https://www.postgresql.org/message-id/CA%2BTgmoZkGbgcu18vr4ewx6L9n8Nfe89GADc2W7kwhdWa8YRh%3Dg%40mail.gmail.com
 
-data AsyncReadDb m = forall x. AsyncReadDb (ReadDb x) (x -> m ())
+-- Should possibly be more specific than SomeException on the callback here.
+data AsyncReadDb m = forall x. AsyncReadDb (ReadDb x) (Either SomeException x -> m ())
 
 -- | Analogous to a read-only transaction
 data DbReader db m = DbReader
@@ -169,7 +171,7 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
     bracket (newRef mempty) (closeAllInRef putLog _dbReader_close) $ \openReadTransactionsRef -> do
       bracket (newRef mempty) (killAllThreads putLog) $ \allWorkersRef -> do
         let forkWorker :: m () -> m ()
-            forkWorker a = void $ fork $ do
+            forkWorker a = void $ fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception in worker thread: " <> tshow e) {- >> throwOn mainThread -}) $ do
               tid <- myThreadId
               let add = atomicModifyRef' allWorkersRef $ \w -> (Set.insert tid w, ())
                   remove = atomicModifyRef' allWorkersRef $ \w -> (Set.delete tid w, ())
@@ -184,9 +186,9 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
                 putLog $ "closing connections: " <> tshow (IntMap.keys toClose)
                 unless (null stale) $ putLog $ "stale connections:" <> tshow stale
                 forM_ toClose $ \conn -> do
-                  fork $ do --We want to close all transactions ASAP, even if some are long-running
+                  fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception while closing transaction: " <> tshow e)) $ do --We want to close all transactions ASAP, even if some are long-running
                     _dbReader_close conn
-              readAtTime t req = void $ fork $ do
+              readAtTime t req = void $ fork $ handle (\(SomeException e) -> putLog ("runDbIv: Exception in readAtTime for " <> tshow t <> ": " <> tshow e) {- >> throwOn mainThread -}) $ do
                 openReadTransactions <- readRef openReadTransactionsRef
                 case IntMap.lookup t openReadTransactions of
                   Nothing -> fail $ "Expected transaction " <> show t <> " to be open"
@@ -209,7 +211,8 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
-          withAsync (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ \_ -> do
+          -- Would be nice to use withSingleWorkerWatchdog here but I haven't quite found where the loop is to put it in.
+          withSingleWorker "walkTransactionLog" (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ do
             takeMVar readyToStartVar
             (sendPatch, bOut) <- startMyIv closeTime readAtTime
             putMVar sendPatchVar sendPatch

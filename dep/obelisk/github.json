@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "aa/reflex-pkgs-dec22",
+  "branch": "pzp",
   "private": false,
-  "rev": "2d97ea0c1316b39fe084ff62bb5275a373e60851",
-  "sha256": "0rs3v2jgawwyqni2nwx2gij87lyl4bdq0ij3q1cq8fsx1991qj68"
+  "rev": "db78e4d4c20d9d51f90e00e5d9a0d5e77c0baf82",
+  "sha256": "1yxwvfdlv3ii17jrd3w2yiiza26d400b35x04gmpv209xk26yz3h"
 }
