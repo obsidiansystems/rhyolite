@@ -20,6 +20,8 @@ library
     , async
     , beam-core
     , beam-postgres
+    , beam-transformers-common
+    , beam-transformers-backend
     , lens
     , lifted-base
     , monad-logger

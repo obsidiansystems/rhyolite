@@ -47,6 +47,9 @@ let
     beam-migrate = repos.beam + "/beam-migrate";
     beam-migrate-cli = repos.beam + "/beam-migrate-cli";
 
+    beam-transformers-backend = repos.beam-transformers + "/beam-transformers-backend";
+    beam-transformers-common = repos.beam-transformers + "/beam-transformers-common";
+
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
     monoid-map = repos.monoid-map;
