@@ -23,6 +23,7 @@ import Database.Beam.Postgres
 import Database.Beam.Postgres.Syntax
 import Database.Beam.Query.Internal (QNested)
 import Database.Beam.Schema.Tables
+import Database.Beam.Transformers.Virtual
 
 import Rhyolite.DB.Beam
 import Rhyolite.Task.Beam
@@ -60,7 +61,7 @@ taskWorkerWithoutHasRun
      , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
      )
   => Connection
-  -> DatabaseEntity be db (TableEntity table)
+  -> VirtualTable be db table
   -- ^ The table whose rows represent tasks to be run
   -> TaskWithoutHasRun be table payload checkout result
   -- ^ Description of how task data is embedded within the table
@@ -78,7 +79,7 @@ taskWorkerWithoutHasRun dbConn table schema k checkoutId = do
     -- 3. Run the specified checkout task which returns the work continuation
     withTransactionSerializableRunBeamPostgres dbConn $ do
       primaryKeyAndInput <- runSelectReturningOne $ select $ limit_ 1 $ do
-          task <- all_ table
+          task <- allV_ table
 
           -- Both task fields should be empty for an unclaimed task
           -- Also apply any other filters that may have been passed, using ready
@@ -92,7 +93,7 @@ taskWorkerWithoutHasRun dbConn table schema k checkoutId = do
       forM primaryKeyAndInput $ \(taskId, input) -> do
         -- Mark the retrieved task as checked out, by the current worker
         runUpdate $
-          update table
+          updateV table
             (\task -> _taskWithoutHasRun_checkedOutBy schema task <-. val_ (Just checkoutId))
             (\task -> primaryKey task ==. val_ taskId)
 
@@ -109,7 +110,7 @@ taskWorkerWithoutHasRun dbConn table schema k checkoutId = do
         b <- commitAction
 
         -- Update the task's result field, set checked out field to null
-        runUpdate $ update table
+        runUpdate $ updateV table
           (\task -> mconcat
             [ _taskWithoutHasRun_result schema task <-. val_ b
             , _taskWithoutHasRun_checkedOutBy schema task <-. val_ Nothing
@@ -151,7 +152,7 @@ taskWorker
      , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
      )
   => Connection
-  -> DatabaseEntity be db (TableEntity table)
+  -> VirtualTable be db table
   -- ^ The table whose rows represent tasks to be run
   -> Task be table payload checkout result
   -- ^ Description of how task data is embedded within the table
