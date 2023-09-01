@@ -8,7 +8,6 @@ Description:
 {-# Language OverloadedStrings #-}
 module Rhyolite.Backend.Account
   ( createAccount
-  , login
   , ensureAccountExists
   , setAccountPassword
   , setAccountPasswordHash
