@@ -9,6 +9,7 @@ Description:
 module Rhyolite.Backend.Account
   ( createAccount
   , ensureAccountExists
+  , login
   , setAccountPassword
   , setAccountPasswordHash
   , makePasswordHash
