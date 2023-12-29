@@ -16,8 +16,6 @@ category:      UI
 
 library
   exposed-modules:
-    Reflex.Dom.Modal.Base
-    Reflex.Dom.Modal.Class
     Reflex.Dom.Widget.ExtensibleList
     Reflex.Dom.Widget.Form
 
