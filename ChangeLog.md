@@ -5,6 +5,8 @@ This project's release branch is `master`. This log is written from the perspect
 ## Unreleased
 
 * Breaking: Remove Reflex.Dom.Modal.Base and Reflex.Dom.Modal.Class. The `<dialog>` element is now broadly supported by browsers and provides a simpler solution to the problem of opening modals that is also more accessible. See the [documentation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog), and, in particular, this [example](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement#opening_a_modal_dialog), which uses `showModal` and describes how to style the modal backdrop.
+* Make it possible to use Rhyolite.Backend.Account without notifications. See Rhyolite.Backend.Account.Db for versions of createAccount and ensureAccountExists that don't send notifications.
+* Update to obelisk v1.3.0.0
 
 ## v1.0.0.0 2023-08-03
 * Breaking: Drop groundhog support
