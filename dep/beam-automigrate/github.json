@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "beam-automigrate",
-  "branch": "release/0.1.4.0",
+  "branch": "develop",
   "private": false,
-  "rev": "a5d0090acd05a444a75dd3effecbba82ea195561",
-  "sha256": "03fdxwr14vjpif5c0vzqff5x21q98v5slqba1qg4ki092bwws6l6"
+  "rev": "5bd03ad708583d7edcd5a796e7d6306bdd3919a8",
+  "sha256": "1cl7z1srig1h7wzai583ggi4alc8ln39yrspvsagp9d94xrwads3"
 }
