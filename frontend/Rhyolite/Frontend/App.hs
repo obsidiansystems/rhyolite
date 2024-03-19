@@ -43,6 +43,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Coerce (coerce)
 import Data.Constraint.Extras
 import Data.Default (Default)
+import Data.Functor
 import Data.Monoid (Dual (..))
 import qualified Data.Map as Map
 import Data.Semigroup ((<>))
@@ -121,7 +122,7 @@ vesselToWire = QueryMorphism
 -- * Widgets that can make requests/queries
 
 -- | Encapsulates the widget's ability to make requests and issue queries
-type RhyoliteWidgetInternal q r t m = QueryT t q (RequesterT t r Identity m)
+type RhyoliteWidgetInternal q r t m = QueryT t q (RequesterT t r (Either Text) m)
 
 -- | A widget that can make requests and issue view selectors
 newtype RhyoliteWidget q r t m a = RhyoliteWidget { unRhyoliteWidget :: RhyoliteWidgetInternal q r t m a }
@@ -150,7 +151,7 @@ instance HasConfigs m => HasConfigs (RhyoliteWidget q r t m)
 
 instance (Monad m, Reflex t) => Requester t (RhyoliteWidget q r t m) where
   type Request (RhyoliteWidget q r t m) = r
-  type Response (RhyoliteWidget q r t m) = Identity
+  type Response (RhyoliteWidget q r t m) = Either Text
   requesting = RhyoliteWidget . requesting
   requesting_ = RhyoliteWidget . requesting_
 
@@ -359,22 +360,26 @@ runRhyoliteWidget toWire url child = do
             ( _appWebSocket_notification appWebSocket
             , _appWebSocket_response appWebSocket
             )
-      (request', response') <- matchResponsesWithRequests reqEncoder request $ fforMaybe response $ \case { (TaggedResponse t v) -> Just (t, v); _ -> Nothing; }
+      (request', response') <- matchResponsesWithRequests reqEncoder request $ response <&> \case
+        TaggedResponse t v -> (t, Right v)
+        TaggedResponse_Error t err -> (t, Left err)
       let request'' = fmap (Map.elems . Map.mapMaybeWithKey (\t v -> case fromJSON v of
             Success (v' :: (Some req)) -> Just $ TaggedRequest t v'
             _ -> Nothing)) request'
-      ((a, vs), request) <- flip runRequesterT (fmapMaybe (traverseRequesterData (fmap Identity)) response') $ runQueryT (unRhyoliteWidget child) view
+      ((a, vs), request) <- flip runRequesterT response' $ runQueryT (unRhyoliteWidget child) view
       let (vsDyn :: Dynamic t qFrontend) = incrementalToDynamic (vs :: Incremental t (AdditivePatch qFrontend))
       nubbedVs <- holdUniqDyn (_queryMorphism_mapQuery toWire <$> vsDyn)
       view <- fmap join $ prerender (pure mempty) $ fromNotifications vsDyn $ _queryMorphism_mapQueryResult toWire <$> notification
   return (dAppWebSocket, a)
   where
-    reqEncoder :: forall a. req a -> (Aeson.Value, Aeson.Value -> Maybe a)
+    reqEncoder :: forall a. req a -> (Aeson.Value, Either Text Aeson.Value -> Either Text a)
     reqEncoder r =
       ( whichever @ToJSON @req @a $ Aeson.toJSON r
-      , \x -> case has @FromJSON r $ Aeson.fromJSON x of
-        Success s-> Just s
-        _ -> Nothing
+      , \case
+          Left serverErr -> Left $ "internal server error: " <> serverErr
+          Right rsp -> case has @FromJSON r $ Aeson.fromJSON rsp of
+            Success s -> Right s
+            Aeson.Error decodingErr -> Left $ "error decoding response: " <> T.pack decodingErr
       )
 
 -- | Receive the results of a 'Query' as a stream of 'Event's and combine them
@@ -581,7 +586,7 @@ mapAuth
   -> QueryMorphism q' q
     -- ^ A morphism from a query type supplied by the user, "f", that represents queries made by authenticated widgets, to a the query
     -- type of the application as a whole (which may have authenticated and public components)
-  -> QueryT t q' ((RequesterT t (ApiRequest () publicRequest privateRequest)) Identity m) a
+  -> QueryT t q' ((RequesterT t (ApiRequest () publicRequest privateRequest)) (Either Text) m) a
   -- ^ The authenticated child widget. It uses '()' as its credential for private requests
   -> RhyoliteWidget q (ApiRequest cred publicRequest privateRequest) t m a
 mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do

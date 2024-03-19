@@ -48,6 +48,11 @@ knownSubMap = \case
   SemiMap_Complete m -> m
   SemiMap_Partial m -> Map.mapMaybe getFirst m
 
+null :: SemiMap k v -> Bool
+null = \case
+  SemiMap_Partial m -> Map.null m
+  SemiMap_Complete _ -> False
+
 instance (Ord k) => Monoid (SemiMap k v) where
   mempty = SemiMap_Partial mempty
 
