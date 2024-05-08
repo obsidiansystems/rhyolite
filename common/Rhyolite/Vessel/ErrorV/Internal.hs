@@ -166,6 +166,11 @@ observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
     Nothing -> Right emptyV
     Just e -> Left e
 
+-- | A 'Path' which abstracts over constructing the query and observing the result.
+errorV :: (Semigroup (v Proxy), EmptyView v)
+       => Path (v Proxy) (ErrorV e v Proxy) (ErrorV e v Identity) (Either e (v Identity))
+errorV = Path { _path_to = queryErrorV, _path_from = Just . observeErrorV }
+
 -- | Given an 'ErrorV' result, observe both error and result
 -- of the underlying view type.
 unsafeObserveErrorV
