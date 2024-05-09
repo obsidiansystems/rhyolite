@@ -155,21 +155,18 @@ buildErrorV f (ErrorV v) = case lookupV ErrorVK_View v of
 -- | Given an 'ErrorV' result, observe whether it is an error result
 -- or a result of the underlying view type.
 observeErrorV
-  :: EmptyView v
-  => ErrorV e v Identity
-  -> Either e (v Identity)
+  :: ErrorV e v Identity
+  -> Maybe (Either e (v Identity))
 observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
-  Nothing -> Right $ case lookupV ErrorVK_View v of
-    Nothing -> emptyV
-    Just v' -> v'
+  Nothing -> Right <$> lookupV ErrorVK_View v
   Just err -> case lookupSingleV err of
-    Nothing -> Right emptyV
-    Just e -> Left e
+    Nothing -> Right <$> lookupV ErrorVK_View v
+    Just e -> Just (Left e)
 
 -- | A 'Path' which abstracts over constructing the query and observing the result.
 errorV :: (Semigroup (v (Const x)), EmptyView v, Num x, Semigroup x)
        => Path (v (Const x)) (ErrorV e v (Const x)) (ErrorV e v Identity) (Either e (v Identity))
-errorV = Path { _path_to = queryErrorVConst, _path_from = Just . observeErrorV }
+errorV = Path { _path_to = queryErrorVConst, _path_from = observeErrorV }
 
 -- | Given an 'ErrorV' result, observe both error and result
 -- of the underlying view type.
