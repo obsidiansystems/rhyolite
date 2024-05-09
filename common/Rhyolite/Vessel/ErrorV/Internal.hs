@@ -164,7 +164,7 @@ observeErrorV (ErrorV v) = case lookupV ErrorVK_Error v of
     Just e -> Just (Left e)
 
 -- | A 'Path' which abstracts over constructing the query and observing the result.
-errorV :: (Semigroup (v (Const x)), EmptyView v, Num x, Semigroup x)
+errorV :: (Semigroup (v (Const x)), View v, Num x, Semigroup x)
        => Path (v (Const x)) (ErrorV e v (Const x)) (ErrorV e v Identity) (Either e (v Identity))
 errorV = Path { _path_to = queryErrorVConst, _path_from = observeErrorV }
 
