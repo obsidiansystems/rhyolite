@@ -24,15 +24,17 @@ import Data.Aeson
 import Data.Constraint.Extras
 import Data.Maybe
 import qualified Data.Map.Monoidal as MMap
+import Data.Map.Monoidal (MonoidalMap)
+import qualified Data.Map as DataMap
 import qualified Data.Map.Strict as Map
 import Data.Patch
 import Data.Semigroup
+import Data.Semigroup.Commutative
 import qualified Data.Set as Set
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Data.Vessel.Vessel
 import Data.Vessel.ViewMorphism
-import Data.Witherable
 import GHC.Generics
 import Reflex.Query.Class
 
@@ -49,14 +51,14 @@ getAuthMapV
   :: Ord auth
   => AuthMapV auth v g
   -> SubVessel auth v g
-getAuthMapV (AuthMapV v) = mapMaybeWithKeySubVesselSlow (\_ -> snd . unsafeObserveErrorV) v
+getAuthMapV (AuthMapV v) = mkSubVessel $ MMap.mapMaybeWithKey (\_ -> snd . unsafeObserveErrorV) $ getSubVessel v
 
 -- | Construct an authorised 'AuthMapV'
 makeAuthMapV
   :: (Ord auth, View v)
-  => SubVessel auth v g
-  -> AuthMapV auth v g
-makeAuthMapV = AuthMapV . mapMaybeWithKeySubVesselSlow (\_ -> Just . liftErrorV)
+  => SubVessel auth v Identity
+  -> AuthMapV auth v Identity
+makeAuthMapV = AuthMapV . mkSubVessel . MMap.mapMaybeWithKey (\_ -> Just . successErrorV) . getSubVessel
 
 deriving instance (Ord auth, Eq (view g), Eq (g (First (Maybe ())))) => Eq (AuthMapV auth view g)
 
@@ -79,15 +81,19 @@ deriving instance
 
 deriving instance
   ( Ord auth
-  , Has' Group (ErrorVK () v) (FlipAp g)
+  , Semigroup (g (First (Maybe ())))
+  , Semigroup (v g)
+  , Group (g (First (Maybe ())))
+  , Group (v g)
   , View v
   ) => Group (AuthMapV auth v g)
 
 deriving instance
   ( Ord auth
-  , Has' Additive (ErrorVK () v) (FlipAp g)
+  , Semigroup (g (First (Maybe ())))
+  , Semigroup (v g)
   , View v
-  ) => Additive (AuthMapV auth v g)
+  ) => Commutative (AuthMapV auth v g)
 
 deriving instance (Ord auth, PositivePart (g (First (Maybe ()))), PositivePart (v g)) => PositivePart (AuthMapV auth v g)
 
@@ -140,8 +146,10 @@ instance
 -- user is typically 'Id Account', iso to 'AuthToken Identity'
 handleAuthMapQuery
   :: (Monad m, Ord token, View v)
-  => (token -> m (Maybe user))
-  -- ^ How to figure out the identity corresponding to a token
+  => (token -> Maybe user)
+  -- ^ How to figure out the identity corresponding to a token. Note: this is pure because it absolutely must be cheap, and we don't want people
+  -- attempting to put a database query inside it, which would result in terrible performance failures. Fast IO would be permissible, but generally
+  -- decrypting a token with a known CSK can be done with a pure function.
   -> (v Proxy -> m (v Identity))
   -- ^ Handle the aggregate query for all identities
   -> AuthMapV token v Proxy
@@ -150,7 +158,7 @@ handleAuthMapQuery
 handleAuthMapQuery readToken handler (AuthMapV vt) = do
   let unfilteredVt = getSubVessel vt
       unvalidatedTokens = MMap.keys unfilteredVt
-  validTokens <- Set.fromList <$> witherM (\t -> (t <$) <$> readToken t) unvalidatedTokens
+      validTokens = Set.fromList (filter (isJust . readToken) unvalidatedTokens)
   let filteredVt = MMap.intersectionWith const unfilteredVt (MMap.fromSet (\_ -> ()) validTokens)
       invalidTokens = MMap.fromSet (\_ -> failureErrorV ()) $
         Set.difference (Set.fromList unvalidatedTokens) validTokens
@@ -183,13 +191,11 @@ type instance ViewQueryResult (TaggedQuery w a) = (w, a)
 handlePersonalAuthMapQuery
   :: forall m token v user.
      (Monad m, Ord token, View v, Ord user)
-  => (token -> m (Maybe user))
-  -- ^ How to figure out the identity corresponding to a token
-  -> (forall f g.
-     ViewQueryResult f ~ g
-     => (forall x. x -> f x -> g x)
-     -> v (Compose (MMap.MonoidalMap user) f)
-     -> m (v (Compose (MMap.MonoidalMap user) g))
+  => (token -> Maybe user)
+  -- ^ How to figure out the identity corresponding to a token. Note: this is pure because it absolutely must be cheap. See the corresponding comment on
+  -- 'handleAuthMapQuery'.
+  -> (v (Compose (MMap.MonoidalMap user) Proxy)
+     -> m (v (Compose (MMap.MonoidalMap user) Identity))
      )
   -- ^ Handle the query for each individual identity
   -> AuthMapV token v Proxy
@@ -198,8 +204,8 @@ handlePersonalAuthMapQuery
 handlePersonalAuthMapQuery readToken handler vt = do
   let unauthorisedAuthMapSingleton token = Map.singleton token $ failureErrorV ()
 
-      authoriseAction t v = do
-        lift (readToken t) >>= \case
+      authoriseAction t v =
+        case readToken t of
           Nothing -> do
             tell $ unauthorisedAuthMapSingleton t
             pure Nothing
@@ -213,22 +219,42 @@ handlePersonalAuthMapQuery readToken handler vt = do
         . (MMap.foldMapWithKey $ \t (Compose u) -> TaggedQuery (Set.singleton t) <$ u)
         . getCompose
 
-      injectResult :: forall x.  x -> TaggedQuery (Set token) x -> ((Set token), x)
-      injectResult x (TaggedQuery xs) = (xs, x)
-
       disperseTokens
         :: MMap.MonoidalMap user (Set token, a)
         -> Compose (MMap.MonoidalMap token) Identity a
       disperseTokens = Compose . MMap.MonoidalMap
         . foldMap (\(t, a) -> Map.fromSet (const (Identity a)) t)
 
-  (vtReadToken, invalidTokens) <- runWriterT $ traverseMaybeSubVesselSlow authoriseAction $ getAuthMapV vt
+  (vtReadToken, invalidTokens) <- runWriterT
+    $ fmap (mkSubVessel . MMap.MonoidalMap)
+    $ DataMap.traverseMaybeWithKey authoriseAction
+    $ MMap.getMonoidalMap
+    $ getSubVessel
+    $ getAuthMapV vt
 
-  vt' <- handler injectResult $ mapV condenseTokens $ condenseV $ getSubVessel vtReadToken
+  let condensedV = condenseV $ getSubVessel vtReadToken
+      condensedTokensV :: v (Compose (MonoidalMap user) (TaggedQuery (Set token)))
+      condensedTokensV = mapV condenseTokens condensedV
+      queryByUserV :: v (Compose (MonoidalMap user) Proxy)
+      queryByUserV = mapV (\(Compose m) -> Compose (fmap (const Proxy) m)) condensedTokensV
 
-  -- TODO: warn about collisions in alignWithV
-  pure $ alignWithV (these id id const) (AuthMapV $ mkSubVessel $ MMap.MonoidalMap invalidTokens)
-      (makeAuthMapV (mkSubVessel $ disperseV $ mapV (disperseTokens . getCompose) vt'))
+  views <- handler queryByUserV
+
+  let reattachToken :: TaggedQuery (Set token) a -> Identity a -> (Set token, a)
+      reattachToken (TaggedQuery s) (Identity x) = (s,x)
+
+      reattachTokenMap :: Compose (MonoidalMap user) (TaggedQuery (Set token)) a
+                       -> Compose (MonoidalMap user) Identity a
+                       -> Compose (MonoidalMap user) ((,) (Set token)) a
+      reattachTokenMap (Compose mtokens) (Compose mviews) = Compose (MMap.intersectionWith reattachToken mtokens mviews)
+      tokenedViewsM :: Maybe (v (Compose (MonoidalMap user) ((,) (Set token))))
+      tokenedViewsM = cropV reattachTokenMap condensedTokensV views
+  case tokenedViewsM of
+    Nothing -> return emptyV
+    Just tokenedViews ->
+      -- TODO: warn about collisions in alignWithV
+      pure $ alignWithV (these id id const) (AuthMapV $ mkSubVessel $ MMap.MonoidalMap invalidTokens)
+        (makeAuthMapV (mkSubVessel $ disperseV $ mapV (disperseTokens . getCompose) tokenedViews))
 
 -- | A query morphism that takes a view for a single identity and lifts it to
 -- a map of identities to views.

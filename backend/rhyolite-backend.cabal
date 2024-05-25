@@ -16,6 +16,7 @@ library
   build-depends:
       aeson
     , base
+    , commutative-semigroups
     , constraints
     , constraints-extras
     , lens

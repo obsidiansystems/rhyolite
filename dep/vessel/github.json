@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "vessel",
-  "branch": "polymorphic-viewmorphisms",
+  "branch": "release/0.3.0.0-r1",
   "private": false,
-  "rev": "b61428df85f0befa90a8cbd18cb860ebded70e21",
-  "sha256": "0wnl0gvzv11ja8y3xhymdd99p00zprgs62m3q259pk7gr25hj1kh"
+  "rev": "a0eafdd20b3844dd23e3b0ac537049c60b9049b0",
+  "sha256": "19nn25sdr4hxvd9i81aqvx2hm7c6dg9zzb244rl21jp689nnkxqk"
 }

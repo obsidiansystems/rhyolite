@@ -1,4 +1,5 @@
 {-| Description: Authenticated views -}
+{-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
 {-# Language TypeApplications #-}
 {-# Language FlexibleContexts #-}
@@ -17,7 +18,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
-import Control.Applicative
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.GADT.TH
@@ -25,12 +25,13 @@ import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
 import Data.GADT.Show
+import Data.Orphans ()
 import Data.Patch
 import Data.Type.Equality
 import Data.Vessel
 import Data.Vessel.Vessel
 import Data.Semigroup
-import Data.Vessel.Path (Keyed(..))
+import Data.Semigroup.Commutative
 import GHC.Generics
 import Reflex.Query.Class
 import Data.Map.Monoidal (MonoidalMap)
@@ -51,9 +52,12 @@ import Control.Applicative (Alternative)
 import Prelude hiding ((.), id)
 import Control.Category
 import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorphism(..))
-import Data.Vessel.Vessel (vessel)
 import Data.Bifoldable
 
+-- TODO upstream this instance
+-- see https://github.com/obsidiansystems/vessel/pull/22/commits/b61428df85f0befa90a8cbd18cb860ebded70e21
+instance (Has' Semigroup k (FlipAp g), GCompare k, Has View k) => DecidablyEmpty (Vessel k g) where
+  isEmpty = nullV
 
 -- | An internal key type used to glue together parts of a view selector
 -- that have different authentication contexts.
@@ -94,8 +98,7 @@ instance GCompare (AuthenticatedVKey public private personal) where
       AuthenticatedVKey_Private -> GGT
       AuthenticatedVKey_Personal -> GEQ
 
-instance ArgDict c (AuthenticatedVKey public private personal) where
-  type ConstraintsFor (AuthenticatedVKey public private personal) c = (c public, c private, c personal)
+instance (c public, c private, c personal) => Has c (AuthenticatedVKey public private personal) where
   argDict = \case
     AuthenticatedVKey_Public -> Dict
     AuthenticatedVKey_Private -> Dict
@@ -104,7 +107,7 @@ instance ArgDict c (AuthenticatedVKey public private personal) where
 -- | A functor-parametric container that has a public part and a private part.
 newtype AuthenticatedV public private personal g = AuthenticatedV
   { unAuthenticatedV :: Vessel (AuthenticatedVKey public private personal) g
-  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Additive, PositivePart, DecidablyEmpty)
+  } deriving (Generic, Eq, ToJSON, FromJSON, Semigroup, Monoid, Group, Commutative, PositivePart, DecidablyEmpty)
 
 instance (View public, View private, View personal) => View (AuthenticatedV public private personal)
 
@@ -162,16 +165,13 @@ handleAuthenticatedQuery' public private personal (AuthenticatedV q) = fmap Auth
 -- handler bakes this assumption in.
 handleAuthenticatedQuery
   :: (Monad m, Ord token, View public, View private, View personal, Ord user)
-  => (token -> m (Maybe user))
+  => (token -> Maybe user)
   -> (public Proxy -> m (public Identity))
   -> (private Proxy -> m (private Identity))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
-  -> ( forall f g.
-      ViewQueryResult f ~ g
-      => (forall x. x -> f x -> g x)
-      -> personal (Compose (MonoidalMap user) f)
-      -> m (personal (Compose (MonoidalMap user) g)))
+  -> ( personal (Compose (MonoidalMap user) Proxy)
+      -> m (personal (Compose (MonoidalMap user) Identity)))
   -- ^ The result of personal queries depends on the identity making the query
   -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Proxy
   -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) Identity)
@@ -377,6 +377,8 @@ disperseAuthenticatedErrorV ::
   ( View publicV , Semigroup (publicV Identity)
   , EmptyView privateV , Semigroup (privateV Identity)
   , EmptyView personalV , Semigroup (personalV Identity)
+  , Num x, Semigroup x, Semigroup (privateV (Const x))
+  , Semigroup (personalV (Const x))
   )
   => QueryMorphism
     (ErrorV () (AuthenticatedV publicV privateV personalV) (Const x))
@@ -384,10 +386,10 @@ disperseAuthenticatedErrorV ::
 disperseAuthenticatedErrorV = QueryMorphism
   (maybe emptyV (runIdentity . traverseAuthenticatedV
       pure
-      (pure . liftErrorV)
-      (pure . liftErrorV))
+      (pure . queryErrorVConst)
+      (pure . queryErrorVConst))
     . snd . unsafeObserveErrorV)
-  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) liftErrorV
+  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) successErrorV
     . traverseAuthenticatedV
       ((,) Nothing)
       (fmap (maybe emptyV id) . unsafeObserveErrorV)

@@ -20,7 +20,9 @@ library
     , async
     , attoparsec
     , base
+    , base-orphans >= 0.8.6
     , bytestring
+    , commutative-semigroups
     , constraints
     , constraints-extras
     , containers
@@ -47,6 +49,7 @@ library
     , witherable
 
   exposed-modules:
+    Data.Vessel.Void
     Rhyolite.Aeson.Orphans
     Rhyolite.Api
     Rhyolite.App

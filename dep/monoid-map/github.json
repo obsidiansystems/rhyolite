@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "monoid-map",
-  "branch": "master",
+  "branch": "release/0.2.0.0",
   "private": false,
-  "rev": "16fa87520b8681d34c4f0558651e55d80aebc91f",
-  "sha256": "1z58fblajrvd5ygb0mzm6yxd2mmgg0v7krj8ck34zdfnwjj17dfc"
+  "rev": "620e5353713dd292c33d71462ed0835034612d2f",
+  "sha256": "1aszp69b3wf247cjcy3qw18qrp91hay3dg7fwm6vgzpwdbpnf0yv"
 }

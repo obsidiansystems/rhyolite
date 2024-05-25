@@ -2,6 +2,28 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## v1.1.0.0 2024-05-24
+
+* Breaking: Remove Reflex.Dom.Modal.Base and Reflex.Dom.Modal.Class. The `<dialog>` element is now broadly supported by browsers and provides a simpler solution to the problem of opening modals that is also more accessible. See the [documentation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog), and, in particular, this [example](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement#opening_a_modal_dialog), which uses `showModal` and describes how to style the modal backdrop.
+* Breaking: [Make authentication easier to use and fix some things about ErrorV #213](https://github.com/obsidiansystems/rhyolite/pull/213)
+* Make it possible to use Rhyolite.Backend.Account without notifications. See Rhyolite.Backend.Account.Db for versions of createAccount and ensureAccountExists that don't send notifications.
+* Update to obelisk v1.3.0.0
+
+## v1.0.0.0 2023-08-03
+* Breaking: Drop groundhog support
+* Breaking: Use Commutative from commutative-semigroups instead of Additive from patch
+* Update to vessel-0.3
+* Support ghc-8.10
+* Add Data.Vessel.Void
+* Move .obelisk/impl to dep/obelisk
+* Breaking: handleAuthMapQuery and handlePersonalAuthMapQuery now take pure functions for decrypting user
+  tokens. This is fine in practice because it should almost always be readSignedWithKey from signed-data,
+  partially applied to a CSK. We had a major performance issue when someone stuck a database query inside
+  the function, and it ran in a loop for every connected user on every database notification, so we want
+  to defend against that sort of thing happening. There may still be legitimate reasons to do other IO
+  inside such a thing (e.g. if a different encryption mechanism were used), but if that's needed, we'll
+  reconsider the API further.
+
 ## 2023-01-26
 * Breaking: Rhyolite.Frontend.Cookie now always Base64 encodes cookies
 * change taskWorker to not manage the hasRun flag.  For the old behavior, use `taskWorker1` which adds back the at-most-once execution behavior.  The old `_task_hasRun` field of Task is a separate argument.
