@@ -46,6 +46,7 @@ let
     beam-core = repos.beam + "/beam-core";
     beam-postgres = repos.beam + "/beam-postgres";
     beam-migrate = repos.beam + "/beam-migrate";
+    # This is not needed and doesn't build
     # beam-migrate-cli = repos.beam + "/beam-migrate-cli";
 
     beam-transformers-backend = repos.beam-transformers + "/backend";
@@ -63,6 +64,8 @@ let
     gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
     gargoyle-nix-postgres-monitor = repos.gargoyle + "/gargoyle-nix-postgres-monitor";
     gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
+
+    #TODO: Fix
     # push-notifications = repos.push-notifications;
 
     vessel = repos.vessel;
