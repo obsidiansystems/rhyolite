@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "postgresql-simple",
-  "branch": "synthesizable-fields-2",
+  "branch": "dylang/synthesizable-fields-2",
   "private": false,
-  "rev": "df4337955244f1cf759cbd5589dfa568b89d2001",
-  "sha256": "1yska8blz3cdhpgq7ad0mgn8nx1qfh14y0richsr5zr2hjw8vsb8"
+  "rev": "2a3e5210f87628eaa5d7a51d17211e84a5acd13b",
+  "sha256": "06fb9v7iqx7gcklzcm4jlmk6zpii7yqcria9l7abr9mwxm7xd34n"
 }

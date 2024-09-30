@@ -46,7 +46,7 @@ let
     beam-core = repos.beam + "/beam-core";
     beam-postgres = repos.beam + "/beam-postgres";
     beam-migrate = repos.beam + "/beam-migrate";
-    beam-migrate-cli = repos.beam + "/beam-migrate-cli";
+    # beam-migrate-cli = repos.beam + "/beam-migrate-cli";
 
     beam-transformers-backend = repos.beam-transformers + "/backend";
     beam-transformers-common = repos.beam-transformers + "/common";
@@ -61,9 +61,11 @@ let
     gargoyle = repos.gargoyle + "/gargoyle";
     gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
     gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
+    gargoyle-nix-postgres-monitor = repos.gargoyle + "/gargoyle-nix-postgres-monitor";
     gargoyle-postgresql-nix = repos.gargoyle + "/gargoyle-postgresql-nix";
-    push-notifications = repos.push-notifications;
+    # push-notifications = repos.push-notifications;
 
+    vessel = repos.vessel;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -123,6 +125,8 @@ in obelisk // {
   inherit haskellOverrides;
 
   rhyolitePackages = haskellPackages: builtins.intersectAttrs rhyolitePackages (haskellPackages.extend haskellOverrides);
+
+  haskellPackageSources = overrideSrcs;
 
   # Function similar to obelisk.project that handles overrides for you.
   project = base: projectDefinition:

@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "beam",
-  "branch": "cg/sql-deconstruct-maybe",
+  "branch": "dylang/sql-deconstruct-maybe",
   "private": false,
-  "rev": "e6839e05f046f888e94ace9de062fa8372ccd4ec",
-  "sha256": "1i9w88a6iqns9av77g06ajik8pdz4jwvxg68nz7ir7ak4q38w80f"
+  "rev": "9b6bf4f846869223737131999ceec16e8eb79ef8",
+  "sha256": "1a4axxf35phk79mrk0z4br0j9i40d366yakjl6fa9vdhd4fkcyg7"
 }
