@@ -11,6 +11,7 @@ import Database.Beam
 import Database.Beam.Backend.SQL.SQL92
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Syntax
+import qualified Database.Beam.Transformers.Virtual as Virtual
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Serializable
 import Rhyolite.Task.Beam.Worker
@@ -24,7 +25,7 @@ insertTestTasks c = runBeamPostgres c . runInsert . insert (_testTasksDb_tasks t
 createTaskWorker :: Connection -> Work -> Text -> IO Bool
 createTaskWorker conn work wId = taskWorker
   conn
-  (_testTasksDb_tasks tasksDb)
+  (Virtual.fromConcrete $ _testTasksDb_tasks tasksDb)
   testTask
   (\_ -> work . unWrappedColumnar)
   wId

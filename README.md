@@ -83,7 +83,7 @@ with this Rhyolite thunk:
 
 ### Entering a shell
 
-You can use `nix-shell -A proj.shells.ghc` to enter a shell from which you can build any of the subprojects in this repository. From that shell you can:
+You can use `nix-shell` to enter a shell from which you can build any of the subprojects in this repository. From that shell you can:
 
 * Enter a shell using `cabal repl /path/to/package`
 * Use ghcid by invoking `ghcid -c "cabal repl /path/to/package`
@@ -96,5 +96,5 @@ You can use `nix-shell -A proj.shells.ghc` to enter a shell from which you can b
 Because of the inter-related nature of these packages, `rhyolite-test-suite` tests that all of them can be built against one another. To test, run:
 
 ```bash
-nix-shell -A proj.shells.ghc --run cabal build test
+nix-shell --run cabal build test
 ```

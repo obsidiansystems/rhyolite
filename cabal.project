@@ -1,21 +1,31 @@
 packages:
   account/backend/
   account/types/
+  aeson-orphans/
   backend/
   beam/db/
+  beam/orphans/
   beam/task/backend/
   beam/task/types/
   common/
-  semimap/
   email/
   email/mime-mail-orphans/
   frontend/
-  notify-listen/notify-listen-beam/
+  iv/backend/
+  iv/common/
   notify-listen/notify-listen/
+  notify-listen/notify-listen-beam/
   psql-extras/psql-serializable/
   psql-extras/psql-simple-beam/
   psql-extras/psql-simple-class/
+  semimap/
   signed-data/signed-data/
   signed-data/signed-data-clientsession/
   test/
   widgets/
+
+allow-newer:
+  postgresql-lo-stream:*,
+  vessel:*,
+  aeson-gadt-th:*,
+

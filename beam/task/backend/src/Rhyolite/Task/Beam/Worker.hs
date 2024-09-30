@@ -61,7 +61,7 @@ taskWorkerWithoutHasRun
      , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
      )
   => Connection
-  -> VirtualTable be db table
+  -> VirtualTable db table
   -- ^ The table whose rows represent tasks to be run
   -> TaskWithoutHasRun be table payload checkout result
   -- ^ Description of how task data is embedded within the table
@@ -152,7 +152,7 @@ taskWorker
      , be ~ Postgres, f ~ QExpr Postgres (QNested QBaseScope)
      )
   => Connection
-  -> VirtualTable be db table
+  -> VirtualTable db table
   -- ^ The table whose rows represent tasks to be run
   -> Task be table payload checkout result
   -- ^ Description of how task data is embedded within the table
