@@ -48,6 +48,8 @@ let
     # This is not needed and doesn't build
     # beam-migrate-cli = repos.beam + "/beam-migrate-cli";
 
+    beam-automigrate = repos.beam-automigrate;
+
     beam-transformers-backend = repos.beam-transformers + "/backend";
     beam-transformers-common = repos.beam-transformers + "/common";
 
