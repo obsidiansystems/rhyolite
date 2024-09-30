@@ -11,6 +11,7 @@ import Database.Beam
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Syntax
 import Database.PostgreSQL.Simple.Transaction
+import Data.UUID
 
 import Rhyolite.DB.Beam.Orphans ()
 
@@ -38,3 +39,6 @@ current_timestamp_ :: QExpr Postgres s UTCTime
 --       (by 'postgresql-simple') by looking at the returned time zone offset and
 --       adjusting to UTC.
 current_timestamp_ = QExpr (\_ -> PgExpressionSyntax (emit "current_timestamp"))
+
+genRandomUuid_ :: QGenExpr ctxt Postgres s UUID
+genRandomUuid_ = customExpr_ "gen_random_uuid()"

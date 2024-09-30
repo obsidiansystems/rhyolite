@@ -9,13 +9,25 @@ module Obelisk.Db
   , Options
   , options_extraPostgresConfig
   , defaultOptions
+  , AllFieldsHave
+  , useObeliskNamingConvention
   ) where
 
 import Control.Exception (bracket)
+import Control.Lens
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import Data.Constraint
+import Data.Foldable
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Pool (Pool, createPool, destroyAllResources)
-import Database.PostgreSQL.Simple as PG
+import Data.Proxy
+import Data.Text (Text)
+import qualified Data.Text as T
+import Database.Beam
+import Database.Beam.Schema.Tables
+import Database.PostgreSQL.Simple as PG hiding (fold)
+import GHC.Generics
 import Gargoyle
 import Gargoyle.PostgreSQL.Nix (postgresNix)
 import System.Directory (doesFileExist)
@@ -98,3 +110,62 @@ openDbUri dbUri = do
 
 withConnectionPool :: ByteString -> (Pool PG.Connection -> IO a) -> IO a
 withConnectionPool dbUri = bracket (openDbUri dbUri) destroyAllResources
+
+--TODO: This should be moved to a more general location
+type AllFieldsHave c a = GAllFieldsHave c (Rep a)
+
+type family GAllFieldsHave c a :: Constraint where
+  GAllFieldsHave c V1 = ()
+  GAllFieldsHave c U1 = ()
+  GAllFieldsHave c (a :+: b) = (GAllFieldsHave c a, GAllFieldsHave c b)
+  GAllFieldsHave c (a :*: b) = (GAllFieldsHave c a, GAllFieldsHave c b)
+  GAllFieldsHave c (K1 i a) = c a
+  GAllFieldsHave c (M1 i t a) = GAllFieldsHave c a
+
+-- | Assumes that field names are compatible with obelisk's field naming scheme
+-- and creates significantly shorter names than the default would produce.
+useObeliskNamingConvention
+  :: forall be db
+  . Database be db
+  => DatabaseSettings be db
+  -> DatabaseSettings be db
+useObeliskNamingConvention d =
+  runIdentity $ zipTables (Proxy @be) (\_ -> pure . f) d d
+  where
+    f :: forall e. IsDatabaseEntity be e => DatabaseEntity be db e -> DatabaseEntity be db e
+    f (DatabaseEntity descriptor) =
+      let
+        renameEntity e = (dbEntityName %~ trimEntityName) e
+        renameFields = withFieldRenamer (renamingFields $ fold . NonEmpty.intersperse (T.pack "_") . fmap trimFieldName)
+      in
+        DatabaseEntity (renameFields $ renameEntity descriptor)
+    -- | Ideally this would work just like the field renaming works, but Beam
+    -- doesn't keep the components of the entity name around like it does for
+    -- fields; this will break if the user puts underscores inside entity or
+    -- subdb names other than the two prescribed by the obelisk naming
+    -- convention
+    --
+    -- Before this transformation is run, Beam will have created a table name
+    -- that includes the names of the db datatypes, based on our naming
+    -- convention.  For example, if we have a database type named C with a table
+    -- _c_d inside of a database type named A in a field named _a_b :: C, then
+    -- Beam will name the resulting table a_b__c_d.  However, we do not want the
+    -- type names included, just the field names.  Therefore, we replace the
+    -- double underscore (__) with a single one (_), and then strip out the
+    -- even-numbered underscore-delimited portions, yielding b_d:
+    --
+    -- > trimEntityName "a_b__c_d" == "b_d"
+    trimEntityName :: Text -> Text
+    trimEntityName = T.intercalate "_" . dropEvens . T.splitOn "_" . T.replace "__" "_"
+    trimFieldName :: Text -> Text
+    trimFieldName = T.drop 1 . T.dropWhile (/= '_') . T.drop 1
+
+dropEvens :: [a] -> [a]
+dropEvens = \case
+  [] -> []
+  _:t -> dropOdds t
+
+dropOdds :: [a] -> [a]
+dropOdds = \case
+  [] -> []
+  h:t -> h : dropEvens t

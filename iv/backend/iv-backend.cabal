@@ -138,4 +138,6 @@ library
     Obelisk.View.DbDriver.Postgres
     Obelisk.View.Postgres
     Obelisk.View.Sequential
+    Obelisk.Db.LiveQuery
+    Obelisk.Db.Server.Simple
   ghc-options: -Wall
