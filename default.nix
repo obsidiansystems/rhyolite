@@ -37,7 +37,6 @@ let
     rhyolite-widgets = ./widgets;
     rhyolite-account-backend = ./account/backend;
     rhyolite-account-types = ./account/types;
-    rhyolite-test-suite = ./test;
   };
 
   # srcs used for overrides
