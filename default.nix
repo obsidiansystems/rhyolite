@@ -37,6 +37,7 @@ let
     rhyolite-widgets = ./widgets;
     rhyolite-account-backend = ./account/backend;
     rhyolite-account-types = ./account/types;
+    rhyolite-test-suite = ./test;
   };
 
   # srcs used for overrides
@@ -47,8 +48,8 @@ let
     beam-migrate = repos.beam + "/beam-migrate";
     beam-migrate-cli = repos.beam + "/beam-migrate-cli";
 
-    beam-transformers-backend = repos.beam-transformers + "/beam-transformers-backend";
-    beam-transformers-common = repos.beam-transformers + "/beam-transformers-common";
+    beam-transformers-backend = repos.beam-transformers + "/backend";
+    beam-transformers-common = repos.beam-transformers + "/common";
 
     bytestring-aeson-orphans = repos.bytestring-aeson-orphans;
     bytestring-trie = repos.bytestring-trie;
@@ -134,18 +135,9 @@ in obelisk // {
   # Used to build this project. Should only be needed by CI, devs.
   proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
     overrides = haskellOverrides;
-    packages = {
-      rhyolite-backend = ./backend;
-      rhyolite-common = ./common;
-      semimap = ./semimap;
-      rhyolite-frontend = ./frontend;
-      rhyolite-test-suite = ./test;
-    };
+    packages = rhyolitePackages;
     shells = rec {
-      ghc = [
-        "rhyolite-backend"
-        "rhyolite-test-suite"
-      ] ++ ghcjs;
+      ghc = builtins.attrNames rhyolitePackages;
       ghcjs = [
         "rhyolite-common"
         "rhyolite-frontend"
