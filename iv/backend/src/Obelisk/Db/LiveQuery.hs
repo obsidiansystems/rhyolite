@@ -17,7 +17,7 @@ import Data.Proxy
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Vessel (Vessel, SingleV (..), View)
+import Data.Vessel (Vessel, SingleV (..), View, IdentityV (..))
 import qualified Data.Vessel as Vessel
 import Data.Vessel.SubVessel (SubVessel, mkSubVessel, getSubVessel, handleSubVesselSelector)
 import Database.Beam
@@ -30,6 +30,7 @@ import Obelisk.Beam.Patch.Table
 import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
 import Obelisk.View.App
+import Rhyolite.SemiMap
 
 data LiveQuery db v = LiveQuery
   { _liveQuery_view :: db (DatabaseEntity Postgres db) -> v Proxy -> ReadDb (v Identity)
@@ -65,7 +66,11 @@ forEachTagInInnerVessel f = LiveQuery
   , _liveQuery_listen = \db p -> handleSubVesselSelector (\tag -> fmap getSubVessel . _liveQuery_listen (f tag) db p . mkSubVessel)
   }
 
--- | Always fetch the data again and send it again
+--TODO: Don't re-fetch except when necessary
+-- | Provide a query that fetches items from a table by primary key.
+--
+-- This fetches items in bulk, but it currently re-fetches every changed item
+-- whenever it is changed, even though this could be avoided sometimes in principle.
 tableItems
   :: ( Ord (PrimaryKey t Identity)
      , FromBackendRow Postgres (PrimaryKey t Identity)
@@ -91,6 +96,30 @@ tableItems getTable = LiveQuery
     . Set.intersection (foldMap affectedKeys $ getComposeMaybe $ unTableOnly $ getTable nm)
     . MMap.keysSet
     . getSubVessel
+  }
+
+wholeTable
+  :: ( Ord (PrimaryKey t Identity)
+     , FromBackendRow Postgres (PrimaryKey t Identity)
+     , Database Postgres db
+     , Table t
+     , Ord (PrimaryKey t Identity)
+     , FieldsFulfillConstraint (HasSqlValueSyntax PgValueSyntax) (PrimaryKey t)
+     , FromBackendRow Postgres (t Identity)
+     , Ord (PrimaryKey t Identity)
+     )
+  => (forall f. db f -> f (TableEntity t))
+  -> LiveQuery db (IdentityV (SemiMap (PrimaryKey t Identity) (t Identity)))
+wholeTable getTable = LiveQuery
+  { _liveQuery_view = \db (IdentityV Proxy) -> do
+      rows <- runSelectReturningList $ select $ all_ $ getTable db
+      pure $ IdentityV $ Identity $ SemiMap_Complete $ MMap.fromList $ fmap (\r -> (pk r, r)) rows
+  , _liveQuery_listen = \db (TablesV nm) (IdentityV Proxy) ->
+      case getComposeMaybe $ unTableOnly $ getTable nm of
+        Nothing -> pure mempty
+        Just p -> do
+          rows <- liftNew $ getManyByPrimaryKeyWithMissing (getTable db) $ affectedKeys p
+          pure $ IdentityV $ Identity $ SemiMap_Partial $ fmap First rows
   }
 
 affectedKeys :: TablePatch tbl -> Set (PrimaryKey tbl Identity)
