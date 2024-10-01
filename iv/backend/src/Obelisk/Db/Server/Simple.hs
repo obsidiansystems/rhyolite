@@ -8,18 +8,16 @@ import Data.Pool
 import Data.Vessel
 import Database.Beam.AutoMigrate
 import Database.Beam.Postgres
-import Obelisk.Backend
 import Obelisk.Beam.Patch.Db
 import Obelisk.Db
 import Obelisk.Db.LiveQuery
-import Obelisk.Route
 import Obelisk.View.App
 import Obelisk.View.Vessel
 import Rhyolite.Backend.App
 import Snap.Core
 
 withSimpleDbServer
-  :: forall db request view t
+  :: forall db request view
   .  _
   => AnnotatedDatabaseSettings Postgres db
   -> (forall a. request a -> Pg a)
