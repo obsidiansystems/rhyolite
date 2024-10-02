@@ -1,8 +1,8 @@
 {
   "owner": "obsidiansystems",
   "repo": "obelisk",
-  "branch": "pzp",
+  "branch": "haskell.nix",
   "private": false,
-  "rev": "db78e4d4c20d9d51f90e00e5d9a0d5e77c0baf82",
-  "sha256": "1yxwvfdlv3ii17jrd3w2yiiza26d400b35x04gmpv209xk26yz3h"
+  "rev": "83ea329e5ab40ca91f0f5d0c993c5e5824b702b8",
+  "sha256": "1v6dard7w3c88szj7dbcqlhy29j88vfbia6vqibiawhjavgy93d9"
 }

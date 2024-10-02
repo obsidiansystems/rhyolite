@@ -18,7 +18,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Rhyolite.Vessel.AuthenticatedV where
 
-import Control.Applicative
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.GADT.TH
@@ -33,7 +32,6 @@ import Data.Vessel
 import Data.Vessel.Vessel
 import Data.Semigroup
 import Data.Semigroup.Commutative
-import Data.Vessel.Path (Keyed(..))
 import GHC.Generics
 import Reflex.Query.Class
 import Data.Map.Monoidal (MonoidalMap)
@@ -54,7 +52,6 @@ import Control.Applicative (Alternative)
 import Prelude hiding ((.), id)
 import Control.Category
 import Data.Vessel.ViewMorphism (ViewQueryResult, ViewMorphism(..), ViewHalfMorphism(..))
-import Data.Vessel.Vessel (vessel)
 import Data.Bifoldable
 
 -- | An internal key type used to glue together parts of a view selector
@@ -168,11 +165,8 @@ handleAuthenticatedQuery
   -> (forall p'. private p' -> m (private q))
   -- ^ The result of private queries is only available to authenticated identities
   -- but the result is the same for all of them.
-  -> ( forall f g.
-      ViewQueryResult f ~ g
-      => (forall x. x -> f x -> g x)
-      -> personal (Compose (MonoidalMap user) f)
-      -> m (personal (Compose (MonoidalMap user) g)))
+  -> ( personal (Compose (MonoidalMap user) Proxy)
+      -> m (personal (Compose (MonoidalMap user) Identity)))
   -- ^ The result of personal queries depends on the identity making the query
   -> AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) p
   -> m (AuthenticatedV public (AuthMapV token private) (AuthMapV token personal) q)
@@ -378,6 +372,8 @@ disperseAuthenticatedErrorV ::
   ( View publicV , Semigroup (publicV Identity)
   , EmptyView privateV , Semigroup (privateV Identity)
   , EmptyView personalV , Semigroup (personalV Identity)
+  , Num x, Semigroup x, Semigroup (privateV (Const x))
+  , Semigroup (personalV (Const x))
   )
   => QueryMorphism
     (ErrorV () (AuthenticatedV publicV privateV personalV) (Const x))
@@ -385,10 +381,10 @@ disperseAuthenticatedErrorV ::
 disperseAuthenticatedErrorV = QueryMorphism
   (maybe emptyV (runIdentity . traverseAuthenticatedV
       pure
-      (pure . liftErrorV)
-      (pure . liftErrorV))
+      (pure . queryErrorVConst)
+      (pure . queryErrorVConst))
     . snd . unsafeObserveErrorV)
-  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) liftErrorV
+  (bifoldMap @(,) (maybe emptyV failureErrorV . (=<<) (getFirst . runIdentity)) successErrorV
     . traverseAuthenticatedV
       ((,) Nothing)
       (fmap (maybe emptyV id) . unsafeObserveErrorV)
