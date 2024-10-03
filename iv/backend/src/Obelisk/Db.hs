@@ -9,7 +9,6 @@ module Obelisk.Db
   , Options
   , options_extraPostgresConfig
   , defaultOptions
-  , AllFieldsHave
   , useObeliskNamingConvention
   ) where
 
@@ -27,7 +26,6 @@ import qualified Data.Text as T
 import Database.Beam
 import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple as PG hiding (fold)
-import GHC.Generics
 import Gargoyle
 import Gargoyle.PostgreSQL.Nix (postgresNix)
 import System.Directory (doesFileExist)
@@ -110,17 +108,6 @@ openDbUri dbUri = do
 
 withConnectionPool :: ByteString -> (Pool PG.Connection -> IO a) -> IO a
 withConnectionPool dbUri = bracket (openDbUri dbUri) destroyAllResources
-
---TODO: This should be moved to a more general location
-type AllFieldsHave c a = GAllFieldsHave c (Rep a)
-
-type family GAllFieldsHave c a :: Constraint where
-  GAllFieldsHave c V1 = ()
-  GAllFieldsHave c U1 = ()
-  GAllFieldsHave c (a :+: b) = (GAllFieldsHave c a, GAllFieldsHave c b)
-  GAllFieldsHave c (a :*: b) = (GAllFieldsHave c a, GAllFieldsHave c b)
-  GAllFieldsHave c (K1 i a) = c a
-  GAllFieldsHave c (M1 i t a) = GAllFieldsHave c a
 
 -- | Assumes that field names are compatible with obelisk's field naming scheme
 -- and creates significantly shorter names than the default would produce.
