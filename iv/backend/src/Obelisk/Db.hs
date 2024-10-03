@@ -9,7 +9,6 @@ module Obelisk.Db
   , Options
   , options_extraPostgresConfig
   , defaultOptions
-  , AllFieldsHave
   , useObeliskNamingConvention
   ) where
 
@@ -27,7 +26,6 @@ import qualified Data.Text as T
 import Database.Beam
 import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple as PG hiding (fold)
-import GHC.Generics
 import Gargoyle
 import Gargoyle.PostgreSQL.Nix (postgresNix)
 import System.Directory (doesFileExist)

@@ -1,6 +1,9 @@
 -- | This module contains things that are convenient for use in Common.Schema modules
 module Obelisk.Common.Schema where
 
+import Data.Constraint
+import GHC.Generics
+
 --TODO: This should be moved to a more general location
 type AllFieldsHave c a = GAllFieldsHave c (Rep a)
 
