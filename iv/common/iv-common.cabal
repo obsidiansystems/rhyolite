@@ -131,6 +131,7 @@ library
     Obelisk.Beam.Traversals
     Obelisk.Beam.View.Db
     Obelisk.Beam.View.Table
+    Obelisk.Common.Schema
     Obelisk.Reflex.Orphans
     Obelisk.Schema.NullableScalar
     Obelisk.Schema.NullableSubRow
