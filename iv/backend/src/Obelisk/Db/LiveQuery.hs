@@ -2,6 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Obelisk.Db.LiveQuery where
 
+import Data.Align
 import Data.Constraint
 import Data.Constraint.Extras
 import Data.Foldable
@@ -12,11 +13,13 @@ import Data.GADT.Compare
 import qualified Data.Map as Map
 import Data.Map.Monoidal (MonoidalMap (..))
 import qualified Data.Map.Monoidal as MMap
+import Data.Patch
 import Data.Patch.MapWithPatchingMove (PatchMapWithPatchingMove(..))
 import Data.Proxy
 import Data.Semigroup
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.These
 import Data.Vessel (Vessel, SingleV (..), View, IdentityV (..))
 import qualified Data.Vessel as Vessel
 import Data.Vessel.SubVessel (SubVessel, mkSubVessel, getSubVessel, handleSubVesselSelector)
@@ -31,6 +34,7 @@ import Obelisk.Beam.TablesOnly
 import Obelisk.Beam.TablesV
 import Obelisk.View.App
 import Rhyolite.SemiMap
+import Witherable
 
 data LiveQuery db v = LiveQuery
   { _liveQuery_view :: db (DatabaseEntity Postgres db) -> v Proxy -> ReadDb (v Identity)
@@ -94,6 +98,45 @@ tableItems getTable = LiveQuery
     . liftNew
     . getManyByPrimaryKeyWithMissing (getTable db) --TODO: We can avoid a lot of lookups by reading more data out of the patch
     . Set.intersection (foldMap affectedKeys $ getComposeMaybe $ unTableOnly $ getTable nm)
+    . MMap.keysSet
+    . getSubVessel
+  }
+
+class Patch p => Diff p where
+  -- | Law: patchAlways (diffPatchTargets new old) old == new
+  diffPatchTargets :: PatchTarget p -> PatchTarget p -> p
+
+instance (Ord k, Eq v) => Diff (PatchMap k v) where
+  diffPatchTargets newMap oldMap = PatchMap $ catMaybes $ alignWith f newMap oldMap
+    where f = \case
+            This new -> Just $ Just new
+            That _old -> Just Nothing
+            These new old -> if new == old then Nothing else Just $ Just new
+
+diffOldNew :: Diff p => ReadDb (PatchTarget p) -> ReadDbPatch p
+diffOldNew q = do
+  old <- liftOld q
+  new <- liftNew q
+  pure $ new `diffPatchTargets` old
+
+diffLiveQuery
+  :: (Ord k, Eq a)
+  => (db (TableOnly (ComposeMaybe TablePatch)) -> Set k -> Set k)
+  -> (Set k -> ReadDb (MonoidalMap k (First (Maybe a))))
+  -> LiveQuery db (SubVessel k (SingleV a))
+diffLiveQuery filterByPatch f = LiveQuery
+  { _liveQuery_view = \db ->
+      fmap mkSubVessel
+    . (fmap . fmap) (SingleV . Identity)
+    . f
+    . MMap.keysSet
+    . getSubVessel
+  , _liveQuery_listen = \db (TablesV nm) ->
+      fmap mkSubVessel
+    . fmap (fmap (SingleV . Identity . First) . MMap.MonoidalMap . unPatchMap)
+    . diffOldNew
+    . fmap (catMaybes . MMap.getMonoidalMap . fmap getFirst) . f
+    . filterByPatch nm
     . MMap.keysSet
     . getSubVessel
   }
