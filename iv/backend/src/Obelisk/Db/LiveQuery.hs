@@ -35,10 +35,14 @@ import Obelisk.Beam.TablesV
 import Obelisk.View.App
 import Rhyolite.SemiMap
 import Witherable
+import Data.Coerce
+import Obelisk.Beam.Constraints
+import Obelisk.Beam.DZippable
+import Data.Constraint.Compose
 
 data LiveQuery db v = LiveQuery
-  { _liveQuery_view :: db (DatabaseEntity Postgres db) -> v Proxy -> ReadDb (v Identity)
-  , _liveQuery_listen :: db (DatabaseEntity Postgres db) -> TablesV db (ComposeMaybe TablePatch) -> v Proxy -> ReadDbPatch (v Identity)
+  { _liveQuery_view :: forall db'. Database Postgres db' => db (DatabaseEntity Postgres db') -> v Proxy -> ReadDb (v Identity)
+  , _liveQuery_listen :: forall db'. Database Postgres db' => db (DatabaseEntity Postgres db') -> TablesV db (ComposeMaybe TablePatch) -> v Proxy -> ReadDbPatch (v Identity)
   }
 
 -- | Build a LiveQuery by providing a separate query for each possible key.
@@ -122,20 +126,20 @@ diffOldNew q = do
 diffLiveQuery
   :: (Ord k, Eq a)
   => (db (TableOnly (ComposeMaybe TablePatch)) -> Set k -> Set k)
-  -> (Set k -> ReadDb (MonoidalMap k (First (Maybe a))))
+  -> (forall db'. Database Postgres db' => db (DatabaseEntity Postgres db') -> Set k -> ReadDb (MonoidalMap k (First (Maybe a))))
   -> LiveQuery db (SubVessel k (SingleV a))
 diffLiveQuery filterByPatch f = LiveQuery
   { _liveQuery_view = \db ->
       fmap mkSubVessel
     . (fmap . fmap) (SingleV . Identity)
-    . f
+    . f db
     . MMap.keysSet
     . getSubVessel
   , _liveQuery_listen = \db (TablesV nm) ->
       fmap mkSubVessel
     . fmap (fmap (SingleV . Identity . First) . MMap.MonoidalMap . unPatchMap)
     . diffOldNew
-    . fmap (catMaybes . MMap.getMonoidalMap . fmap getFirst) . f
+    . fmap (catMaybes . MMap.getMonoidalMap . fmap getFirst) . f db
     . filterByPatch nm
     . MMap.keysSet
     . getSubVessel
@@ -163,6 +167,37 @@ wholeTable getTable = LiveQuery
         Just p -> do
           rows <- liftNew $ getManyByPrimaryKeyWithMissing (getTable db) $ affectedKeys p
           pure $ IdentityV $ Identity $ SemiMap_Partial $ fmap First rows
+  }
+
+restrictDb
+  :: ( ConstraintsForT db2 (TableHas Eq (ComposeMaybe TablePatch))
+     , ArgDictT db2
+     , DZippable db2
+     , ConstraintsForT db2 (ComposeC Semigroup (TableOnly (ComposeMaybe TablePatch)))
+     , ConstraintsForT db2 (ComposeC Monoid (TableOnly (ComposeMaybe TablePatch)))
+     , Monoid (a Identity)
+     )
+  => (forall f. db f -> db2 f)
+  -> LiveQuery db2 a
+  -> LiveQuery db a
+restrictDb f child = LiveQuery
+  { _liveQuery_view = \db q -> _liveQuery_view child (f db) q
+  , _liveQuery_listen = \db (TablesV patch) q -> do
+      let relevantPatch = TablesV $ f patch
+      if relevantPatch == mempty
+        then pure mempty
+        else _liveQuery_listen child (f db) relevantPatch q
+  }
+
+-- | This has a long name to match its bad performance.  Any time anything
+-- changes, it runs the whole query again.  Use `restrictDb` to avoid re-running
+-- when relevant tables aren't touched.
+runWholeQueryOnEveryChange
+  :: (forall db'. Database Postgres db' => db (DatabaseEntity Postgres db') -> v Proxy -> ReadDb (v Identity))
+  -> LiveQuery db v
+runWholeQueryOnEveryChange getResult = LiveQuery
+  { _liveQuery_view = getResult
+  , _liveQuery_listen = \db _ q -> liftNew $ getResult db q
   }
 
 affectedKeys :: TablePatch tbl -> Set (PrimaryKey tbl Identity)
