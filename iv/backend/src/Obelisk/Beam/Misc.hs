@@ -1,5 +1,7 @@
 module Obelisk.Beam.Misc
   ( replaceAllTableContents
+  , ValType (..)
+  , coerceQExprResult
   ) where
 
 import Control.Lens ((^.), (.~))
@@ -21,6 +23,7 @@ import Data.Function
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
 import Database.PostgreSQL.Simple.Types
+import Data.Time.Calendar
 
 -- | Delete everything from the given table and replace it with the given list of items, being careful not to create more churn than necessary.  In particular: for items that haven't changed, a new row will not be written to the WAL or sent to replication clients.
 replaceAllTableContents
@@ -60,7 +63,7 @@ replaceAllTableContents tbl@(DatabaseEntity tblDescriptor) allVals = do
       tempTbl = DatabaseEntity $ tblDescriptor
         & dbEntitySchema .~ Just "pg_temp"
         & dbEntityName .~ "replacement_data"
-  unsafeWriteDb $ \conn -> void $ execute conn [sql| CREATE TEMPORARY TABLE replacement_data (LIKE ?) |] $ Only tblIdentifier
+  unsafeWriteDb $ \(conn, _) -> void $ execute conn [sql| CREATE TEMPORARY TABLE replacement_data (LIKE ?) |] $ Only tblIdentifier
   forM_ (zip [1..] $ chunksOf 1000 allVals) $ \(chunkNumber :: Int, chunk :: [tbl Identity]) -> do
     unsafeWriteDb $ \_ -> putStrLn $ "replaceAllTableContents: Inserting chunk " <> show chunkNumber <> " with keys " <> show (fmap primaryKey chunk) <> " into temp table"
     runInsert' $ insert tempTbl $ insertValues chunk
@@ -69,7 +72,7 @@ replaceAllTableContents tbl@(DatabaseEntity tblDescriptor) allVals = do
   unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Deleting unneeded values"
   runDelete' $ delete tbl $ \t -> not_ $ primaryKey t `in_'` subquery_ (fmap (QExpr . toProjectionExpr . primaryKey) $ all_ tempTbl)
   unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Done"
-  unsafeWriteDb $ \conn -> void $ execute_ conn [sql| DROP TABLE pg_temp.replacement_data |]
+  unsafeWriteDb $ \(conn, _) -> void $ execute_ conn [sql| DROP TABLE pg_temp.replacement_data |]
 
 in_'
   :: forall be context table s a
@@ -119,3 +122,12 @@ fieldsToExprs
   => tbl (QField s)
   -> tbl (QExpr be s)
 fieldsToExprs = changeBeamRep (\(Columnar' (QField _ t nm)) -> Columnar' (QExpr (pure (fieldE (qualifiedField t nm)))))
+
+class ValType a where
+  valType_ :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a)) => a -> QGenExpr ctxt Postgres s a
+
+instance ValType Day where
+  valType_ d = cast_ (val_ d) date
+
+coerceQExprResult :: forall a b ctxt be s. QGenExpr ctxt be s a -> QGenExpr ctxt be s b
+coerceQExprResult (QExpr e) = QExpr e
