@@ -82,8 +82,11 @@ in obelisk // {
       });
 
   # Used to build this project. Should only be needed by CI, devs.
-  proj = obelisk.project ({ pkgs, ... }@args: {
-    inputThunks = haskellPackageSources;
+  proj = obelisk.project {} ({ pkgs, ... }@args: {
+    name = "rhyolite-test-project";
+    src = ./.;
+    inputThunks = builtins.attrValues haskellPackageSources;
+    extraArgs = {};
     shells = rec {
       ghc = builtins.attrNames rhyolitePackages;
       ghcjs = [
