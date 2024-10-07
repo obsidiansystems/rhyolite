@@ -18,7 +18,7 @@ let
         self.proj.ghcjs.rhyolite-frontend
         (import ./. {}).proj.ghc.rhyolite-test-suite
       ];
-  in {
+  in self.rhyolitePackages self.obelisk // {
     cache = reflex-platform.pinBuildInputs "rhyolite-${system}" cachePackages;
   });
 

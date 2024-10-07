@@ -89,16 +89,21 @@ common common
     DeriveFunctor
     DeriveGeneric
     DeriveTraversable
+    DerivingStrategies
     EmptyCase
+    EmptyDataDecls
     FlexibleContexts
     FlexibleInstances
     FunctionalDependencies
     GADTs
     GeneralizedNewtypeDeriving
+    ImportQualifiedPost
     InstanceSigs
+    KindSignatures
     KindSignatures
     LambdaCase
     MultiParamTypeClasses
+    NumericUnderscores
     OverloadedStrings
     PolyKinds
     QuasiQuotes
@@ -110,6 +115,7 @@ common common
     TypeApplications
     TypeFamilies
     TypeOperators
+    UndecidableInstances
   ghc-options:
     -- Showing valid hole fits is too slow
     -Wall
@@ -125,20 +131,21 @@ library
     buildable: False
   build-depends: base
   exposed-modules:
-    Obelisk.View.App
     Obelisk.Api
     Obelisk.Beam
+    Obelisk.Beam.BeamWrap
     Obelisk.Beam.Misc
     Obelisk.Beam.Patch.Decode.Postgres
     Obelisk.Concurrency
     Obelisk.Db
+    Obelisk.Db.LiveQuery
+    Obelisk.Db.Server.Simple
     Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
     Obelisk.Postgres.QQ
     Obelisk.Postgres.Replication
     Obelisk.Postgres.Snapshot
+    Obelisk.View.App
     Obelisk.View.DbDriver.Postgres
     Obelisk.View.Postgres
     Obelisk.View.Sequential
-    Obelisk.Db.LiveQuery
-    Obelisk.Db.Server.Simple
   ghc-options: -Wall

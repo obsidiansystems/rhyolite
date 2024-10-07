@@ -5,6 +5,7 @@ module Obelisk.Beam where
 import Obelisk.Api
 
 import Control.Monad.Reader
+import qualified Data.Text as T
 import Database.Beam
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Full
@@ -15,14 +16,13 @@ class MonadBeamRead m where
 
 unsafeRunPgReadDb :: Pg a -> ReadDb a
 unsafeRunPgReadDb a = ReadDb $ do
-  conn <- ask
-  lift $ runBeamPostgres conn a
+  (conn, logger) <- ask
+  lift $ runBeamPostgresDebug (logger . T.pack) conn a
 
 unsafeRunPgWriteDb :: Pg a -> WriteDb a
 unsafeRunPgWriteDb a = WriteDb $ do
-  conn <- ask
-  lift $ runBeamPostgres conn a
-  -- lift $ runBeamPostgresDebug (putStrLn . ("SQL: " <>)) conn a
+  (conn, logger) <- ask
+  lift $ runBeamPostgresDebug (logger . T.pack) conn a
 
 instance MonadBeamRead WriteDb where
   runSelectReturningList' = unsafeRunPgWriteDb . runSelectReturningList

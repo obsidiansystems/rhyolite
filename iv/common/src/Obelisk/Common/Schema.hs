@@ -5,6 +5,8 @@ import Data.Constraint
 import GHC.Generics
 
 --TODO: This should be moved to a more general location
+-- | NOTE: If you get an unexpected error on this, ensure that `a` is an
+-- instance of Generic
 type AllFieldsHave c a = GAllFieldsHave c (Rep a)
 
 type family GAllFieldsHave c a :: Constraint where

@@ -53,9 +53,10 @@ library
 
   exposed-modules:
     Rhyolite.Frontend.App
-    Rhyolite.Frontend.Cookie
     Rhyolite.Frontend.Auth
     Rhyolite.Frontend.Auth.App
+    Rhyolite.Frontend.Cookie
+    Rhyolite.Frontend.Placeholder
 
   ghc-options:
     -Wall -fno-warn-unused-do-bind -fwarn-tabs -funbox-strict-fields

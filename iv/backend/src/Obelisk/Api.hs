@@ -30,53 +30,54 @@ import Data.ByteString (ByteString)
 import Data.Default
 import Data.Pool (Pool, withResource)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Database.Beam (MonadBeam(..))
 import Database.Beam.Postgres
 import qualified Database.PostgreSQL.Simple as PG
 import qualified Database.PostgreSQL.Simple.Transaction as PG
 
-newtype ReadDb a = ReadDb { unReadDb :: ReaderT PG.Connection IO a }
+newtype ReadDb a = ReadDb { unReadDb :: ReaderT (PG.Connection, Text -> IO ()) IO a }
   deriving (Functor, Applicative, Monad, MonadFail)
 
-unsafeReadDbToPg :: ReadDb a -> Pg a
-unsafeReadDbToPg = liftIOWithHandle . runReaderT . unReadDb
-
 unsafePgToReadDb :: Pg a -> ReadDb a
-unsafePgToReadDb x = ReadDb $ ReaderT $ \conn -> runBeamPostgres conn x
+unsafePgToReadDb x = ReadDb $ ReaderT $ \(conn, logger) -> runBeamPostgresDebug (logger . T.pack) conn x
 
 instance MonadBeam Postgres ReadDb where
-  runReturningMany cmd k = unsafePgToReadDb $ runReturningMany cmd (unsafeReadDbToPg . k . unsafePgToReadDb)
+  runReturningMany cmd k = ReadDb $ ReaderT $ \(outerConn, logger) -> runBeamPostgresDebug (logger . T.pack) outerConn $ do
+    let processItem item = liftIOWithHandle $ \innerConn -> do
+          runReaderT (unReadDb $ k $ unsafePgToReadDb item) (innerConn, logger)
+    runReturningMany cmd processItem
   runNoReturn cmd = unsafePgToReadDb (runNoReturn cmd)
   runReturningOne cmd = unsafePgToReadDb (runReturningOne cmd)
   runReturningList cmd = unsafePgToReadDb (runReturningList cmd)
 
-readTransaction :: PG.Connection -> ReadDb a -> IO a
-readTransaction conn (ReadDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r conn
+readTransaction :: (Text -> IO ()) -> PG.Connection -> ReadDb a -> IO a
+readTransaction logger conn (ReadDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r (conn, logger)
   where m = PG.TransactionMode
           { PG.isolationLevel = PG.Serializable
           , PG.readWriteMode = PG.ReadOnly
           }
 
-readTransactionFromPool :: Pool PG.Connection -> ReadDb a -> IO a
-readTransactionFromPool pool a = withResource pool $ \conn -> readTransaction conn a
+readTransactionFromPool :: (Text -> IO ()) -> Pool PG.Connection -> ReadDb a -> IO a
+readTransactionFromPool logger pool a = withResource pool $ \conn -> readTransaction logger conn a
 
-newtype WriteDb a = WriteDb { unWriteDb :: ReaderT PG.Connection IO a }
+newtype WriteDb a = WriteDb { unWriteDb :: ReaderT (PG.Connection, Text -> IO ()) IO a }
   deriving (Functor, Applicative, Monad, MonadFail)
 
-writeTransaction :: PG.Connection -> WriteDb a -> IO a
-writeTransaction conn (WriteDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r conn
+writeTransaction :: (Text -> IO ()) -> PG.Connection -> WriteDb a -> IO a
+writeTransaction logger conn (WriteDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r (conn, logger)
   where m = PG.TransactionMode
           { PG.isolationLevel = PG.Serializable
           , PG.readWriteMode = PG.ReadWrite
           }
 
-writeTransactionFromPool :: Pool PG.Connection -> WriteDb a -> IO a
-writeTransactionFromPool pool a = withResource pool $ \conn -> writeTransaction conn a
+writeTransactionFromPool :: (Text -> IO ()) -> Pool PG.Connection -> WriteDb a -> IO a
+writeTransactionFromPool logger pool a = withResource pool $ \conn -> writeTransaction logger conn a
 
-unsafeReadDb :: (PG.Connection -> IO a) -> ReadDb a
+unsafeReadDb :: ((PG.Connection, Text -> IO ()) -> IO a) -> ReadDb a
 unsafeReadDb f = ReadDb $ lift . f =<< ask
 
-unsafeWriteDb :: (PG.Connection -> IO a) -> WriteDb a
+unsafeWriteDb :: ((PG.Connection, Text -> IO ()) -> IO a) -> WriteDb a
 unsafeWriteDb f = WriteDb $ lift . f =<< ask
 
 withLogicalDecodingTransactions :: (Text -> IO ()) -> LogicalDecodingOptions -> ByteString -> (TChan (Either Message Transaction) -> IO a) -> IO a
@@ -102,8 +103,8 @@ withNonEmptyTransactions logger = withLogicalDecodingTransactions logger $ def
   { _logicalDecodingOptions_pluginOptions = [("skip-empty-xacts", Nothing)]
   }
 
-runRepeatableReadTransaction :: PG.Connection -> ReadDb a -> IO a
-runRepeatableReadTransaction conn (ReadDb r) = PG.withTransactionMode m conn $ runReaderT r conn
+runRepeatableReadTransaction :: (Text -> IO ()) -> PG.Connection -> ReadDb a -> IO a
+runRepeatableReadTransaction logger conn (ReadDb r) = PG.withTransactionMode m conn $ runReaderT r (conn, logger)
   where m = PG.TransactionMode
           { PG.isolationLevel = PG.RepeatableRead
           , PG.readWriteMode = PG.ReadOnly
@@ -117,5 +118,5 @@ beginRepeatableReadTransaction conn = PG.beginMode m conn
           }
 
 -- | Run the given read-only action in a connection that is already in a transaction
-unsafeRunInOpenReadTransaction :: PG.Connection -> ReadDb a -> IO a
-unsafeRunInOpenReadTransaction conn (ReadDb r) = runReaderT r conn
+unsafeRunInOpenReadTransaction :: (Text -> IO ()) -> PG.Connection -> ReadDb a -> IO a
+unsafeRunInOpenReadTransaction logger conn (ReadDb r) = runReaderT r (conn, logger)

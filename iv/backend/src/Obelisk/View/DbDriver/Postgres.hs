@@ -128,7 +128,7 @@ withDbDriver logger dbUri db go = withConnectionPool dbUri $ \pool -> withResour
                       putMyLog "Entering subtransaction"
                       withMVar connVar $ \connFromVar -> do
                         sp <- PG.newSavepoint connFromVar
-                        rv <- try $ unsafeRunInOpenReadTransaction connFromVar qs0
+                        rv <- try $ unsafeRunInOpenReadTransaction logger connFromVar qs0
                         PG.rollbackToAndReleaseSavepoint connFromVar sp
                         sendRsp rv
                   }
