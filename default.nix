@@ -1,16 +1,9 @@
 { obelisk ? import ./dep/obelisk (builtins.removeAttrs args ["pkgs" "inNixShell"])
-, pkgs ? obelisk.nixpkgs
+, pkgs ? obelisk.pkgs
 , ... } @ args:
 
 let
-  reflex-platform = obelisk.reflex-platform;
-  inherit (pkgs) lib;
-  haskellLib = pkgs.haskell.lib;
-  repos = pkgs.mapSubdirectories pkgs.thunkSource ./dep;
-
-  # Some dependency thunks needed
-  dep = import ./dep reflex-platform.hackGet;
-  #TODO: Consider whether to prefer using thunkSet here.
+  nix-thunk = import ./dep/nix-thunk { inherit pkgs; };
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
@@ -39,8 +32,12 @@ let
     rhyolite-account-types = ./account/types;
   };
 
+  repos = nix-thunk.mapSubdirectories
+    nix-thunk.thunkSource
+    ./dep;
+
   # srcs used for overrides
-  overrideSrcs = rhyolitePackages // {
+  haskellPackageSources = rhyolitePackages // {
     beam-sqlite = repos.beam + "/beam-sqlite";
     beam-core = repos.beam + "/beam-core";
     beam-postgres = repos.beam + "/beam-postgres";
@@ -58,7 +55,7 @@ let
     postgresql-simple = repos.postgresql-simple;
     postgresql-simple-interpolate = repos.postgresql-simple-interpolate;
 
-    # Newer versions than those in reflex-platform
+    # Newer versions than those in Reflex Platform
     gargoyle = repos.gargoyle + "/gargoyle";
     gargoyle-postgresql = repos.gargoyle + "/gargoyle-postgresql";
     gargoyle-postgresql-connect = repos.gargoyle + "/gargoyle-postgresql-connect";
@@ -72,65 +69,21 @@ let
 
   };
 
-  # You can use these manually if you don’t want to use rhyolite.project.
-  # It will be needed if you need to combine with multiple overrides.
-  haskellOverrides = lib.foldr lib.composeExtensions (_: _: {}) [
-    (self: super: lib.mapAttrs (name: path: self.callCabal2nix name path {}) overrideSrcs)
-    (self: super: {
-      frontend = super.frontend.override {
-        obelisk-executable-config-lookup = self.obelisk-executable-config-lookup;
-      };
-      beam-postgres = haskellLib.dontCheck super.beam-postgres;
-      beam-migrate = haskellLib.dontCheck super.beam-migrate;
-      gargoyle-postgresql-nix = haskellLib.overrideCabal super.gargoyle-postgresql-nix {
-        librarySystemDepends = [ pkgs.postgresql ];
-      };
-      postgresql-simple = haskellLib.dontCheck super.postgresql-simple;
-      validation = haskellLib.dontCheck super.validation;
-      postgresql-lo-stream = haskellLib.markUnbroken super.postgresql-lo-stream;
-
-      HaskellNet-SSL = self.callHackage "HaskellNet-SSL" "0.3.4.4" {};
-
-      base-orphans = self.callHackageDirect {
-        pkg = "base-orphans";
-        ver = "0.8.6";
-        sha256 = "sha256:17hplm1mgw65jbszg5z4vqk4i24ilxv8mbszr3s8lhpll5naik26";
-      } {};
-
-      aeson-qq = self.callHackage "aeson-qq" "0.8.4" {};
-      postgresql-syntax = haskellLib.dontCheck super.postgresql-syntax;
-      vessel = haskellLib.doJailbreak super.vessel;
-      monoid-map = haskellLib.doJailbreak super.monoid-map;
-
-      # 'locale' is broken on nix darwin which is required by postgres 'initdb'
-      rhyolite-beam-task-worker-backend = if pkgs.stdenv.hostPlatform.isDarwin
-      then
-        haskellLib.dontCheck super.rhyolite-beam-task-worker-backend
-      else
-        super.rhyolite-beam-task-worker-backend;
-    })
-  ];
-
 in obelisk // {
 
-  inherit haskellOverrides;
-
-  rhyolitePackages = haskellPackages: builtins.intersectAttrs rhyolitePackages (haskellPackages.extend haskellOverrides);
-
-  haskellPackageSources = overrideSrcs;
+  inherit rhyolitePackages haskellPackageSources;
 
   # Function similar to obelisk.project that handles overrides for you.
   project = base: projectDefinition:
     obelisk.project base ({...}@args:
       let def = projectDefinition args;
       in def // {
-        overrides = lib.composeExtensions haskellOverrides (def.overrides or (_: _: {}));
+        inputThunks = haskellPackageSources // def.inputThunks or {};
       });
 
   # Used to build this project. Should only be needed by CI, devs.
-  proj = obelisk.reflex-platform.project ({ pkgs, ... }@args: {
-    overrides = haskellOverrides;
-    packages = rhyolitePackages;
+  proj = obelisk.project ({ pkgs, ... }@args: {
+    inputThunks = haskellPackageSources;
     shells = rec {
       ghc = builtins.attrNames rhyolitePackages;
       ghcjs = [
