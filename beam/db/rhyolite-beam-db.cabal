@@ -15,14 +15,17 @@ library
   exposed-modules:
     Rhyolite.DB.Beam
     Rhyolite.DB.Beam.Types
+    Rhyolite.DB.Beam.Deriving
 
   build-depends:
       base
+    , beam-automigrate
     , beam-core
     , beam-postgres
     , lens
     , postgresql-simple
     , rhyolite-beam-orphans
+    , text
     , time
     , uuid
 
