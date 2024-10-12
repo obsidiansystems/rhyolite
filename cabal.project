@@ -1,17 +1,13 @@
 packages:
-  account/backend/
   account/types/
   aeson-orphans/
-  backend/
   beam/db/
   beam/orphans/
-  beam/task/backend/
   beam/task/types/
   common/
   email/
   email/mime-mail-orphans/
   frontend/
-  iv/backend/
   iv/common/
   notify-listen/notify-listen/
   notify-listen/notify-listen-beam/
@@ -22,10 +18,21 @@ packages:
   signed-data/signed-data/
   signed-data/signed-data-clientsession/
   test/
+
   widgets/
+
+if (!os(ghcjs))
+  packages:
+    account/backend/
+    backend/
+    beam/task/backend/
+    iv/backend/
 
 allow-newer:
   postgresql-lo-stream:*,
   vessel:*,
   aeson-gadt-th:*,
+  attoparsec,
 
+allow-older:
+  postgresql-simple,
