@@ -45,6 +45,20 @@ data LiveQuery db v = LiveQuery
   , _liveQuery_listen :: forall db'. Database Postgres db' => db (DatabaseEntity Postgres db') -> TablesV db (ComposeMaybe TablePatch) -> v Proxy -> ReadDbPatch (v Identity)
   }
 
+-- | Map for 'LiveQuery', applies function to both the 'view' and
+-- 'listen' functions.
+mapLiveQuery
+  :: (forall m
+      . Monad m
+      => (v Proxy -> m (v Identity))
+      -> u Proxy -> m (u Identity))
+  -> LiveQuery db v
+  -> LiveQuery db u
+mapLiveQuery f lq = LiveQuery
+  { _liveQuery_view = \db -> f $ _liveQuery_view lq db
+  , _liveQuery_listen = \db p -> f $ _liveQuery_listen lq db p
+  }
+
 -- | Build a LiveQuery by providing a separate query for each possible key.
 -- This could be inefficient if the number of keys is large.
 class QueryPerKey v where
