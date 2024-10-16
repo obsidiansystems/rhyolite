@@ -51,6 +51,8 @@ instance Table Account where
 
 instance Beamable (PrimaryKey Account)
 
+type AccountId = PrimaryKey Account Identity
+
 type HasAccountIdConstraint (c :: * -> Constraint) f = c (Columnar f (SqlSerial Int64))
 
 deriving instance HasAccountIdConstraint ToJSON f => ToJSON (PrimaryKey Account f)
