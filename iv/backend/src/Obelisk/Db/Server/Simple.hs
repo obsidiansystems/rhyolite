@@ -47,7 +47,7 @@ withSimpleDbServer
   => SimpleDbServerConfig db
   -> (forall a. request a -> Pg a)
   -> LiveQuery db view
-  -> (Snap () -> IO ())
+  -> ((forall a. Pg a -> IO a) -> Snap () -> IO ())
   -> IO ()
 withSimpleDbServer cfg handleRequest view k = do
   let opts = _simpleDbServerConfig_options cfg
@@ -55,8 +55,10 @@ withSimpleDbServer cfg handleRequest view k = do
     let checkedDbSchema = _simpleDbServerConfig_schema cfg
         dbSchema = deAnnotateDatabase checkedDbSchema
         myLog = _simpleDbServerOptions_logger opts
+        runDb :: forall a. Pg a -> IO a
+        runDb txn = withResource dbConnPool $ \dbConn -> runBeamPostgresDebug (myLog . T.pack) dbConn txn
         requestHandler :: RequestHandler request IO
-        requestHandler = RequestHandler $ \req -> withResource dbConnPool $ \dbConn -> runBeamPostgresDebug (myLog . T.pack) dbConn $ handleRequest req
+        requestHandler = RequestHandler $ \req -> runDb $ handleRequest req
     withResource dbConnPool $ migrateSimpleDb cfg
     serveDbOverWebsocketsNew @db @request
       myLog
@@ -66,7 +68,7 @@ withSimpleDbServer cfg handleRequest view k = do
       (\(QueryResultPatch d) (IView q) -> fmap (IView . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) q)
       (\(IView q) -> fmap (IView . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) q)
       (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
-      $ \_serviceRegistrar serveApi -> k serveApi
+      $ \_serviceRegistrar serveApi -> k runDb serveApi
 
 migrateSimpleDb
   :: _
