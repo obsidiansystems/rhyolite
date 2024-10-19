@@ -17,6 +17,7 @@ import Obelisk.Db.LiveQuery
 import Obelisk.View.App
 import Obelisk.View.Vessel
 import Rhyolite.Backend.App
+import qualified Database.PostgreSQL.Simple as PG
 import Snap.Core
 
 data SimpleDbServerConfig db = SimpleDbServerConfig
@@ -47,7 +48,11 @@ withSimpleDbServer
   => SimpleDbServerConfig db
   -> (forall a. request a -> Pg a)
   -> LiveQuery db view
-  -> ((forall a. Pg a -> IO a) -> Snap () -> IO ())
+  -> (   (Text -> IO ())
+      -> Pool PG.Connection
+      -> Snap ()
+      -> IO ())
+  -- ^ low-level exposed DB details allows nice usage of 'Obelisk.Api.ReadDb' and 'Obelisk.Api.WriteDb'
   -> IO ()
 withSimpleDbServer cfg handleRequest view k = do
   let opts = _simpleDbServerConfig_options cfg
@@ -68,7 +73,7 @@ withSimpleDbServer cfg handleRequest view k = do
       (\(QueryResultPatch d) (IView q) -> fmap (IView . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) q)
       (\(IView q) -> fmap (IView . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) q)
       (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
-      $ \_serviceRegistrar serveApi -> k runDb serveApi
+      $ \_serviceRegistrar serveApi -> k myLog dbConnPool serveApi
 
 migrateSimpleDb
   :: _
