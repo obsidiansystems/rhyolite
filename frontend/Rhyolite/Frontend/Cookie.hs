@@ -26,12 +26,15 @@ import Data.ByteString.Builder (toLazyByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Either.Combinators
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
+import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.Document as DOM
 import GHCJS.DOM.Types (MonadJSM)
+import Obelisk.Frontend.Cookie
 import Reflex.Dom.Core
 import Web.Cookie
 
@@ -157,3 +160,24 @@ withPermanentCookieJson d k a = do
   cookieE <- a cookie0
   performEvent_ $ setPermanentCookieJson d k <$> cookieE
   return ()
+
+-- | Gets and sets the value of a cookie in the browser, and provides a Dynamic
+-- of that value. Cookies are JSON-encoded and then base64 encoded for storage,
+-- and decoded on retrieval.
+cookieManager
+  :: (HasCookies m, MonadHold t m, Prerender t m, Aeson.FromJSON v, Aeson.ToJSON v)
+  => Text -- ^ The key of the cookie
+  -> Event t (Maybe v) -- ^ An event of cookie value changes. 'Nothing' clears the cookie
+  -> m (Dynamic t (Maybe v)) -- ^ The current value of the cookie
+cookieManager key changes = do
+  cookies <- askCookies
+  let mCookie0 = do
+        cookie <- lookup (encodeUtf8 key) cookies
+        decodedCookie <- rightToMaybe $ base64Decode cookie
+        Aeson.decodeStrict decodedCookie
+  prerender_ (pure ()) $ do
+    doc <- DOM.currentDocumentUnchecked
+    performEvent_ $ ffor changes $ \newAuth -> do
+      cookie <- defaultCookieJson key newAuth
+      setPermanentCookie doc (cookie { setCookiePath = Just "/" })
+  holdDyn mCookie0 changes

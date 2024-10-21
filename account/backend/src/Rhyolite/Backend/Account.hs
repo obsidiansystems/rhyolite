@@ -6,27 +6,30 @@ Description:
 {-# Language FlexibleContexts #-}
 {-# Language MonoLocalBinds #-}
 {-# Language OverloadedStrings #-}
+{-# Language LambdaCase #-}
+{-# Language GADTs #-}
 module Rhyolite.Backend.Account
   ( createAccount
   , login
   , ensureAccountExists
-  , ensureAccountExistsNoNotify
   , setAccountPassword
   , setAccountPasswordHash
   , makePasswordHash
   , passwordResetToken
   , newNonce
-  , resetPassword
-  , resetPasswordHash
+  , handleAccountRequest
+  , AccountContext (..)
   ) where
 
 import Control.Monad (guard)
+import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
 import Crypto.PasswordStore
 import Data.Aeson
 import Data.ByteString
 import Data.Constraint.Extras
 import Data.Constraint.Forall
+import Data.Functor
 import Data.Functor.Identity
 import Data.Maybe
 import Data.Text
@@ -42,91 +45,128 @@ import Database.Beam.Postgres.Full hiding (insert)
 import Database.Beam.Postgres.Syntax
 import Database.PostgreSQL.Simple.Beam ()
 import Rhyolite.Account
-import Rhyolite.DB.Beam (current_timestamp_)
-import Rhyolite.DB.NotifyListen
-import Rhyolite.DB.NotifyListen.Beam
+import Rhyolite.DB.Beam (current_timestamp_, genRandomUuid_)
+import System.Entropy.Class
 import Web.ClientSession as CS
 
--- | Creates a new account and emits a db notification about it
-createAccount
-  :: (Has' ToJSON notice Identity, ForallF ToJSON notice)
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> notice (PrimaryKey Account Identity)
-  -> Text
-  -> Text
-  -> Pg (Either Text (PrimaryKey Account Identity))
-createAccount accountTable noticeWrapper email pass = do
-  hash <- makePasswordHash pass
-  accountIds <- runPgInsertReturningList $ flip returning _account_id $ insert accountTable $ insertExpressions
-    [ Account
-        { _account_id = default_
-        , _account_email = lower_ (val_ email)
-        , _account_password = val_ (Just hash)
-        , _account_passwordResetNonce = just_ current_timestamp_
-        }
-    ]
-  case accountIds of
-    [accountId] -> do
-      notify NotificationType_Insert noticeWrapper (AccountId accountId)
-      pure $ Right $ AccountId accountId
-    _ -> pure $ Left "Failed to create account"
+data AccountContext db m = AccountContext
+  { _accountContext_table :: DatabaseEntity Postgres db (TableEntity Account)
+  , _accountContext_key :: CS.Key
+  , _accountContext_sendFinishCreateAccount :: Email -> Signed PasswordResetToken -> m ()
+  , _accountContext_sendResetPassword :: Email -> Signed PasswordResetToken -> m ()
+  }
+
+handleAccountRequest
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
+  -> AccountRequest a
+  -> m a
+handleAccountRequest ctx = \case
+  AccountRequest_Login email password -> login ctx email password
+  AccountRequest_CreateAccount email -> createAccount ctx email
+  AccountRequest_FinishAccountCreation token password -> finishAccountCreation ctx token password
+  AccountRequest_ForgotPassword email -> createAccount ctx email --TODO: Not createAccount
+  AccountRequest_ResetPassword token password -> finishAccountCreation ctx token password --TODO: Not finishAccountCreation
+
+-- FUTURE: Mitigate timing attacks, e.g. by verifying against a fake password
+-- hash even if the record is not found, or by ensuring that all login requests
+-- wait for the same amount of time.
 
 -- | Attempts to login a user given some credentials.
 login
-  :: Database Postgres db
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> Text
-  -> Text
-  -> Pg (Maybe (PrimaryKey Account Identity))
-login accountTable email pass = runMaybeT $ do
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     )
+  => AccountContext db m
+  -> Email
+  -> Password
+  -> m (Maybe (Signed AuthToken))
+login ctx email pass = runMaybeT $ do
   (aid, mPwHash) <- MaybeT $ fmap listToMaybe $ runSelectReturningList $ select $ do
-    acc <- all_ accountTable
+    acc <- all_ $ _accountContext_table ctx
     guard_ $ lower_ (_account_email acc) ==. lower_ (val_ email)
     pure (_account_id acc, _account_password acc)
   pwHash <- MaybeT $ pure mPwHash
   guard $ verifyPasswordWith pbkdf2 (2^) (T.encodeUtf8 pass) pwHash
-  pure (AccountId aid)
+  lift $ signWithKey (_accountContext_key ctx) $ AuthToken $ AccountId aid
 
-ensureAccountExistsNoNotify
-  :: (Database Postgres db)
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> Text
-  -> Pg (Bool, PrimaryKey Account Identity)
-ensureAccountExistsNoNotify accountTable email = do
-  existingAccountId <- runSelectReturningOne $ select $ fmap primaryKey $ filter_ (\x ->
-    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ accountTable
-  case existingAccountId of
-    Just existing -> return (False, existing)
-    Nothing -> do
-      results <- runInsertReturningList $ insert accountTable $ insertExpressions
-        [ Account
-            { _account_id = default_
-            , _account_email = lower_ (val_ email)
-            , _account_password = nothing_
-            , _account_passwordResetNonce = nothing_
-            }
-        ]
-      case results of
-        [acc] -> do
-          let aid = primaryKey acc
-          -- notify NotificationType_Insert (notification accountTable) aid
-          pure (True, aid)
-        _ -> error "ensureAccountExists: Creating account failed"
+-- | Creates a new account
+createAccount
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
+  -> Email
+  -> m ()
+createAccount ctx email = do
+  accountIds <- runPgInsertReturningList $ flip returning (\a -> (pk a, _account_passwordResetNonce a)) $ insert (_accountContext_table ctx) $ insertExpressions
+    [ Account
+        { _account_id = genRandomUuid_
+        , _account_email = lower_ (val_ email)
+        , _account_password = nothing_
+        , _account_passwordResetNonce = just_ current_timestamp_
+        }
+    ]
+  --TODO: Send the email
+  case accountIds of
+    [(accountId, Just nonce)] -> do
+      token <- signWithKey (_accountContext_key ctx) $ PasswordResetToken (accountId, nonce)
+      _accountContext_sendFinishCreateAccount ctx email token
+    _ -> fail "Failed to create account"
+
+-- FUTURE: Expiration policy for password reset tokens
+finishAccountCreation
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
+  -> Signed PasswordResetToken
+  -> Password
+  -> m (Either FinishAccountCreationError (Signed AuthToken))
+finishAccountCreation ctx token password = case readSignedWithKey (_accountContext_key ctx) token of
+  Nothing -> pure $ Left FinishAccountCreationError_InvalidToken
+  Just (PasswordResetToken (accountId, nonceFromToken)) -> do
+    nonces <- runSelectReturningList $ select $ do
+      account <- all_ $ _accountContext_table ctx
+      guard_ $ pk account ==. val_ accountId
+      pure $ _account_passwordResetNonce account
+    case nonces of
+      [Just nonceFromDatabase]
+        | nonceFromDatabase == nonceFromToken
+          -> do
+            setAccountPassword ctx accountId password
+            fmap Right $ signWithKey (_accountContext_key ctx) $ AuthToken accountId
+      _ -> pure $ Left FinishAccountCreationError_InvalidToken
 
 ensureAccountExists
-  :: (Database Postgres db, HasNotification n Account, Has' ToJSON n Identity, ForallF ToJSON n)
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> Text
-  -> Pg (Bool, PrimaryKey Account Identity)
-ensureAccountExists accountTable email = do
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     , MonadBeamInsertReturning Postgres m
+     )
+  => AccountContext db m
+  -> Email
+  -> m (Bool, PrimaryKey Account Identity)
+ensureAccountExists ctx email = do
   existingAccountId <- runSelectReturningOne $ select $ fmap primaryKey $ filter_ (\x ->
-    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ accountTable
+    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ (_accountContext_table ctx)
   case existingAccountId of
     Just existing -> return (False, existing)
     Nothing -> do
-      results <- runInsertReturningList $ insert accountTable $ insertExpressions
+      -- FUTURE: Use ON CONFLICT
+      results <- runInsertReturningList $ insert (_accountContext_table ctx) $ insertExpressions
         [ Account
-            { _account_id = default_
+            { _account_id = genRandomUuid_
             , _account_email = lower_ (val_ email)
             , _account_password = nothing_
             , _account_passwordResetNonce = nothing_
@@ -135,25 +175,34 @@ ensureAccountExists accountTable email = do
       case results of
         [acc] -> do
           let aid = primaryKey acc
-          notify NotificationType_Insert (notification accountTable) aid
           pure (True, aid)
-        _ -> error "ensureAccountExists: Creating account failed"
+        _ -> fail "ensureAccountExists: Creating account failed"
 
 setAccountPassword
-  :: DatabaseEntity Postgres db (TableEntity Account)
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
   -> PrimaryKey Account Identity
-  -> Text
-  -> Pg ()
-setAccountPassword tbl aid password = do
-  pw <- liftIO $ makePasswordHash password
-  setAccountPasswordHash tbl aid pw
+  -> Password
+  -> m ()
+setAccountPassword ctx aid password = do
+  pw <- makePasswordHash password
+  setAccountPasswordHash ctx aid pw
 
 setAccountPasswordHash
-  :: DatabaseEntity Postgres db (TableEntity Account)
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
   -> PrimaryKey Account Identity
   -> ByteString
-  -> Pg ()
-setAccountPasswordHash accountTable aid hash = runUpdate $ update accountTable
+  -> m ()
+setAccountPasswordHash ctx aid hash = runUpdate $ update (_accountContext_table ctx)
   (\x -> mconcat
     [ _account_password x <-. val_ (Just hash)
     , _account_passwordResetNonce x <-. nothing_
@@ -162,40 +211,13 @@ setAccountPasswordHash accountTable aid hash = runUpdate $ update accountTable
   (\x -> primaryKey x ==. val_ aid)
 
 makePasswordHash
-  :: MonadIO m
+  :: ( EntropyGenerator m
+     , Functor m
+     )
   => Text
   -> m ByteString
-makePasswordHash pw = do
-  salt <- liftIO genSaltIO
-  return $ makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) salt 14
-
-resetPassword
-  :: (Database Postgres db)
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> PrimaryKey Account Identity
-  -> UTCTime
-  -> Text
-  -> Pg (Maybe (PrimaryKey Account Identity))
-resetPassword tbl aid t pw = do
-  hash <- makePasswordHash pw
-  resetPasswordHash tbl aid t hash
-
-resetPasswordHash
-  :: (Database Postgres db)
-  => DatabaseEntity Postgres db (TableEntity Account)
-  -> PrimaryKey Account Identity
-  -> UTCTime
-  -> ByteString
-  -> Pg (Maybe (PrimaryKey Account Identity))
-resetPasswordHash accountTable aid nonce pwhash = do
-  macc <- runSelectReturningOne $ lookup_ accountTable aid
-  case macc of
-    Nothing -> return Nothing
-    Just a -> if _account_passwordResetNonce a == Just nonce
-      then do
-        setAccountPasswordHash accountTable aid pwhash
-        return $ Just aid
-      else fail "nonce mismatch"
+makePasswordHash pw = getEntropy 16 <&> \saltRaw ->
+  makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) (makeSalt saltRaw) 14
 
 passwordResetToken
   :: MonadIO m
@@ -207,11 +229,17 @@ passwordResetToken csk aid nonce = do
   liftIO $ signWithKey csk $ PasswordResetToken (aid, nonce)
 
 newNonce
-  :: DatabaseEntity Postgres db (TableEntity Account)
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     , MonadBeamUpdateReturning Postgres m
+     )
+  => AccountContext db m
   -> PrimaryKey Account Identity
-  -> Pg (Maybe UTCTime)
-newNonce accountTable aid = do
-  a <- runUpdateReturningList $ update accountTable
+  -> m (Maybe UTCTime)
+newNonce ctx aid = do
+  a <- runUpdateReturningList $ update (_accountContext_table ctx)
     (\x -> _account_passwordResetNonce x <-. just_ current_timestamp_)
     (\x -> primaryKey x ==. val_ aid)
   pure $ case a of

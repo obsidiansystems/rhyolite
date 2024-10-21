@@ -1,9 +1,9 @@
 cabal-version:      2.4
-name:               signed-data-clientsession
+name:               entropy-class
 version:            0.1.0.0
-synopsis:           Sign data using a client session key
+synopsis:           Typeclass for retrieving cryptographic entropy
 description:
-  Instance for MonadSign using Web.ClientSession as the key source
+  Retrieve cryptographic entropy in monads other than IO
 
 homepage:           https://github.com/obsidiansystems/rhyolite
 bug-reports:        https://github.com/obsidiansystems/rhyolite/issues
@@ -11,24 +11,17 @@ license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Obsidian Systems LLC
 maintainer:         maintainer@obsidian.systems
-copyright:          2021 Obsidian Systems LLC
+copyright:          2024 Obsidian Systems LLC
 category:           Data
 
 library
-  exposed-modules:  Data.Signed.ClientSession
+  exposed-modules:
+    System.Entropy.Class
   build-depends:
-    , aeson
-    , base
+      base
     , bytestring
-    , clientsession
-    , entropy-class
-    , monad-control
-    , monad-logger
+    , entropy
     , mtl
-    , signed-data
-    , text
-    , transformers
-    , transformers-base
 
-  hs-source-dirs:   src
+  hs-source-dirs: src
   default-language: Haskell2010

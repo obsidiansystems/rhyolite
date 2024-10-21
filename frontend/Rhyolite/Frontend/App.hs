@@ -589,12 +589,7 @@ mapAuth
   -> QueryT t q' ((RequesterT t (ApiRequest () publicRequest privateRequest)) (Either Text) m) a
   -- ^ The authenticated child widget. It uses '()' as its credential for private requests
   -> RhyoliteWidget q (ApiRequest cred publicRequest privateRequest) t m a
-mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
-  v <- askQueryResult
-  (a, vs) <- lift $ withRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
-  -- tellQueryIncremental vs would seem simpler, but tellQueryDyn is more baked, subtracting off the removals properly.
-  tellQueryDyn $ incrementalToDynamic vs
-  return a
+mapAuth token = mapApi authorizeReq
   where
     authorizeReq
       :: forall x. ApiRequest () publicRequest privateRequest x
@@ -602,3 +597,23 @@ mapAuth token authorizeQuery authenticatedChild = RhyoliteWidget $ do
     authorizeReq = \case
       ApiRequest_Public a -> ApiRequest_Public a
       ApiRequest_Private () a -> ApiRequest_Private token a
+
+mapApi
+  :: forall publicRequest privateRequest q q' req req' a t m.
+     ( MonadFix m
+     , PostBuild t m
+     , Query q
+     , Group q
+     , Commutative q
+     , Group q'
+     , Commutative q'
+     )
+  => (forall a. req' a -> req a)
+  -> QueryMorphism q' q
+  -> QueryT t q' ((RequesterT t req') (Either Text) m) a
+  -> RhyoliteWidget q req t m a
+mapApi authorizeReq authorizeQuery authenticatedChild = RhyoliteWidget $ do
+  v <- askQueryResult
+  (a, vs) <- lift $ withRequesterT authorizeReq id $ runQueryT (withQueryT authorizeQuery authenticatedChild) v
+  tellQueryDyn $ incrementalToDynamic vs
+  return a
