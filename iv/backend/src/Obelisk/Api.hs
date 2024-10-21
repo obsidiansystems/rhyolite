@@ -43,10 +43,12 @@ unsafePgToReadDb :: Pg a -> ReadDb a
 unsafePgToReadDb x = ReadDb $ ReaderT $ \(conn, logger) -> runBeamPostgresDebug (logger . T.pack) conn x
 
 instance MonadBeam Postgres ReadDb where
-  runReturningMany cmd k = ReadDb $ ReaderT $ \(outerConn, logger) -> runBeamPostgresDebug (logger . T.pack) outerConn $ do
-    let processItem item = liftIOWithHandle $ \innerConn -> do
-          runReaderT (unReadDb $ k $ unsafePgToReadDb item) (innerConn, logger)
-    runReturningMany cmd processItem
+  runReturningMany cmd k = do
+    logger <- ReadDb $ asks snd
+    unsafePgToReadDb $ do
+      let processItem item = liftIOWithHandle $ \innerConn -> do
+            runReaderT (unReadDb $ k $ unsafePgToReadDb item) (innerConn, logger)
+      runReturningMany cmd processItem
   runNoReturn cmd = unsafePgToReadDb (runNoReturn cmd)
   runReturningOne cmd = unsafePgToReadDb (runReturningOne cmd)
   runReturningList cmd = unsafePgToReadDb (runReturningList cmd)

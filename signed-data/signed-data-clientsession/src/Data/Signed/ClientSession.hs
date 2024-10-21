@@ -27,15 +27,19 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Control
 import Data.Aeson (FromJSON, ToJSON, encode, decodeStrict')
 import qualified Data.ByteString.Lazy as LBS
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Typeable (Typeable, typeRep)
 import qualified Web.ClientSession as CS
 import Data.Signed (MonadSign(..), Signed(..))
+import System.Entropy.Class
 
-signWithKey :: (Typeable a, ToJSON a, MonadIO m) => CS.Key -> a -> m (Signed a)
-signWithKey k (v :: a) =
-  liftIO $ fmap (Signed . decodeUtf8) $ CS.encryptIO k $ LBS.toStrict $ encode (show $ typeRep (Proxy @a), v)
+signWithKey :: (Typeable a, ToJSON a, Monad m, EntropyGenerator m) => CS.Key -> a -> m (Signed a)
+signWithKey k (v :: a) = do
+  ivRaw <- getEntropy 16
+  let iv = fromMaybe (error "Bug in EntropyGenerator or mkIV") $ CS.mkIV ivRaw
+  pure $ Signed $ decodeUtf8 $ CS.encrypt k iv $ LBS.toStrict $ encode (show $ typeRep (Proxy @a), v)
 
 readSignedWithKey :: (Typeable a, FromJSON a) => CS.Key -> Signed a -> Maybe a
 readSignedWithKey k s = do
@@ -45,7 +49,7 @@ readSignedWithKey k s = do
   return v
 
 -- We need the Typeable here because otherwise two 'Signed's whose contents encode the same way will be interchangeable
-sign :: (MonadSign m, SigningKey m ~ CS.Key, MonadIO m, Typeable a, ToJSON a) => a -> m (Signed a)
+sign :: (MonadSign m, SigningKey m ~ CS.Key, EntropyGenerator m, Typeable a, ToJSON a) => a -> m (Signed a)
 sign a = do
   k <- askSigningKey
   signWithKey k a
@@ -56,7 +60,7 @@ readSigned s = do
   pure $ readSignedWithKey k s
 
 newtype SignT m a = SignT { unSignT :: ReaderT CS.Key m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadLogger)
+  deriving (Functor, Applicative, Monad, MonadIO, EntropyGenerator, MonadTrans, MonadLogger)
 
 runSignT :: SignT m a -> CS.Key -> m a
 runSignT (SignT a) = runReaderT a

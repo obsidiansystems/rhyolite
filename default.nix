@@ -7,29 +7,31 @@ let
 
   # Local packages. We override them below so that other packages can use them.
   rhyolitePackages = {
+    entropy-class = ./entropy-class;
     iv-backend = ./iv/backend;
     iv-common = ./iv/common;
+    mime-mail-orphans = ./email/mime-mail-orphans;
     obelisk-aeson-orphans = ./aeson-orphans;
+    psql-serializable = ./psql-extras/psql-serializable;
+    psql-simple-beam = ./psql-extras/psql-simple-beam;
+    psql-simple-class = ./psql-extras/psql-simple-class;
+    rhyolite-account-backend = ./account/backend;
+    rhyolite-account-frontend = ./account/frontend;
+    rhyolite-account-types = ./account/types;
     rhyolite-backend = ./backend;
     rhyolite-beam-db = ./beam/db;
     rhyolite-beam-orphans = ./beam/orphans;
-    rhyolite-beam-task-worker-types = ./beam/task/types;
     rhyolite-beam-task-worker-backend = ./beam/task/backend;
-    rhyolite-notify-listen = ./notify-listen/notify-listen;
-    rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
-    psql-simple-class = ./psql-extras/psql-simple-class;
-    psql-simple-beam = ./psql-extras/psql-simple-beam;
-    psql-serializable = ./psql-extras/psql-serializable;
+    rhyolite-beam-task-worker-types = ./beam/task/types;
     rhyolite-common = ./common;
     rhyolite-email = ./email;
-    mime-mail-orphans = ./email/mime-mail-orphans;
-    semimap = ./semimap;
     rhyolite-frontend = ./frontend;
+    rhyolite-notify-listen = ./notify-listen/notify-listen;
+    rhyolite-notify-listen-beam = ./notify-listen/notify-listen-beam;
+    rhyolite-widgets = ./widgets;
+    semimap = ./semimap;
     signed-data = ./signed-data/signed-data;
     signed-data-clientsession = ./signed-data/signed-data-clientsession;
-    rhyolite-widgets = ./widgets;
-    rhyolite-account-backend = ./account/backend;
-    rhyolite-account-types = ./account/types;
   };
 
   repos = nix-thunk.mapSubdirectories

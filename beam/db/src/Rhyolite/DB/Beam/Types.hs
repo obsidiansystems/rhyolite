@@ -44,4 +44,4 @@ dummyTable = Proxy
 dummyTableLens :: forall k x. Lens' (k x) (DummyTable x)
 dummyTableLens = lens
   (\_ -> Proxy)
-  (\t _ -> t)
+  (\t ~Proxy -> t)
