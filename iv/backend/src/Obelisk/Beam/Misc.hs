@@ -143,7 +143,9 @@ instance (forall s. SqlJustable (QExpr Postgres s t) (QExpr Postgres s (Maybe t)
   typeOf_ _ = maybeType $ typeOf_ (Proxy @t)
   valType_ :: forall ctxt s. (Maybe t ~ HaskellLiteralForQExpr (QGenExpr ctxt Postgres s (Maybe t))) => Maybe t -> QExpr Postgres s (Maybe t)
   valType_ = \case
-    Nothing -> nothing_ @(QExpr Postgres s t)
+    Nothing -> cast_
+      (nothing_ @(QExpr Postgres s t) :: QExpr Postgres s (Maybe t))
+      (typeOf_ (Proxy @(Maybe t)))
     Just v -> cast_
       (val_ v)
       (typeOf_ (Proxy @(Maybe t)))
