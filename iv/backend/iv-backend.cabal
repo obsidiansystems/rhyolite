@@ -78,6 +78,7 @@ common common
                , rhyolite-backend
                , rhyolite-common
                , semimap
+               , uuid
   default-extensions:
     AllowAmbiguousTypes
     BangPatterns
