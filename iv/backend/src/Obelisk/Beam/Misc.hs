@@ -134,16 +134,16 @@ class (HasSqlValueSyntax PgValueSyntax a) => ValType a where
   valType_
     :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
     => a
-    -> QGenExpr ctxt Postgres s a
+    -> QExpr Postgres s a
   valType_ d = cast_
     (val_ d)
     (typeOf_ (Proxy :: Proxy a))
 
-instance (forall ctxt s. SqlJustable (QGenExpr ctxt Postgres s t) (QGenExpr ctxt Postgres s (Maybe t)), ValType t) => ValType (Maybe t) where
+instance (forall s. SqlJustable (QExpr Postgres s t) (QExpr Postgres s (Maybe t)), ValType t) => ValType (Maybe t) where
   typeOf_ _ = maybeType $ typeOf_ (Proxy @t)
-  valType_ :: forall ctxt s. (Maybe t ~ HaskellLiteralForQExpr (QGenExpr ctxt Postgres s (Maybe t))) => Maybe t -> QGenExpr ctxt Postgres s (Maybe t)
+  valType_ :: forall ctxt s. (Maybe t ~ HaskellLiteralForQExpr (QGenExpr ctxt Postgres s (Maybe t))) => Maybe t -> QExpr Postgres s (Maybe t)
   valType_ = \case
-    Nothing -> nothing_ @(QGenExpr ctxt Postgres s t)
+    Nothing -> nothing_ @(QExpr Postgres s t)
     Just v -> cast_
       (val_ v)
       (typeOf_ (Proxy @(Maybe t)))
