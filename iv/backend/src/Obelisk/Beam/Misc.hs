@@ -2,7 +2,7 @@
 module Obelisk.Beam.Misc
   ( replaceAllTableContents
   , ValType (..)
-  , coerceQExprResult
+  , valType_
   , coerceDataType
   ) where
 
@@ -13,6 +13,7 @@ import Data.Functor.Identity
 import Data.List.Split (chunksOf)
 import Data.Proxy
 import Data.Time.Calendar
+import Data.UUID (UUID)
 import Database.Beam as Beam
 import Database.Beam.Backend.SQL
 import Database.Beam.Backend.SQL.BeamExtensions
@@ -126,32 +127,31 @@ fieldsToExprs = changeBeamRep (\(Columnar' (QField _ t nm)) -> Columnar' (QExpr 
 class (HasSqlValueSyntax PgValueSyntax a) => ValType a where
   typeOf_
     :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
-    => Proxy a
-    -> DataType Postgres a
-  valType_
-    :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
-    => a
-    -> QExpr Postgres s a
-  valType_ d = cast_
-    (val_ d)
-    (typeOf_ (Proxy :: Proxy a))
+    => DataType Postgres a
 
-instance (forall s. SqlJustable (QExpr Postgres s t) (QExpr Postgres s (Maybe t)), ValType t) => ValType (Maybe t) where
-  typeOf_ _ = maybeType $ typeOf_ (Proxy @t)
-  valType_ :: forall ctxt s. (Maybe t ~ HaskellLiteralForQExpr (QGenExpr ctxt Postgres s (Maybe t))) => Maybe t -> QExpr Postgres s (Maybe t)
-  valType_ = \case
-    Nothing -> cast_
-      (nothing_ @(QExpr Postgres s t) :: QExpr Postgres s (Maybe t))
-      (typeOf_ (Proxy @(Maybe t)))
-    Just v -> cast_
-      (val_ v)
-      (typeOf_ (Proxy @(Maybe t)))
+valType_
+  :: forall a ctxt be s
+  .  ( ValType a
+     , a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a)
+     )
+  => a
+  -> QExpr Postgres s a
+valType_ d = cast_
+  (val_ d)
+  (typeOf_ @a)
+
+instance
+  ( forall s. SqlJustable (QExpr Postgres s t) (QExpr Postgres s (Maybe t))
+  , ValType t
+  ) => ValType (Maybe t)
+ where
+  typeOf_ = maybeType $ typeOf_ @t
 
 instance ValType Day where
-  typeOf_ Proxy = date
+  typeOf_ = date
 
-coerceQExprResult :: forall a b ctxt be s. QGenExpr ctxt be s a -> QGenExpr ctxt be s b
-coerceQExprResult (QExpr e) = QExpr e
+instance ValType UUID where
+  typeOf_ = uuid
 
 coerceDataType :: forall a b be. DataType be a -> DataType be b
 coerceDataType (DataType e) = DataType e
