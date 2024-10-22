@@ -19,12 +19,8 @@ import Obelisk.Postgres.Replication
 import Obelisk.Postgres.LogicalDecoding.Plugins.TestDecoding
 
 import Control.Category
-import Control.Concurrent.Async
 import Control.Concurrent.STM (TChan, atomically, readTChan, writeTChan, newTChanIO)
-import Control.Monad (forever)
-import Control.Monad.Fail (MonadFail)
 import Control.Monad.Reader
-import Control.Monad.Trans (lift)
 import Data.Attoparsec.ByteString
 import Data.ByteString (ByteString)
 import Data.Default
@@ -35,13 +31,15 @@ import Database.Beam (MonadBeam(..))
 import Database.Beam.Postgres
 import qualified Database.PostgreSQL.Simple as PG
 import qualified Database.PostgreSQL.Simple.Transaction as PG
+import System.Entropy.Class
 
 newtype ReadDb a = ReadDb { unReadDb :: ReaderT (PG.Connection, Text -> IO ()) IO a }
-  deriving (Functor, Applicative, Monad, MonadFail)
+  deriving (Functor, Applicative, Monad, MonadFail, EntropyGenerator)
 
 unsafePgToReadDb :: Pg a -> ReadDb a
 unsafePgToReadDb x = ReadDb $ ReaderT $ \(conn, logger) -> runBeamPostgresDebug (logger . T.pack) conn x
 
+--TODO: This instance should not exist, because it allows write operations to be lifted
 instance MonadBeam Postgres ReadDb where
   runReturningMany cmd k = do
     logger <- ReadDb $ asks snd
@@ -64,7 +62,18 @@ readTransactionFromPool :: (Text -> IO ()) -> Pool PG.Connection -> ReadDb a -> 
 readTransactionFromPool logger pool a = withResource pool $ \conn -> readTransaction logger conn a
 
 newtype WriteDb a = WriteDb { unWriteDb :: ReaderT (PG.Connection, Text -> IO ()) IO a }
-  deriving (Functor, Applicative, Monad, MonadFail)
+  deriving (Functor, Applicative, Monad, MonadFail, EntropyGenerator)
+
+instance MonadBeam Postgres WriteDb where
+  runReturningMany cmd k = do
+    logger <- WriteDb $ asks snd
+    pgToWriteDb $ do
+      let processItem item = liftIOWithHandle $ \innerConn -> do
+            runReaderT (unWriteDb $ k $ pgToWriteDb item) (innerConn, logger)
+      runReturningMany cmd processItem
+  runNoReturn cmd = pgToWriteDb (runNoReturn cmd)
+  runReturningOne cmd = pgToWriteDb (runReturningOne cmd)
+  runReturningList cmd = pgToWriteDb (runReturningList cmd)
 
 pgToWriteDb :: Pg a -> WriteDb a
 pgToWriteDb x = WriteDb $ ReaderT $ \(conn, logger) -> runBeamPostgresDebug (logger . T.pack) conn x
