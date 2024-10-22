@@ -51,13 +51,13 @@ import Obelisk.View.Sequential
 import Obelisk.View.Time
 import Prelude hiding ((.), id)
 import Reflex.Query.Class (QueryResult)
-import Rhyolite.Backend.App (ClientKey(..))
-import Rhyolite.Backend.App (RequestHandler(..))
+import Rhyolite.Backend.App (ClientKey(..), RequestHandler(..))
 import Rhyolite.Backend.WebSocket (getDataMessage, sendEncodedDataMessage, withWebsocketsConnection)
 import Rhyolite.WebSocket (TaggedRequest(..), TaggedResponse(..), WebSocketRequest(..))
 import Rhyolite.WebSocket (WebSocketResponse(..))
 import Snap.Core (Snap)
 import qualified Control.Lens as Lens
+import Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Map.Merge.Strict as Map
 import qualified Data.Set as Set
@@ -119,6 +119,21 @@ newtype Pipeline i q = Pipeline
     , Pull i -> IO (Maybe (QueryResult q))
     )
   }
+
+mapMaybePipelineInterface
+  :: (Cov (Push i) -> Cov (Push i'))
+  -> (Cov (Pull i) -> Cov (Pull i'))
+  -> (Push i' -> Maybe (Push i))
+  -> (Pull i' -> Maybe (Pull i))
+  -> Pipeline i q
+  -> Pipeline i' q
+mapMaybePipelineInterface f g h i (Pipeline p) = Pipeline $ do
+  (subscribe, push, pull) <- p
+  pure
+    ( \q -> fmap (fmap $ bimap (bimap f f) g) $ subscribe q
+    , \r -> maybe (pure Nothing) push $ h r
+    , \r -> maybe (pure Nothing) pull $ i r
+    )
 
 -- | simple pipeline for when the Query and Coverage instances happen to agree.
 --
@@ -245,6 +260,62 @@ serveDbOverWebsocketsNew
 serveDbOverWebsocketsNew logger dburi db rh nh qh fromWire k =
   serveDbOverWebsocketsNewRaw logger dburi db nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
 
+serveDbOverWebsocketsNewWithArg
+  :: forall db r push pull qWire a arg.
+    ( ConstraintsForT db IsTable
+    , ConstraintsForT db (TableHas_ EmptyConstraint)
+    , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
+    , GZipDatabase Postgres
+      (DatabaseEntity Postgres db) (DatabaseEntity Postgres db) (DatabaseEntity Postgres db)
+      (Rep (db (DatabaseEntity Postgres db))) (Rep (db (DatabaseEntity Postgres db)))
+      (Rep (db (DatabaseEntity Postgres db)))
+    , Database Postgres db
+    , GPatchDatabase (Rep (db (EntityPatchDecoder Postgres)) ())
+    , ArgDictT db
+    , Collidable push
+    , Collidable pull
+    , Coverable pull
+    , Coverable push
+    , Show (Collision push)
+    , Show (Collision pull)
+    , Show (WithFullCoverage (Cov push))
+    , Show (Cov push)
+    , Show (Cov pull)
+    , Show (WithFullCoverage (Cov pull))
+    , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
+    , DPointed db
+    , ToJSON (QueryResult qWire)
+    , FromJSON qWire
+    , FromJSON (Some r)
+    , Has ToJSON r
+    , Coverage (Cov push)
+    , Coverage (Cov pull)
+    , Show push
+    , Show pull
+    , Show (db (TableOnly (ComposeMaybe TablePatch)))
+    , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
+    , DecodableDatabase db
+    , Ord arg
+    )
+  => (Text -> IO ())
+  -- ^ logger
+  -> ByteString -- Pool Pg.Connection
+  -- ^ The database
+  -> DatabaseSettings Postgres db
+  -> (arg -> RequestHandler r IO)
+  -- ^ Handler for the request/response api
+  -> (QueryResultPatch (TablesV db) TablePatch -> Cov (Map arg push) -> ReadDbPatch (Map arg push))
+  -- ^ Handler for notifications of changes to the database
+  -> (Cov (Map arg pull) -> ReadDb (Map arg pull))
+  -- ^ Handler for new viewselectors
+  -> (Pipeline ('Interface push pull) qWire)
+  -- ^ Adapter from the query wire format
+  -> ((Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull))) -> (arg -> Snap ()) -> IO a)
+  -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
+  -> IO a
+serveDbOverWebsocketsNewWithArg logger dburi db rh nh qh fromWire k =
+  serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh (\r -> k r $ \arg -> withWebsocketsConnection $ handleWebsocketConnection "TODO:version" (mapMaybePipelineInterface (Map.singleton arg) (Map.singleton arg) (Map.lookup arg) (Map.lookup arg) fromWire :: Pipeline ('Interface (Map arg push) (Map arg pull)) qWire) (rh arg) r)
+
 serveDbOverWebsocketsNewRaw
   :: forall db push pull a.
     ( ConstraintsForT db IsTable
@@ -290,11 +361,80 @@ serveDbOverWebsocketsNewRaw
   -> (Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) -> IO a)
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
-serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi db $ \driver -> do
+serveDbOverWebsocketsNewRaw logger dburi db nh qh k = serveDbOverWebsocketsNewRawWithArg @_ @_ @_ @_ @()
+  logger
+  dburi
+  db
+  (\p -> traverse $ nh p)
+  (traverse qh)
+  (\(Registrar register) -> k $ Registrar $ \forward -> do
+      (backward, unregister) <- register $ IvForwardSequential
+        { _ivForwardSequential_notify = \q -> case traverse (Map.lookup ()) q of
+            Nothing -> pure ()
+            Just qWithoutArg -> _ivForwardSequential_notify forward qWithoutArg
+        , _ivForwardSequential_readResponse = \q -> case Map.lookup () q of
+            Nothing -> pure ()
+            Just qWithoutArg -> _ivForwardSequential_readResponse forward qWithoutArg
+        }
+      pure
+        ( IvBackwardSequential
+          { _ivBackwardSequential_subscribeUnsubscribeRead = _ivBackwardSequential_subscribeUnsubscribeRead backward . bimap (bimap (bimap id (Map.singleton ())) (bimap id (Map.singleton ()))) (Map.singleton ()) -- bimap (bimap (bimap id (Map.singleton ())) (bimap id (Map.singleton ()))) (Map.singleton ())
+          }
+        , unregister
+        )
+  )
+
+serveDbOverWebsocketsNewRawWithArg
+  :: forall db push pull a arg.
+    ( ConstraintsForT db IsTable
+    , ConstraintsForT db (TableHas_ EmptyConstraint)
+    , ConstraintsForT db (TableHas_ (ComposeC Semigroup TablePatch))
+    , GZipDatabase Postgres
+      (DatabaseEntity Postgres db) (DatabaseEntity Postgres db) (DatabaseEntity Postgres db)
+      (Rep (db (DatabaseEntity Postgres db))) (Rep (db (DatabaseEntity Postgres db)))
+      (Rep (db (DatabaseEntity Postgres db)))
+    --, GSchema Postgres db '[] (Rep (db (DatabaseEntity Postgres db)))
+    , Database Postgres db
+    , GPatchDatabase (Rep (db (EntityPatchDecoder Postgres)) ())
+    , ArgDictT db
+    , Collidable push
+    , Collidable pull
+    , Coverable pull
+    , Coverable push
+    , Show (Collision push)
+    , Show (Collision pull)
+    , Show (WithFullCoverage (Cov push))
+    , Show (Cov push)
+    , Show (Cov pull)
+    , Show (WithFullCoverage (Cov pull))
+    , Show (db (TableOnly (ComposeMaybe TablePatchInfo)))
+    , DPointed db
+    , Coverage (Cov push)
+    , Coverage (Cov pull)
+    , Show push
+    , Show pull
+    , Show (db (TableOnly (ComposeMaybe TablePatch)))
+    , ConstraintsForT db (TableHas Eq (ComposeMaybe Proxy))
+    , DecodableDatabase db
+    , Ord arg
+    )
+  => (Text -> IO ())
+  -- ^ logger
+  -> ByteString -- Pool Pg.Connection
+  -- ^ The database
+  -> DatabaseSettings Postgres db
+  -> (QueryResultPatch (TablesV db) TablePatch -> Cov (Map arg push) -> ReadDbPatch (Map arg push))
+  -- ^ Handler for notifications of changes to the database
+  -> (Cov (Map arg pull) -> ReadDb (Map arg pull))
+  -- ^ Handler for new viewselectors
+  -> (Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)) -> IO a)
+  -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
+  -> IO a
+serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh k = withDbDriver logger dburi db $ \driver -> do
   let initialTime = 1
   -- the "current" time - reads and subscription changes apply to this
   --  , the subscriptions
-  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey (These (QueryResultPatch (TablesV db) TablePatch) push))), Map.Map Time (Int, PendingReaderState))
+  timeAndSubsVar <- newIORef @(Time, Maybe (Cov (Map.Map ClientKey (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)))), Map.Map Time (Int, PendingReaderState))
     (initialTime, Nothing, Map.singleton initialTime (0, PendingReaderState_NoChange))
 
   let
@@ -311,13 +451,13 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
         :: (NonEmptyInterval -> IO ())
         -> (Time -> AsyncReadDb IO -> IO ())
         -> IO ( Time -> QueryResultPatch (TablesV db) TablePatch -> IO ()
-              , Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull)
+              , Registrar ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull))
               )
       setup closeTime readAtTime = do
-        clientRecipients <- newIORef $ ClientKeyState @('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) (ClientKey 1) Map.empty
+        clientRecipients <- newIORef $ ClientKeyState @('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)) (ClientKey 1) Map.empty
 
 
-        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull))
+        let fwdSeq :: IvForwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)))
             fwdSeq = IvForwardSequential
               { _ivForwardSequential_notify = \pushes -> do
                 ClientKeyState _ rcpts <- readIORef clientRecipients
@@ -367,7 +507,7 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
                         forM_ (justHere qBoth >>= flip restrictCoverage p) $ \res -> do
                           _ivForwardSequential_notify fwdSeq $ Map.singleton clientKey $ This res
 
-            fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull))
+            fanBwd :: IvBackwardSequential IO (MapInterface ClientKey ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)))
             fanBwd = IvBackwardSequential
               { _ivBackwardSequential_subscribeUnsubscribeRead = \subUnsubRead ->
                 join $ atomicModifyIORef' timeAndSubsVar $ \case
@@ -389,7 +529,7 @@ serveDbOverWebsocketsNewRaw logger dburi db nh qh k = withDbDriver logger dburi 
                       pure ()
               }
 
-        let myRegistrar  :: IvForwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull) -> IO (IvBackwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) push) pull), IO ())
+        let myRegistrar  :: IvForwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)) -> IO (IvBackwardSequential IO ('Interface (These (QueryResultPatch (TablesV db) TablePatch) (Map arg push)) (Map arg pull)), IO ())
             myRegistrar rcpt = do
               clientKey <- atomicModifyIORef' clientRecipients $ \(ClientKeyState nextId rcpts) ->
                 (ClientKeyState (succ nextId) (Map.insert nextId rcpt rcpts), nextId)

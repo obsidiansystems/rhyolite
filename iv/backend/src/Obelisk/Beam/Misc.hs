@@ -67,14 +67,11 @@ replaceAllTableContents tbl@(DatabaseEntity tblDescriptor) allVals = do
         & dbEntitySchema .~ Just "pg_temp"
         & dbEntityName .~ "replacement_data"
   unsafeWriteDb $ \(conn, _) -> void $ execute conn [sql| CREATE TEMPORARY TABLE replacement_data (LIKE ?) |] $ Only tblIdentifier
-  forM_ (zip [1..] $ chunksOf 1000 allVals) $ \(chunkNumber :: Int, chunk :: [tbl Identity]) -> do
-    unsafeWriteDb $ \_ -> putStrLn $ "replaceAllTableContents: Inserting chunk " <> show chunkNumber <> " with keys " <> show (fmap primaryKey chunk) <> " into temp table"
+  -- FUTURE: Split more intelligently, or maybe use COPY instead
+  forM_ (chunksOf 1000 allVals) $ \(chunk :: [tbl Identity]) -> do
     runInsert' $ insert tempTbl $ insertValues chunk
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Inserting temp table into main table"
   runInsert' $ Pg.insert tbl (insertFrom $ all_ tempTbl) $ Pg.onConflict (conflictingFields primaryKey) $ onConflictUpdateAllWhere $ \a b -> (fieldsToExprs a) /=. b
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Deleting unneeded values"
   runDelete' $ delete tbl $ \t -> not_ $ primaryKey t `in_'` subquery_ (fmap (QExpr . toProjectionExpr . primaryKey) $ all_ tempTbl)
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Done"
   unsafeWriteDb $ \(conn, _) -> void $ execute_ conn [sql| DROP TABLE pg_temp.replacement_data |]
 
 in_'

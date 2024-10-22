@@ -66,6 +66,9 @@ readTransactionFromPool logger pool a = withResource pool $ \conn -> readTransac
 newtype WriteDb a = WriteDb { unWriteDb :: ReaderT (PG.Connection, Text -> IO ()) IO a }
   deriving (Functor, Applicative, Monad, MonadFail)
 
+pgToWriteDb :: Pg a -> WriteDb a
+pgToWriteDb x = WriteDb $ ReaderT $ \(conn, logger) -> runBeamPostgresDebug (logger . T.pack) conn x
+
 writeTransaction :: (Text -> IO ()) -> PG.Connection -> WriteDb a -> IO a
 writeTransaction logger conn (WriteDb r) = PG.withTransactionModeRetry m PG.isSerializationError conn $ runReaderT r (conn, logger)
   where m = PG.TransactionMode
@@ -118,6 +121,10 @@ beginRepeatableReadTransaction conn = PG.beginMode m conn
           { PG.isolationLevel = PG.RepeatableRead
           , PG.readWriteMode = PG.ReadOnly
           }
+
+-- | Run the given read-only action in a connection that is already in a transaction
+unsafeRunInOpenWriteTransaction :: (Text -> IO ()) -> PG.Connection -> WriteDb a -> IO a
+unsafeRunInOpenWriteTransaction logger conn (WriteDb r) = runReaderT r (conn, logger)
 
 -- | Run the given read-only action in a connection that is already in a transaction
 unsafeRunInOpenReadTransaction :: (Text -> IO ()) -> PG.Connection -> ReadDb a -> IO a
