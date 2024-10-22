@@ -124,10 +124,26 @@ fieldsToExprs
 fieldsToExprs = changeBeamRep (\(Columnar' (QField _ t nm)) -> Columnar' (QExpr (pure (fieldE (qualifiedField t nm)))))
 
 class ValType a where
-  valType_ :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a)) => a -> QGenExpr ctxt Postgres s a
+  typeOf_
+    :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
+    => Proxy a
+    -> DataType Postgres a
+  valType_
+    :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
+    => a
+    -> QGenExpr ctxt Postgres s a
+  valType_ d = cast
+    (val_ d)
+    (typeof_ (Proxy :: Proxy a))
+
+instance ValType t => ValType (Maybe t) where
+  typeOf_ ~Proxy = maybeType $ typeOf_ Proxy
+  valType_ d = cast
+    (maybe _nothing (_just . valType_ d))
+    (typeOf_ Proxy)
 
 instance ValType Day where
-  valType_ d = cast_ (val_ d) date
+  typeOf_ Proxy = date
 
 coerceQExprResult :: forall a b ctxt be s. QGenExpr ctxt be s a -> QGenExpr ctxt be s b
 coerceQExprResult (QExpr e) = QExpr e
