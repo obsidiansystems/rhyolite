@@ -1,3 +1,4 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 module Obelisk.Beam.Misc
   ( replaceAllTableContents
   , ValType (..)
@@ -6,24 +7,25 @@ module Obelisk.Beam.Misc
 
 import Control.Lens ((^.), (.~))
 import Control.Monad
-import Database.Beam.Schema.Tables
-import Database.Beam.Query.Internal
-import Database.Beam.Backend.SQL
-import Database.Beam.Postgres
-import Database.Beam.Postgres.Syntax
-import GHC.Generics
-import Data.Functor.Identity
-import Database.Beam as Beam
-import Database.Beam.Backend.SQL.BeamExtensions
-import qualified Database.Beam.Postgres.Full as Pg
-import Obelisk.Api
-import Obelisk.Beam
-import Data.List.Split (chunksOf)
 import Data.Function
+import Data.Functor.Identity
+import Data.List.Split (chunksOf)
+import Data.Proxy
+import Data.Time.Calendar
+import Database.Beam as Beam
+import Database.Beam.Backend.SQL
+import Database.Beam.Backend.SQL.BeamExtensions
+import Database.Beam.Postgres
+import qualified Database.Beam.Postgres.Full as Pg
+import Database.Beam.Postgres.Syntax
+import Database.Beam.Query.Internal
+import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
 import Database.PostgreSQL.Simple.Types
-import Data.Time.Calendar
+import GHC.Generics
+import Obelisk.Api
+import Obelisk.Beam
 
 -- | Delete everything from the given table and replace it with the given list of items, being careful not to create more churn than necessary.  In particular: for items that haven't changed, a new row will not be written to the WAL or sent to replication clients.
 replaceAllTableContents
@@ -123,7 +125,7 @@ fieldsToExprs
   -> tbl (QExpr be s)
 fieldsToExprs = changeBeamRep (\(Columnar' (QField _ t nm)) -> Columnar' (QExpr (pure (fieldE (qualifiedField t nm)))))
 
-class ValType a where
+class (HasSqlValueSyntax PgValueSyntax a) => ValType a where
   typeOf_
     :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
     => Proxy a
@@ -132,15 +134,18 @@ class ValType a where
     :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
     => a
     -> QGenExpr ctxt Postgres s a
-  valType_ d = cast
+  valType_ d = cast_
     (val_ d)
-    (typeof_ (Proxy :: Proxy a))
+    (typeOf_ (Proxy :: Proxy a))
 
-instance ValType t => ValType (Maybe t) where
-  typeOf_ ~Proxy = maybeType $ typeOf_ Proxy
-  valType_ d = cast
-    (maybe _nothing (_just . valType_ d))
-    (typeOf_ Proxy)
+instance (forall ctxt s. SqlJustable (QGenExpr ctxt Postgres s t) (QGenExpr ctxt Postgres s (Maybe t)), ValType t) => ValType (Maybe t) where
+  typeOf_ _ = maybeType $ typeOf_ (Proxy @t)
+  valType_ :: forall ctxt s. (Maybe t ~ HaskellLiteralForQExpr (QGenExpr ctxt Postgres s (Maybe t))) => Maybe t -> QGenExpr ctxt Postgres s (Maybe t)
+  valType_ = \case
+    Nothing -> nothing_ @(QGenExpr ctxt Postgres s t)
+    Just v -> cast_
+      (val_ v)
+      (typeOf_ (Proxy @(Maybe t)))
 
 instance ValType Day where
   typeOf_ Proxy = date
