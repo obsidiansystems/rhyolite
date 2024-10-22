@@ -3,6 +3,7 @@ module Obelisk.Beam.Misc
   ( replaceAllTableContents
   , ValType (..)
   , coerceQExprResult
+  , coerceDataType
   ) where
 
 import Control.Lens ((^.), (.~))
@@ -152,3 +153,6 @@ instance ValType Day where
 
 coerceQExprResult :: forall a b ctxt be s. QGenExpr ctxt be s a -> QGenExpr ctxt be s b
 coerceQExprResult (QExpr e) = QExpr e
+
+coerceDataType :: forall a b be. DataType be a -> DataType be b
+coerceDataType (DataType e) = DataType e
