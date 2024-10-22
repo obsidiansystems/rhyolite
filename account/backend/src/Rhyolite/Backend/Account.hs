@@ -19,6 +19,7 @@ module Rhyolite.Backend.Account
   , newNonce
   , handleAccountRequest
   , AccountContext (..)
+  , AccountMessage (..)
   ) where
 
 import Control.Monad (guard)
@@ -52,9 +53,14 @@ import Web.ClientSession as CS
 data AccountContext db m = AccountContext
   { _accountContext_table :: DatabaseEntity Postgres db (TableEntity Account)
   , _accountContext_key :: CS.Key
-  , _accountContext_sendFinishCreateAccount :: Email -> Signed PasswordResetToken -> m ()
-  , _accountContext_sendResetPassword :: Email -> Signed PasswordResetToken -> m ()
+  , _accountContext_sendMessage :: Email -> AccountMessage -> m ()
   }
+
+data AccountMessage
+   = AccountMessage_FinishAccountCreation (Signed PasswordResetToken)
+   | AccountMessage_AccountAlreadyExists
+   | AccountMessage_ResetPassword (Signed PasswordResetToken)
+   | AccountMessage_AccountDoesNotExist
 
 handleAccountRequest
   :: ( MonadBeam Postgres m
@@ -69,7 +75,7 @@ handleAccountRequest ctx = \case
   AccountRequest_Login email password -> login ctx email password
   AccountRequest_CreateAccount email -> createAccount ctx email
   AccountRequest_FinishAccountCreation token password -> finishAccountCreation ctx token password
-  AccountRequest_ForgotPassword email -> createAccount ctx email --TODO: Not createAccount
+  AccountRequest_ForgotPassword email -> forgotPassword ctx email
   AccountRequest_ResetPassword token password -> finishAccountCreation ctx token password --TODO: Not finishAccountCreation
 
 -- FUTURE: Mitigate timing attacks, e.g. by verifying against a fake password
@@ -106,6 +112,7 @@ createAccount
   -> Email
   -> m ()
 createAccount ctx email = do
+  --TODO: On conflict skip
   accountIds <- runPgInsertReturningList $ flip returning (\a -> (pk a, _account_passwordResetNonce a)) $ insert (_accountContext_table ctx) $ insertExpressions
     [ Account
         { _account_id = genRandomUuid_
@@ -114,12 +121,12 @@ createAccount ctx email = do
         , _account_passwordResetNonce = just_ current_timestamp_
         }
     ]
-  --TODO: Send the email
   case accountIds of
     [(accountId, Just nonce)] -> do
       token <- signWithKey (_accountContext_key ctx) $ PasswordResetToken (accountId, nonce)
-      _accountContext_sendFinishCreateAccount ctx email token
-    _ -> fail "Failed to create account"
+      _accountContext_sendMessage ctx email $ AccountMessage_FinishAccountCreation token
+    _ -> do
+      _accountContext_sendMessage ctx email AccountMessage_AccountAlreadyExists
 
 -- FUTURE: Expiration policy for password reset tokens
 finishAccountCreation
@@ -146,6 +153,35 @@ finishAccountCreation ctx token password = case readSignedWithKey (_accountConte
             setAccountPassword ctx accountId password
             fmap Right $ signWithKey (_accountContext_key ctx) $ AuthToken accountId
       _ -> pure $ Left FinishAccountCreationError_InvalidToken
+
+-- | Sends the user a password reset email, only if their account already exists
+forgotPassword
+  :: ( MonadBeam Postgres m
+     , Database Postgres db
+     , EntropyGenerator m
+     , MonadFail m
+     )
+  => AccountContext db m
+  -> Email
+  -> m ()
+forgotPassword ctx email = do
+  accountIds <- runSelectReturningList $ select $ do
+    a <- all_ $ _accountContext_table ctx
+    guard_ $ _account_email a ==. val_ email
+    pure $ pk a
+  case accountIds of
+    [accountId] -> do
+      nonces <- runPgUpdateReturningList $ (`returning` _account_passwordResetNonce) $ update
+        (_accountContext_table ctx)
+        (\a -> _account_passwordResetNonce a <-. just_ current_timestamp_)
+        (\a -> pk a ==. val_ accountId)
+      case nonces of
+        [Just nonce] -> do
+          token <- signWithKey (_accountContext_key ctx) $ PasswordResetToken (accountId, nonce)
+          _accountContext_sendMessage ctx email $ AccountMessage_ResetPassword token
+        _ -> fail "Unknown error"
+    _ -> do
+      _accountContext_sendMessage ctx email AccountMessage_AccountDoesNotExist
 
 ensureAccountExists
   :: ( MonadBeam Postgres m
@@ -245,3 +281,4 @@ newNonce ctx aid = do
   pure $ case a of
     [acc] -> _account_passwordResetNonce acc
     _ -> Nothing
+
