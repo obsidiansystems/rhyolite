@@ -9,12 +9,11 @@ common common
                , aeson-gadt-th
                , async
                , attoparsec
+               , beam-automigrate
                , beam-core
                , beam-migrate
-               , beam-automigrate
                , beam-postgres
                , binary
-               , template-haskell
                , bytestring
                , clientsession
                , concurrency
@@ -22,17 +21,18 @@ common common
                , constraints-extras
                , containers
                , data-default
-               , directory
-               , gargoyle
-               , gargoyle-postgresql-nix
                , dejafu
                , dependent-map
                , dependent-monoidal-map
                , dependent-sum
                , dependent-sum-aeson-orphans
                , dependent-sum-template
+               , directory
+               , entropy-class
                , exceptions
                , filepath
+               , gargoyle
+               , gargoyle-postgresql-nix
                , generic-deriving
                , ghc-prim
                , groom
@@ -50,9 +50,13 @@ common common
                , postgresql-simple
                , pwstore-fast
                , ref-tf
+               , reflex
                , reflex-dom
                , resource-pool
+               , rhyolite-backend
+               , rhyolite-common
                , semialign
+               , semimap
                , smtp-mail
                , snap-core
                , split
@@ -61,6 +65,7 @@ common common
                , tasty
                , tasty-expected-failure
                , tasty-hunit
+               , template-haskell
                , temporary
                , text
                , these
@@ -68,17 +73,13 @@ common common
                , time
                , transformers
                , unordered-containers
+               , uuid
                , validation
                , vessel
                , websockets
                , websockets-snap
                , witherable
                , writer-cps-mtl
-               , reflex
-               , rhyolite-backend
-               , rhyolite-common
-               , semimap
-               , uuid
   default-extensions:
     AllowAmbiguousTypes
     BangPatterns
