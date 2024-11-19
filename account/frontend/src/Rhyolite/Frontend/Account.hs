@@ -114,7 +114,6 @@ createAccountController accountRequesting accountRoute t = do
       validEmail = fmap Success email --TODO: Validate
       valid = getCompose $ AccountRequest_CreateAccount <$> Compose validEmail
       submit = fmapMaybe (^? _Success) $ tag (current valid) (_createAccount_submit t)
-  rsp <- accountRequesting $ submit
   response <- accountRequesting submit
   loading <- holdDyn False $ leftmost
     [ False <$ response
@@ -181,7 +180,6 @@ forgotPasswordController accountRequesting accountRoute t = do
       validEmail = fmap Success email --TODO: Validate
       valid = getCompose $ AccountRequest_ForgotPassword <$> Compose validEmail
       submit = fmapMaybe (^? _Success) $ tag (current valid) (_forgotPassword_submit t)
-  rsp <- accountRequesting $ submit
   response <- accountRequesting submit
   loading <- holdDyn False $ leftmost
     [ False <$ response

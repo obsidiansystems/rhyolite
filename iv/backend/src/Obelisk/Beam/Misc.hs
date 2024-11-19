@@ -1,29 +1,33 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 module Obelisk.Beam.Misc
   ( replaceAllTableContents
   , ValType (..)
-  , coerceQExprResult
+  , valType_
+  , coerceDataType
   ) where
 
 import Control.Lens ((^.), (.~))
 import Control.Monad
-import Database.Beam.Schema.Tables
-import Database.Beam.Query.Internal
-import Database.Beam.Backend.SQL
-import Database.Beam.Postgres
-import Database.Beam.Postgres.Syntax
-import GHC.Generics
-import Data.Functor.Identity
-import Database.Beam as Beam
-import Database.Beam.Backend.SQL.BeamExtensions
-import qualified Database.Beam.Postgres.Full as Pg
-import Obelisk.Api
-import Obelisk.Beam
-import Data.List.Split (chunksOf)
 import Data.Function
+import Data.Functor.Identity
+import Data.List.Split (chunksOf)
+import Data.Proxy
+import Data.Time.Calendar
+import Data.UUID (UUID)
+import Database.Beam as Beam
+import Database.Beam.Backend.SQL
+import Database.Beam.Backend.SQL.BeamExtensions
+import Database.Beam.Postgres
+import qualified Database.Beam.Postgres.Full as Pg
+import Database.Beam.Postgres.Syntax
+import Database.Beam.Query.Internal
+import Database.Beam.Schema.Tables
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.SqlQQ
 import Database.PostgreSQL.Simple.Types
-import Data.Time.Calendar
+import GHC.Generics
+import Obelisk.Api
+import Obelisk.Beam
 
 -- | Delete everything from the given table and replace it with the given list of items, being careful not to create more churn than necessary.  In particular: for items that haven't changed, a new row will not be written to the WAL or sent to replication clients.
 replaceAllTableContents
@@ -64,14 +68,11 @@ replaceAllTableContents tbl@(DatabaseEntity tblDescriptor) allVals = do
         & dbEntitySchema .~ Just "pg_temp"
         & dbEntityName .~ "replacement_data"
   unsafeWriteDb $ \(conn, _) -> void $ execute conn [sql| CREATE TEMPORARY TABLE replacement_data (LIKE ?) |] $ Only tblIdentifier
-  forM_ (zip [1..] $ chunksOf 1000 allVals) $ \(chunkNumber :: Int, chunk :: [tbl Identity]) -> do
-    unsafeWriteDb $ \_ -> putStrLn $ "replaceAllTableContents: Inserting chunk " <> show chunkNumber <> " with keys " <> show (fmap primaryKey chunk) <> " into temp table"
+  -- FUTURE: Split more intelligently, or maybe use COPY instead
+  forM_ (chunksOf 1000 allVals) $ \(chunk :: [tbl Identity]) -> do
     runInsert' $ insert tempTbl $ insertValues chunk
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Inserting temp table into main table"
   runInsert' $ Pg.insert tbl (insertFrom $ all_ tempTbl) $ Pg.onConflict (conflictingFields primaryKey) $ onConflictUpdateAllWhere $ \a b -> (fieldsToExprs a) /=. b
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Deleting unneeded values"
   runDelete' $ delete tbl $ \t -> not_ $ primaryKey t `in_'` subquery_ (fmap (QExpr . toProjectionExpr . primaryKey) $ all_ tempTbl)
-  unsafeWriteDb $ \_ -> putStrLn "replaceAllTableContents: Done"
   unsafeWriteDb $ \(conn, _) -> void $ execute_ conn [sql| DROP TABLE pg_temp.replacement_data |]
 
 in_'
@@ -123,11 +124,34 @@ fieldsToExprs
   -> tbl (QExpr be s)
 fieldsToExprs = changeBeamRep (\(Columnar' (QField _ t nm)) -> Columnar' (QExpr (pure (fieldE (qualifiedField t nm)))))
 
-class ValType a where
-  valType_ :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a)) => a -> QGenExpr ctxt Postgres s a
+class (HasSqlValueSyntax PgValueSyntax a) => ValType a where
+  typeOf_
+    :: (a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a))
+    => DataType Postgres a
+
+valType_
+  :: forall a ctxt be s
+  .  ( ValType a
+     , a ~ HaskellLiteralForQExpr (QGenExpr ctxt be s a)
+     )
+  => a
+  -> QExpr Postgres s a
+valType_ d = cast_
+  (val_ d)
+  (typeOf_ @a)
+
+instance
+  ( forall s. SqlJustable (QExpr Postgres s t) (QExpr Postgres s (Maybe t))
+  , ValType t
+  ) => ValType (Maybe t)
+ where
+  typeOf_ = maybeType $ typeOf_ @t
 
 instance ValType Day where
-  valType_ d = cast_ (val_ d) date
+  typeOf_ = date
 
-coerceQExprResult :: forall a b ctxt be s. QGenExpr ctxt be s a -> QGenExpr ctxt be s b
-coerceQExprResult (QExpr e) = QExpr e
+instance ValType UUID where
+  typeOf_ = uuid
+
+coerceDataType :: forall a b be. DataType be a -> DataType be b
+coerceDataType (DataType e) = DataType e
