@@ -145,6 +145,8 @@ data AccountRequest result where
     -> Password
     -> AccountRequest (Either FinishAccountCreationError (Signed AuthToken))
 
+deriving stock instance Eq (AccountRequest result)
+deriving stock instance Ord (AccountRequest result)
 deriving stock instance Show (AccountRequest result)
 
 concat <$> sequence

@@ -8,6 +8,19 @@ Description:
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
 {-# Language GADTs #-}
+{-# Language RankNTypes #-}
+{-# Language KindSignatures #-}
+{-# Language MultiParamTypeClasses #-}
+{-# Language FunctionalDependencies #-}
+{-# Language TypeFamilies #-}
+{-# Language AllowAmbiguousTypes #-}
+{-# Language TypeApplications #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language FlexibleInstances #-}
+{-# Language UndecidableInstances #-}
+{-# Language TypeOperators #-}
+{-# Language DataKinds #-}
+{-# Language UndecidableSuperClasses #-}
 module Rhyolite.Backend.Account
   ( createAccount
   , login
@@ -18,8 +31,12 @@ module Rhyolite.Backend.Account
   , passwordResetToken
   , newNonce
   , handleAccountRequest
-  , AccountContext (..)
   , AccountMessage (..)
+  , AccountTable
+  , AccountKey
+  , AccountSendMessage
+  , withCtx
+  , CtxField (..)
   ) where
 
 import Control.Monad (guard)
@@ -50,11 +67,48 @@ import Rhyolite.DB.Beam (current_timestamp_, genRandomUuid_)
 import System.Entropy.Class
 import Web.ClientSession as CS
 
-data AccountContext db m = AccountContext
-  { _accountContext_table :: DatabaseEntity Postgres db (TableEntity Account)
-  , _accountContext_key :: CS.Key
-  , _accountContext_sendMessage :: Email -> AccountMessage -> m ()
-  }
+import Control.Lens
+import Data.Reflection
+import Data.Proxy
+import Data.Vinyl
+import Data.Vinyl.ARec
+import Data.Vinyl.TypeLevel
+import Data.Kind (Constraint)
+
+--TODO:
+-- Make calling getCtx less awkward
+-- Improve inference of `db` type when using AccountTable db
+--   Should each ctx type only be allowed to have a single db type?
+-- Improve error messages when ctxs are missing
+-- Remove _accountContext_ functions
+class Ctx ctx key where
+  getCtx :: Proxy ctx -> CtxValue key
+
+instance (Reifies ctx (ARec CtxField ctxItems), RecElem ARec key key ctxItems ctxItems (RIndex key ctxItems)) => Ctx ctx key where
+  getCtx _ = unCtxField $ reflect (Proxy @ctx) ^. rlens @key
+
+type family CtxValue (a :: *) :: *
+
+withCtx :: (NatToInt (RLength items), ToARec items) => Rec CtxField items -> (forall ctx. Reifies ctx (ARec CtxField items) => Proxy ctx -> r) -> r
+withCtx items r = reify (toARec items) r
+
+data AccountTable (db :: (* -> *) -> *)
+type instance CtxValue (AccountTable db) = DatabaseEntity Postgres db (TableEntity Account)
+
+_accountContext_table :: forall db ctx. Ctx ctx (AccountTable db) => Proxy ctx -> DatabaseEntity Postgres db (TableEntity Account)
+_accountContext_table = getCtx @ctx @(AccountTable db)
+
+data AccountKey
+type instance CtxValue AccountKey = CS.Key
+
+_accountContext_key :: forall ctx. Ctx ctx AccountKey => Proxy ctx -> CS.Key
+_accountContext_key = getCtx @ctx @AccountKey
+
+data AccountSendMessage (m :: * -> *)
+type instance CtxValue (AccountSendMessage m) = Email -> AccountMessage -> m ()
+
+_accountContext_sendMessage :: forall ctx m. Ctx ctx (AccountSendMessage m) => Proxy ctx -> Email -> AccountMessage -> m ()
+_accountContext_sendMessage = getCtx @ctx @(AccountSendMessage m)
 
 data AccountMessage
    = AccountMessage_FinishAccountCreation (Signed PasswordResetToken)
@@ -63,20 +117,24 @@ data AccountMessage
    | AccountMessage_AccountDoesNotExist
 
 handleAccountRequest
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx a
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> AccountRequest a
   -> m a
 handleAccountRequest ctx = \case
-  AccountRequest_Login email password -> login ctx email password
-  AccountRequest_CreateAccount email -> createAccount ctx email
-  AccountRequest_FinishAccountCreation token password -> finishAccountCreation ctx token password
-  AccountRequest_ForgotPassword email -> forgotPassword ctx email
-  AccountRequest_ResetPassword token password -> finishAccountCreation ctx token password --TODO: Not finishAccountCreation
+  AccountRequest_Login email password -> login @db ctx email password
+  AccountRequest_CreateAccount email -> createAccount @db ctx email
+  AccountRequest_FinishAccountCreation token password -> finishAccountCreation @db ctx token password
+  AccountRequest_ForgotPassword email -> forgotPassword @db ctx email
+  AccountRequest_ResetPassword token password -> finishAccountCreation @db ctx token password --TODO: Not finishAccountCreation
 
 -- FUTURE: Mitigate timing attacks, e.g. by verifying against a fake password
 -- hash even if the record is not found, or by ensuring that all login requests
@@ -84,17 +142,21 @@ handleAccountRequest ctx = \case
 
 -- | Attempts to login a user given some credentials.
 login
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> Email
   -> Password
   -> m (Maybe (Signed AuthToken))
 login ctx email pass = runMaybeT $ do
   (aid, mPwHash) <- MaybeT $ fmap listToMaybe $ runSelectReturningList $ select $ do
-    acc <- all_ $ _accountContext_table ctx
+    acc <- all_ $ _accountContext_table @db ctx
     guard_ $ lower_ (_account_email acc) ==. lower_ (val_ email)
     pure (_account_id acc, _account_password acc)
   pwHash <- MaybeT $ pure mPwHash
@@ -103,17 +165,21 @@ login ctx email pass = runMaybeT $ do
 
 -- | Creates a new account
 createAccount
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> Email
   -> m ()
 createAccount ctx email = do
   --TODO: On conflict skip
-  accountIds <- runPgInsertReturningList $ flip returning (\a -> (pk a, _account_passwordResetNonce a)) $ insert (_accountContext_table ctx) $ insertExpressions
+  accountIds <- runPgInsertReturningList $ flip returning (\a -> (pk a, _account_passwordResetNonce a)) $ insert (_accountContext_table @db ctx) $ insertExpressions
     [ Account
         { _account_id = genRandomUuid_
         , _account_email = lower_ (val_ email)
@@ -130,12 +196,16 @@ createAccount ctx email = do
 
 -- FUTURE: Expiration policy for password reset tokens
 finishAccountCreation
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> Signed PasswordResetToken
   -> Password
   -> m (Either FinishAccountCreationError (Signed AuthToken))
@@ -143,36 +213,40 @@ finishAccountCreation ctx token password = case readSignedWithKey (_accountConte
   Nothing -> pure $ Left FinishAccountCreationError_InvalidToken
   Just (PasswordResetToken (accountId, nonceFromToken)) -> do
     nonces <- runSelectReturningList $ select $ do
-      account <- all_ $ _accountContext_table ctx
+      account <- all_ $ _accountContext_table @db ctx
       guard_ $ pk account ==. val_ accountId
       pure $ _account_passwordResetNonce account
     case nonces of
       [Just nonceFromDatabase]
         | nonceFromDatabase == nonceFromToken
           -> do
-            setAccountPassword ctx accountId password
+            setAccountPassword @db ctx accountId password
             fmap Right $ signWithKey (_accountContext_key ctx) $ AuthToken accountId
       _ -> pure $ Left FinishAccountCreationError_InvalidToken
 
 -- | Sends the user a password reset email, only if their account already exists
 forgotPassword
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> Email
   -> m ()
 forgotPassword ctx email = do
   accountIds <- runSelectReturningList $ select $ do
-    a <- all_ $ _accountContext_table ctx
+    a <- all_ $ _accountContext_table @db ctx
     guard_ $ _account_email a ==. val_ email
     pure $ pk a
   case accountIds of
     [accountId] -> do
       nonces <- runPgUpdateReturningList $ (`returning` _account_passwordResetNonce) $ update
-        (_accountContext_table ctx)
+        (_accountContext_table @db ctx)
         (\a -> _account_passwordResetNonce a <-. just_ current_timestamp_)
         (\a -> pk a ==. val_ accountId)
       case nonces of
@@ -183,24 +257,30 @@ forgotPassword ctx email = do
     _ -> do
       _accountContext_sendMessage ctx email AccountMessage_AccountDoesNotExist
 
+newtype CtxField (t :: *) = CtxField { unCtxField :: CtxValue t }
+
 ensureAccountExists
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
      , MonadBeamInsertReturning Postgres m
+     , Ctx ctx (AccountTable db)
+     , Ctx ctx AccountKey
+     , Ctx ctx (AccountSendMessage m)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> Email
   -> m (Bool, PrimaryKey Account Identity)
 ensureAccountExists ctx email = do
   existingAccountId <- runSelectReturningOne $ select $ fmap primaryKey $ filter_ (\x ->
-    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ (_accountContext_table ctx)
+    lower_ (_account_email x) ==. lower_ (val_ email)) $ all_ $ _accountContext_table @db ctx
   case existingAccountId of
     Just existing -> return (False, existing)
     Nothing -> do
       -- FUTURE: Use ON CONFLICT
-      results <- runInsertReturningList $ insert (_accountContext_table ctx) $ insertExpressions
+      results <- runInsertReturningList $ insert (_accountContext_table @db ctx) $ insertExpressions
         [ Account
             { _account_id = genRandomUuid_
             , _account_email = lower_ (val_ email)
@@ -215,30 +295,34 @@ ensureAccountExists ctx email = do
         _ -> fail "ensureAccountExists: Creating account failed"
 
 setAccountPassword
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> PrimaryKey Account Identity
   -> Password
   -> m ()
 setAccountPassword ctx aid password = do
   pw <- makePasswordHash password
-  setAccountPasswordHash ctx aid pw
+  setAccountPasswordHash @db ctx aid pw
 
 setAccountPasswordHash
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
+     , Ctx ctx (AccountTable db)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> PrimaryKey Account Identity
   -> ByteString
   -> m ()
-setAccountPasswordHash ctx aid hash = runUpdate $ update (_accountContext_table ctx)
+setAccountPasswordHash ctx aid hash = runUpdate $ update (_accountContext_table @db ctx)
   (\x -> mconcat
     [ _account_password x <-. val_ (Just hash)
     , _account_passwordResetNonce x <-. nothing_
@@ -265,20 +349,21 @@ passwordResetToken csk aid nonce = do
   liftIO $ signWithKey csk $ PasswordResetToken (aid, nonce)
 
 newNonce
-  :: ( MonadBeam Postgres m
+  :: forall db m ctx
+  .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
      , MonadFail m
      , MonadBeamUpdateReturning Postgres m
+     , Ctx ctx (AccountTable db)
      )
-  => AccountContext db m
+  => Proxy ctx
   -> PrimaryKey Account Identity
   -> m (Maybe UTCTime)
 newNonce ctx aid = do
-  a <- runUpdateReturningList $ update (_accountContext_table ctx)
+  a <- runUpdateReturningList $ update (_accountContext_table @db ctx)
     (\x -> _account_passwordResetNonce x <-. just_ current_timestamp_)
     (\x -> primaryKey x ==. val_ aid)
   pure $ case a of
     [acc] -> _account_passwordResetNonce acc
     _ -> Nothing
-
