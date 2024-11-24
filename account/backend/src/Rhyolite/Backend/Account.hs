@@ -2,25 +2,26 @@
 Description:
   Check or modify credentials
 -}
-{-# Language DeriveGeneric #-}
-{-# Language FlexibleContexts #-}
-{-# Language MonoLocalBinds #-}
-{-# Language OverloadedStrings #-}
-{-# Language LambdaCase #-}
-{-# Language GADTs #-}
-{-# Language RankNTypes #-}
-{-# Language KindSignatures #-}
-{-# Language MultiParamTypeClasses #-}
-{-# Language FunctionalDependencies #-}
-{-# Language TypeFamilies #-}
-{-# Language AllowAmbiguousTypes #-}
-{-# Language TypeApplications #-}
-{-# Language ScopedTypeVariables #-}
-{-# Language FlexibleInstances #-}
-{-# Language UndecidableInstances #-}
-{-# Language TypeOperators #-}
-{-# Language DataKinds #-}
-{-# Language UndecidableSuperClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
+{-# OPTIONS_GHC -Wredundant-constraints -Werror=redundant-constraints #-}
 module Rhyolite.Backend.Account
   ( createAccount
   , login
@@ -70,10 +71,11 @@ import Web.ClientSession as CS
 import Control.Lens
 import Data.Reflection
 import Data.Proxy
-import Data.Vinyl
+import Data.Vinyl hiding (Dict)
 import Data.Vinyl.ARec
 import Data.Vinyl.TypeLevel
 import Data.Kind (Constraint)
+import Data.Constraint
 
 --TODO:
 -- Make calling getCtx less awkward
@@ -82,33 +84,48 @@ import Data.Kind (Constraint)
 -- Improve error messages when ctxs are missing
 -- Remove _accountContext_ functions
 class Ctx ctx key where
-  getCtx :: Proxy ctx -> CtxValue key
+  ctxValue :: CtxValue key
 
-instance (Reifies ctx (ARec CtxField ctxItems), RecElem ARec key key ctxItems ctxItems (RIndex key ctxItems)) => Ctx ctx key where
-  getCtx _ = unCtxField $ reflect (Proxy @ctx) ^. rlens @key
+getCtx :: forall key ctx. Ctx ctx key => Proxy ctx -> CtxValue key
+getCtx _ = ctxValue @ctx @key
+
+data ARecCtx recVal
+
+instance (Reifies recVal (ARec CtxField ctxItems), RecElem ARec key key ctxItems ctxItems (RIndex key ctxItems)) => Ctx (ARecCtx recVal) key where
+  ctxValue = unCtxField $ reflect (Proxy @recVal) ^. rlens @key
+
+type family MapCtx ctx (a :: [*]) :: Constraint where
+  MapCtx ctx '[] = ()
+  MapCtx ctx (h ': t) = (Ctx ctx h, MapCtx ctx t)
 
 type family CtxValue (a :: *) :: *
 
-withCtx :: (NatToInt (RLength items), ToARec items) => Rec CtxField items -> (forall ctx. Reifies ctx (ARec CtxField items) => Proxy ctx -> r) -> r
-withCtx items r = reify (toARec items) r
+withCtx
+  :: ( NatToInt (RLength ctxItems)
+     , ToARec ctxItems
+     )
+  => Rec CtxField ctxItems
+  -> (forall recVal. Reifies recVal (ARec CtxField ctxItems) => Proxy (ARecCtx recVal) -> r)
+  -> r
+withCtx items r = reify (toARec items) $ \(Proxy :: Proxy recVal) -> r (Proxy @(ARecCtx recVal))
 
 data AccountTable (db :: (* -> *) -> *)
 type instance CtxValue (AccountTable db) = DatabaseEntity Postgres db (TableEntity Account)
 
 _accountContext_table :: forall db ctx. Ctx ctx (AccountTable db) => Proxy ctx -> DatabaseEntity Postgres db (TableEntity Account)
-_accountContext_table = getCtx @ctx @(AccountTable db)
+_accountContext_table = getCtx @(AccountTable db)
 
 data AccountKey
 type instance CtxValue AccountKey = CS.Key
 
 _accountContext_key :: forall ctx. Ctx ctx AccountKey => Proxy ctx -> CS.Key
-_accountContext_key = getCtx @ctx @AccountKey
+_accountContext_key = getCtx @AccountKey
 
 data AccountSendMessage (m :: * -> *)
 type instance CtxValue (AccountSendMessage m) = Email -> AccountMessage -> m ()
 
 _accountContext_sendMessage :: forall ctx m. Ctx ctx (AccountSendMessage m) => Proxy ctx -> Email -> AccountMessage -> m ()
-_accountContext_sendMessage = getCtx @ctx @(AccountSendMessage m)
+_accountContext_sendMessage = getCtx @(AccountSendMessage m)
 
 data AccountMessage
    = AccountMessage_FinishAccountCreation (Signed PasswordResetToken)
@@ -148,7 +165,6 @@ login
      , EntropyGenerator m
      , Ctx ctx (AccountTable db)
      , Ctx ctx AccountKey
-     , Ctx ctx (AccountSendMessage m)
      )
   => Proxy ctx
   -> Email
@@ -167,9 +183,7 @@ login ctx email pass = runMaybeT $ do
 createAccount
   :: forall db m ctx
   .  ( MonadBeam Postgres m
-     , Database Postgres db
      , EntropyGenerator m
-     , MonadFail m
      , Ctx ctx (AccountTable db)
      , Ctx ctx AccountKey
      , Ctx ctx (AccountSendMessage m)
@@ -200,10 +214,8 @@ finishAccountCreation
   .  ( MonadBeam Postgres m
      , Database Postgres db
      , EntropyGenerator m
-     , MonadFail m
      , Ctx ctx (AccountTable db)
      , Ctx ctx AccountKey
-     , Ctx ctx (AccountSendMessage m)
      )
   => Proxy ctx
   -> Signed PasswordResetToken
@@ -263,12 +275,9 @@ ensureAccountExists
   :: forall db m ctx
   .  ( MonadBeam Postgres m
      , Database Postgres db
-     , EntropyGenerator m
      , MonadFail m
      , MonadBeamInsertReturning Postgres m
      , Ctx ctx (AccountTable db)
-     , Ctx ctx AccountKey
-     , Ctx ctx (AccountSendMessage m)
      )
   => Proxy ctx
   -> Email
@@ -297,9 +306,7 @@ ensureAccountExists ctx email = do
 setAccountPassword
   :: forall db m ctx
   .  ( MonadBeam Postgres m
-     , Database Postgres db
      , EntropyGenerator m
-     , MonadFail m
      , Ctx ctx (AccountTable db)
      )
   => Proxy ctx
@@ -313,9 +320,6 @@ setAccountPassword ctx aid password = do
 setAccountPasswordHash
   :: forall db m ctx
   .  ( MonadBeam Postgres m
-     , Database Postgres db
-     , EntropyGenerator m
-     , MonadFail m
      , Ctx ctx (AccountTable db)
      )
   => Proxy ctx
@@ -351,9 +355,6 @@ passwordResetToken csk aid nonce = do
 newNonce
   :: forall db m ctx
   .  ( MonadBeam Postgres m
-     , Database Postgres db
-     , EntropyGenerator m
-     , MonadFail m
      , MonadBeamUpdateReturning Postgres m
      , Ctx ctx (AccountTable db)
      )
