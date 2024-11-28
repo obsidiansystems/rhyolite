@@ -15,11 +15,11 @@ description:
 library
   hs-source-dirs:     .
   build-depends:
-      aeson
+      base
+    , aeson
     , aeson-gadt-th
     , async
     , attoparsec
-    , base
     , base-orphans >= 0.8.6
     , bytestring
     , commutative-semigroups
@@ -35,6 +35,7 @@ library
     , monoidal-containers
     , mtl
     , network-uri
+    , obelisk-aeson-orphans
     , patch
     , reflex
     , semialign
