@@ -100,7 +100,9 @@ login cfg = do
       el "div" $ do
         routeLink (_loginConfig_forgotPassword cfg) $ do
           text "Forgot your password?"
-      display $ _loginConfig_feedback cfg --TODO
+      elClass "span" "login-feedback" $ dynText $ ffor (_loginConfig_feedback cfg) $ \case
+        Nothing -> ""
+        Just LoginResult_BadCredentials -> "Those credentials didn't work"
       submit <- el "div" $ do
         submitButton (_loginConfig_submitStatus cfg) $ do
           text "Sign in"
