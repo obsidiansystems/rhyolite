@@ -47,7 +47,7 @@ sendThisFirst initialVal p (send, recv) = do
 
 processByteStrings :: Processor ByteString ByteString -> Processor (Either ByteString Text) (Either ByteString Text)
 processByteStrings p (send, recv) = do
-  p ( send . Left
+  p ( send . Right . decodeUtf8With lenientDecode
     , recv <&> \case
         Left bs -> bs
         Right t -> encodeUtf8 t
