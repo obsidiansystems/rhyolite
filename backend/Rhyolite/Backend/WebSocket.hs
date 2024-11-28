@@ -31,6 +31,13 @@ import Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict', encode)
 import qualified Data.Text as T
 
 -- Start processing a stream of messages to produce responses
+-- Notes:
+-- - There is no way to request the stream to close
+-- - When the stream is closed:
+--   - `send` simply does nothing and returns immediately
+--   - `recv` simply hangs (waiting for a message that will never come)
+--   - the returned IO () will be invoked
+-- - It is OK to invoke `send` or `recv` before returning from the initial IO action
 type Processor a b = (b -> IO (), IO a) -> IO (IO ())
 
 sendThisFirst :: b -> Processor a b -> Processor a b
