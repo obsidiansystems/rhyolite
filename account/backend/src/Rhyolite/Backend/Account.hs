@@ -88,7 +88,7 @@ login
      , Database Postgres db
      , EntropyGenerator m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> Email
   -> Password
   -> m (Maybe (Signed AuthToken))
@@ -135,7 +135,7 @@ finishAccountCreation
      , EntropyGenerator m
      , MonadFail m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> Signed PasswordResetToken
   -> Password
   -> m (Either FinishAccountCreationError (Signed AuthToken))
@@ -190,7 +190,7 @@ ensureAccountExists
      , MonadFail m
      , MonadBeamInsertReturning Postgres m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> Email
   -> m (Bool, PrimaryKey Account Identity)
 ensureAccountExists ctx email = do
@@ -220,7 +220,7 @@ setAccountPassword
      , EntropyGenerator m
      , MonadFail m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> PrimaryKey Account Identity
   -> Password
   -> m ()
@@ -234,7 +234,7 @@ setAccountPasswordHash
      , EntropyGenerator m
      , MonadFail m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> PrimaryKey Account Identity
   -> ByteString
   -> m ()
@@ -271,7 +271,7 @@ newNonce
      , MonadFail m
      , MonadBeamUpdateReturning Postgres m
      )
-  => AccountContext db m
+  => AccountContext db m'
   -> PrimaryKey Account Identity
   -> m (Maybe UTCTime)
 newNonce ctx aid = do
