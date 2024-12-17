@@ -184,18 +184,11 @@ wholeTable getTable = LiveQuery
   }
 
 restrictDb
-  :: ( ConstraintsForT db (TableHas Eq (ComposeMaybe TablePatch))
-     , ArgDictT db
-     , DZippable db
-     , ConstraintsForT db (ComposeC Semigroup (TableOnly (ComposeMaybe TablePatch)))
-     , ConstraintsForT db (ComposeC Monoid (TableOnly (ComposeMaybe TablePatch)))
-     --
-     , ConstraintsForT db2 (TableHas Eq (ComposeMaybe TablePatch))
+  :: ( ConstraintsForT db2 (TableHas Eq (ComposeMaybe TablePatch))
      , ArgDictT db2
      , DZippable db2
      , ConstraintsForT db2 (ComposeC Semigroup (TableOnly (ComposeMaybe TablePatch)))
      , ConstraintsForT db2 (ComposeC Monoid (TableOnly (ComposeMaybe TablePatch)))
-     --
      , Monoid (a Identity)
      )
   => (forall f. db f -> db2 f)
@@ -205,7 +198,7 @@ restrictDb f child = LiveQuery
   { _liveQuery_view = \db q -> _liveQuery_view child (f db) q
   , _liveQuery_listen = \db (TablesV patch) q -> do
       let relevantPatch = TablesV $ f patch
-      if relevantPatch == (TablesV $ f $ unTablesV mempty)
+      if relevantPatch == mempty
         then pure mempty
         else _liveQuery_listen child (f db) relevantPatch q
   }
