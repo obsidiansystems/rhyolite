@@ -26,8 +26,24 @@ import Snap.Core
 
 data SimpleDbServerConfig db = SimpleDbServerConfig
   { _simpleDbServerConfig_schema :: AnnotatedDatabaseSettings Postgres db
+  , _simpleDbServerConfig_migrationSchema :: AnnotatedDatabaseSettings Postgres db -> Schema
+    -- ^ Ideally we would just have this be a 'Schema', that doesn't
+    -- losslessly contain 'AnnotatedDatabaseSettings Postgres db'. (That
+    -- 'Schema' doesn't need a 'db' type argument is a sign of this.)
+    --
+    -- We could store a 'Schema' and a 'AnnotatedDatabaseSettings
+    -- Postgres db', but that is a bit denormalized as nothing ensures
+    -- they are in sync.
+    --
+    -- Storing a function instead normalizes it. This cause be bad in
+    -- that we loose sharing, but it turns out that is a non-issue as we
+    -- only need the 'Schema' in one spot.
   , _simpleDbServerConfig_options :: SimpleDbServerOptions db
   }
+
+-- | Default choice for '_simpleDbServerConfig_migrationSchema'
+defaultMigrationSchema :: _ => AnnotatedDatabaseSettings Postgres db -> Schema
+defaultMigrationSchema checkedDb = fromAnnotatedDbSettings checkedDb $ Proxy @'[]
 
 data SimpleDbServerOptions db = forall a. SimpleDbServerOptions
   { _simpleDbServerOptions_dbPath :: Text
@@ -109,7 +125,7 @@ migrateSimpleDb cfg = do
     preMigration
     postMigration
     (_simpleDbServerOptions_editMigrationUpdates opts)
-    (fromAnnotatedDbSettings (_simpleDbServerConfig_schema cfg) $ Proxy @'[])
+    (_simpleDbServerConfig_migrationSchema cfg $ _simpleDbServerConfig_schema cfg)
 
 runSimpleDbTransaction
   :: forall db a
