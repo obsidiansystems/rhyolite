@@ -44,3 +44,6 @@ instance (ArgDictT a, ArgDictT b) => ArgDictT (a :*: b) where
 class Has c (p x) => HasCompose c p x
 instance Has c (p x) => HasCompose c p x
 
+instance ArgDictT U1 where
+  type ConstraintsForT U1 c = ()
+  hoistWithArgDictT_ _ _ U1 = U1

@@ -14,12 +14,14 @@ program that pretends to be a user of your app (load-testing comes to mind).
 module Rhyolite.WebSocket where
 
 import Data.Aeson
+import Data.ByteString (ByteString)
 import Data.Semigroup ((<>))
 import Data.Some
 import Data.Text (Text)
 import Data.Typeable
 import GHC.Generics
 import Network.URI (URI(..))
+import Obelisk.Aeson.Orphans
 import Reflex.Query.Class
 
 -- | Given an http or file uri, guesses what the websockets uri ought to be
@@ -34,18 +36,21 @@ websocketUri uri = uri
 
 -- | Represents a WebSocket message from one of two channels: ViewSelector
 -- declarations or API requests
-data WebSocketRequest q r = WebSocketRequest_ViewSelector q
-                          | WebSocketRequest_Api (TaggedRequest r)
-  deriving (Typeable, Generic)
+data WebSocketRequest q r
+   = WebSocketRequest_ViewSelector q
+   | WebSocketRequest_Api (TaggedRequest r)
+   deriving (Typeable, Generic)
 
 instance (FromJSON q, FromJSON (Some r)) => FromJSON (WebSocketRequest q r)
 instance (ToJSON q, ToJSON (Some r)) => ToJSON (WebSocketRequest q r)
 
 -- | Represents a WebSocket response from one of three channels: incoming 'View's, API responses, or version info
-data WebSocketResponse q = WebSocketResponse_View (QueryResult q)
-                         | WebSocketResponse_Api TaggedResponse
-                         | WebSocketResponse_Version Text
-  deriving (Typeable, Generic)
+data WebSocketResponse q
+   = WebSocketResponse_View (QueryResult q)
+   | WebSocketResponse_Api TaggedResponse
+   | WebSocketResponse_Version Text
+   | WebSocketResponse_JsonError Text ByteString
+   deriving (Typeable, Generic)
 
 instance FromJSON (QueryResult q) => FromJSON (WebSocketResponse q)
 instance ToJSON (QueryResult q) => ToJSON (WebSocketResponse q)
