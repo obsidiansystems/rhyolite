@@ -18,7 +18,6 @@ import Data.Vessel (FlipAp(..))
 import Data.Functor.Misc
 import Data.These
 import Data.These.Combinators
-import Data.Monoid (Any(..))
 import Control.Monad.Writer.CPS
 import Data.Align
 import Data.Maybe (isJust)
@@ -68,6 +67,9 @@ instance ( GMapDatabase' f h ax az
   GMapDatabase' f h (ax :*: bx) (az :*: bz) where
   gMapDatabase' p combine ~(ax :*: bx) =
     liftA2 (:*:) (gMapDatabase' p combine ax) (gMapDatabase' p combine bx)
+instance GMapDatabase' f h U1 U1 where
+  gMapDatabase' _ _ ~U1 =
+    pure U1
 instance GMapDatabase' f h (K1 Generic.R (f tbl)) (K1 Generic.R (h tbl)) where
 
   gMapDatabase' _ combine ~(K1 x) =
@@ -114,6 +116,9 @@ instance ( GZipDatabase' f g h ax ay az
   GZipDatabase' f g h (ax :*: bx) (ay :*: by) (az :*: bz) where
   gZipDatabase' p combine ~(ax :*: bx) ~(ay :*: by) =
     liftA2 (:*:) (gZipDatabase' p combine ax ay) (gZipDatabase' p combine bx by)
+instance GZipDatabase' f g h U1 U1 U1 where
+  gZipDatabase' _ _ ~U1 ~U1 =
+    pure U1
 instance GZipDatabase' f g h (K1 Generic.R (f tbl)) (K1 Generic.R (g tbl)) (K1 Generic.R (h tbl)) where
 
   gZipDatabase' _ combine ~(K1 x) ~(K1 y) =
@@ -160,6 +165,9 @@ instance ( GPointDatabase' h az
   GPointDatabase' h (az :*: bz) where
   gPointDatabase' p combine =
     liftA2 (:*:) (gPointDatabase' p combine ) (gPointDatabase' p combine )
+instance GPointDatabase' h U1 where
+  gPointDatabase' _ _ =
+    pure U1
 instance GPointDatabase' h (K1 Generic.R (h tbl)) where
 
   gPointDatabase' _ combine =
@@ -173,6 +181,8 @@ instance DPointed db =>
 
 instance (DMappable f, DMappable g) => DMappable (f :*: g) where
   dmap f ~(xs :*: ys) = (:*:) <$> dmap f xs <*> dmap f ys
+instance DMappable U1 where
+  dmap _ U1 = pure U1
 instance DMappable (FlipAp a) where
   dmap f (FlipAp a) = FlipAp <$> f a
 instance DMappable Proxy where
@@ -182,6 +192,8 @@ instance DMappable (Const a) where
 
 instance (DZippable f, DZippable g) => DZippable (f :*: g) where
   dzip f ~(xs :*: ys) ~(xs' :*: ys') = (:*:) <$> dzip f xs xs' <*> dzip f ys ys'
+instance DZippable U1 where
+  dzip _ U1 U1 = pure U1
 instance DZippable (FlipAp a) where
   dzip f (FlipAp a) (FlipAp b) = FlipAp <$> f a b
 instance DZippable Proxy where
@@ -191,6 +203,8 @@ instance Semigroup a => DZippable (Const a) where
 
 instance (DPointed f, DPointed g) => DPointed (f :*: g) where
   dpure f = (:*:) <$> dpure f <*> dpure f
+instance DPointed U1 where
+  dpure _ = pure U1
 instance DPointed (FlipAp a) where
   dpure f = FlipAp <$> f
 instance DPointed Proxy where

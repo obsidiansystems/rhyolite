@@ -72,6 +72,7 @@ let
     # push-notifications = repos.push-notifications;
 
     vessel = repos.vessel;
+    provide = repos.provide;
   };
 
   # You can use these manually if you don’t want to use rhyolite.project.
@@ -153,6 +154,11 @@ in obelisk // {
         "rhyolite-frontend"
       ];
     };
+    modules = [({...}: {
+      packages = {
+        rhyolite-account-backend.flags.strict = true;
+      };
+    })];
     tools = ghc: [ pkgs.postgresql ];
   });
 }

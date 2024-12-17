@@ -14,8 +14,10 @@ description:
 library
   hs-source-dirs:   .
   build-depends:
-      aeson
-    , base
+      base
+    , aeson
+    , async
+    , bytestring
     , commutative-semigroups
     , constraints
     , constraints-extras

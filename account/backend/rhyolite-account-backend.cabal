@@ -11,28 +11,99 @@ maintainer:         maintainer@obsidian.systems
 copyright: Obsidian Systems LLC
 category:           Web
 
+flag strict
+  description: Build with options, such as -Werror, which are inconvenient for development but good for CI
+  default: False
+  manual: True
+
+common common
+  default-extensions:
+    AllowAmbiguousTypes
+    BangPatterns
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    EmptyCase
+    EmptyDataDecls
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    InstanceSigs
+    KindSignatures
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    NumericUnderscores
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    PolyKinds
+    QuantifiedConstraints
+    QuasiQuotes
+    RankNTypes
+    RecursiveDo
+    ScopedTypeVariables
+    StandaloneDeriving
+    TemplateHaskell
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    UndecidableInstances
+    ViewPatterns
+  if flag(strict)
+    ghc-options:
+      -Werror
+      -Wunused-packages
+  ghc-options: -Wall -O -fno-show-valid-hole-fits
+               -- unnecessary checks
+               -Wno-partial-type-signatures
+               -- unsafe code
+               -Wincomplete-record-updates -Werror=incomplete-record-updates
+               -Wincomplete-patterns -Werror=incomplete-patterns
+               -Wincomplete-uni-patterns -Werror=incomplete-uni-patterns
+               -Wpartial-fields -Werror=partial-fields
+               -Wmissing-fields -Werror=missing-fields
+               -- unneeded code
+               -Widentities
+               -Wredundant-constraints
+  if impl(ghc >= 8.8)
+    ghc-options:
+               -Wmissing-deriving-strategies
+               -Werror=missing-deriving-strategies
+
 library
-    exposed-modules:  Rhyolite.Backend.Account
-    build-depends:    base
-                    , aeson
-                    , beam-core
-                    , beam-postgres
-                    , bytestring
-                    , clientsession
-                    , constraints
-                    , constraints-extras
-                    , entropy-class
-                    , mtl
-                    , psql-simple-beam
-                    , pwstore-fast
-                    , rhyolite-account-types
-                    , rhyolite-beam-db
-                    , rhyolite-notify-listen
-                    , rhyolite-notify-listen-beam
-                    , signed-data
-                    , signed-data-clientsession
-                    , text
-                    , time
-                    , transformers
-    hs-source-dirs:   src
-    default-language: Haskell2010
+  include: common
+  exposed-modules:  Rhyolite.Backend.Account
+  build-depends:    base
+                  , aeson
+                  , beam-core
+                  , beam-postgres
+                  , bytestring
+                  , clientsession
+                  , constraints
+                  , constraints-extras
+                  , entropy-class
+                  , mtl
+                  , provide
+                  , psql-simple-beam
+                  , pwstore-fast
+                  , rhyolite-account-types
+                  , rhyolite-beam-db
+                  , rhyolite-notify-listen
+                  , rhyolite-notify-listen-beam
+                  , signed-data
+                  , signed-data-clientsession
+                  , text
+                  , time
+                  , transformers
+  hs-source-dirs:   src
+  default-language: Haskell2010

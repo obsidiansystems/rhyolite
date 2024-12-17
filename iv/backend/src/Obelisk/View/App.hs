@@ -8,12 +8,14 @@ import Data.Foldable
 import Control.Category
 import Control.Concurrent
 import Control.Concurrent.MVar
-import Control.Exception (bracket, SomeException, handle, throw, finally, Exception)
+import Control.Exception (bracket, SomeException (..), handle, throw, finally, Exception, try)
+import Data.Typeable (cast)
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
 import Data.Bifunctor
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import Data.Constraint.Compose
 import Data.Constraint.Empty
 import Data.Constraint.Extras
@@ -52,10 +54,11 @@ import Obelisk.View.Time
 import Prelude hiding ((.), id)
 import Reflex.Query.Class (QueryResult)
 import Rhyolite.Backend.App (ClientKey(..), RequestHandler(..))
-import Rhyolite.Backend.WebSocket (getDataMessage, sendEncodedDataMessage, withWebsocketsConnection)
+import Rhyolite.Backend.WebSocket
+import Control.Concurrent.Async
 import Rhyolite.WebSocket (TaggedRequest(..), TaggedResponse(..), WebSocketRequest(..))
 import Rhyolite.WebSocket (WebSocketResponse(..))
-import Snap.Core (Snap)
+import Snap.Core (Snap, MonadSnap)
 import qualified Control.Lens as Lens
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -73,6 +76,10 @@ import Data.Functor.Identity
 import Data.GADT.Compare
 import Data.Proxy
 import Rhyolite.Vessel.AuthenticatedV
+import Network.WebSockets.Snap (runWebSocketsSnapWith)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8With)
+import Data.Text.Encoding.Error (lenientDecode)
+import Data.Functor
 
 data ClientKeyState i = ClientKeyState
   { _clientKeyState_nextId :: ClientKey
@@ -258,7 +265,7 @@ serveDbOverWebsocketsNew
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
 serveDbOverWebsocketsNew logger dburi db rh nh qh fromWire k =
-  serveDbOverWebsocketsNewRaw logger dburi db nh qh (\r -> k r $ withWebsocketsConnection $ handleWebsocketConnection "TODO:version" fromWire rh r)
+  serveDbOverWebsocketsNewRaw logger dburi db nh qh (\r -> k r $ handleWebsocketConnection "TODO:version" fromWire rh r)
 
 serveDbOverWebsocketsNewWithArg
   :: forall db r push pull qWire a arg.
@@ -314,7 +321,7 @@ serveDbOverWebsocketsNewWithArg
   -- ^ continuation to run while the handler is running; once this callback returns, the system shuts down.
   -> IO a
 serveDbOverWebsocketsNewWithArg logger dburi db rh nh qh fromWire k =
-  serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh (\r -> k r $ \arg -> withWebsocketsConnection $ handleWebsocketConnection "TODO:version" (mapMaybePipelineInterface (Map.singleton arg) (Map.singleton arg) (Map.lookup arg) (Map.lookup arg) fromWire :: Pipeline ('Interface (Map arg push) (Map arg pull)) qWire) (rh arg) r)
+  serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh (\r -> k r $ \arg -> handleWebsocketConnection "TODO:version" (mapMaybePipelineInterface (Map.singleton arg) (Map.singleton arg) (Map.lookup arg) (Map.lookup arg) fromWire :: Pipeline ('Interface (Map arg push) (Map arg pull)) qWire) (rh arg) r)
 
 serveDbOverWebsocketsNewRaw
   :: forall db push pull a.
@@ -550,7 +557,6 @@ serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh k = withDbDriver logger
 
   runDbIv logger driver initialTime setup handleTime k
 
-
 -- ** Connecting a client (via websockets)
 -- $connect_client
 
@@ -569,34 +575,43 @@ serveDbOverWebsocketsNewRawWithArg logger dburi db nh qh k = withDbDriver logger
 --  2. Separately handles messages coming in over the "api" and "viewselector" channels
 --  3. Transforms the incoming wire-format query and produce responses for new inbound queries
 handleWebsocketConnection
-  :: forall r i x qWire.
-  (ToJSON (QueryResult qWire), FromJSON qWire, FromJSON (Some r), Has ToJSON r)
+  :: forall r i x qWire m
+  .  ( MonadSnap m
+     , ToJSON (QueryResult qWire)
+     , FromJSON qWire
+     , FromJSON (Some r)
+     , Has ToJSON r
+     )
   => Text -- ^ Version
   -> Pipeline i qWire
   -- ^ Query morphism to translate between wire queries and queries with a
   -- reasonable group instance. cf. 'vesselFromWire'
   -> RequestHandler r IO -- ^ Handler for API requests
   -> Registrar ('Interface (These x (Push i)) (Pull i))
-  -> WS.Connection
-  -> IO ()
-handleWebsocketConnection v fromWire rh register conn = do
-  (q2i, push2q, pull2q) <- runPipeline fromWire
-  let sender = IvForwardSequential
-        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< maybe (pure Nothing) push2q . justThere)
-        (mapM_ (sendEncodedDataMessage conn . WebSocketResponse_View @qWire) <=< pull2q)
-  sendEncodedDataMessage conn (WebSocketResponse_Version v :: WebSocketResponse qWire)
-  bracket (runRegistrar register sender) snd $ \(IvBackwardSequential vsHandler, _) -> forever $ do
-    (wsr :: WebSocketRequest qWire r) <- liftIO $ getDataMessage conn
-    case wsr of
-      WebSocketRequest_Api (TaggedRequest reqId (Some req)) ->
-        -- TODO: don't leak all error messages from the backend to the frontend by blanket sending the text of uncaught errors.
-        handle (\(e :: SomeException) -> sendEncodedDataMessage conn ((WebSocketResponse_Api $ TaggedResponse_Error reqId (tshow e)) :: WebSocketResponse qWire) >> throw e) $ do
-          -- TODO: forkIO
-          a <- runRequestHandler rh req
-          sendEncodedDataMessage conn
-            (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
-      WebSocketRequest_ViewSelector new -> do
-        q2i new >>= \case
-          Nothing -> pure ()
-          Just new' -> vsHandler $ bimap (bimap That That) id new'
-
+  -> m ()
+handleWebsocketConnection v fromWire rh register =
+  serveWebSocket $ processByteStrings $ processJson WebSocketResponse_JsonError $ sendThisFirst (WebSocketResponse_Version v :: WebSocketResponse qWire) $ \(send, recv) -> do
+    (q2i, push2q, pull2q) <- runPipeline fromWire -- Doesn't need to be shut down
+    let sender = IvForwardSequential
+          (mapM_ (send . WebSocketResponse_View @qWire) <=< maybe (pure Nothing) push2q . justThere)
+          (mapM_ (send . WebSocketResponse_View @qWire) <=< pull2q)
+    (IvBackwardSequential vsHandler, killRegistrar) <- runRegistrar register sender
+    recvThread <- async $ forever $ do
+      (wsr :: WebSocketRequest qWire r) <- recv
+      case wsr of
+        WebSocketRequest_Api (TaggedRequest reqId (Some req)) -> do
+          --TODO: don't leak all error messages from the backend to the frontend by blanket sending the text of uncaught errors.
+          --TODO: Should we run requests in parallel?
+          result <- try $ runRequestHandler rh req
+          case result of
+            Left (e :: SomeException) -> do
+              send (WebSocketResponse_Api (TaggedResponse_Error reqId $ tshow e) :: WebSocketResponse qWire)
+            Right a -> do
+              send (WebSocketResponse_Api $ TaggedResponse reqId (has @ToJSON req (toJSON a)) :: WebSocketResponse qWire)
+        WebSocketRequest_ViewSelector new -> do
+          q2i new >>= \case
+            Nothing -> pure ()
+            Just new' -> vsHandler $ bimap (bimap That That) id new'
+    pure $ do
+      cancel recvThread
+      killRegistrar
