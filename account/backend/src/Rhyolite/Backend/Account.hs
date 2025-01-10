@@ -25,6 +25,7 @@ Description:
 module Rhyolite.Backend.Account
   ( createAccount
   , login
+  , createAuthToken
   , ensureAccountExists
   , setAccountPassword
   , setAccountPasswordHash
@@ -139,10 +140,21 @@ login p email pass = runMaybeT $ do
   (aid, mPwHash) <- MaybeT $ fmap listToMaybe $ runSelectReturningList $ select $ do
     acc <- all_ $ providedP @AccountTable p
     guard_ $ lower_ (_account_email acc) ==. lower_ (val_ email)
-    pure (_account_id acc, _account_password acc)
+    pure (pk acc, _account_password acc)
   pwHash <- MaybeT $ pure mPwHash
   guard $ verifyPasswordWith pbkdf2 (2^) (T.encodeUtf8 pass) pwHash
-  lift $ signWithKey (providedP @AuthKey p) $ AuthToken $ AccountId aid
+  lift $ createAuthToken p aid
+
+createAuthToken
+  :: forall m p
+  .  ( Monad m
+     , EntropyGenerator m
+     , p `Provides` AuthKey
+     )
+  => Proxy p
+  -> PrimaryKey Account Identity
+  -> m (Signed AuthToken)
+createAuthToken p aid = signWithKey (providedP @AuthKey p) $ AuthToken aid
 
 -- | Creates a new account
 createAccount
