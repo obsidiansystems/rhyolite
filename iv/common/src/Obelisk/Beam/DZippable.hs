@@ -180,7 +180,7 @@ instance DPointed db =>
     K1 <$> dpure combine
 
 instance (DMappable f, DMappable g) => DMappable (f :*: g) where
-  dmap f (xs :*: ys) = (:*:) <$> dmap f xs <*> dmap f ys
+  dmap f ~(xs :*: ys) = (:*:) <$> dmap f xs <*> dmap f ys
 instance DMappable U1 where
   dmap _ U1 = pure U1
 instance DMappable (FlipAp a) where
@@ -191,7 +191,7 @@ instance DMappable (Const a) where
   dmap _ (Const x) = pure $ Const x
 
 instance (DZippable f, DZippable g) => DZippable (f :*: g) where
-  dzip f (xs :*: ys) (xs' :*: ys') = (:*:) <$> dzip f xs xs' <*> dzip f ys ys'
+  dzip f ~(xs :*: ys) ~(xs' :*: ys') = (:*:) <$> dzip f xs xs' <*> dzip f ys ys'
 instance DZippable U1 where
   dzip _ U1 U1 = pure U1
 instance DZippable (FlipAp a) where
