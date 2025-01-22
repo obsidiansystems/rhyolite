@@ -318,7 +318,7 @@ runObeliskRhyoliteWidget toWire configRoute enc listenRoute child = do
         Just Nothing -> error $ T.unpack $ "malformed confing route: " <> configRoute
         Just (Just r) -> r
   let wsUrl = (T.pack $ show $ websocketUri route) <> (renderBackendRoute enc listenRoute)
-  lift $ runRhyoliteWidget toWire wsUrl $ flip runRoutedT obR $ child
+  lift $ runRhyoliteWidget toWire (pure wsUrl) $ flip runRoutedT obR $ child
 
 -- | Runs a rhyolite frontend widget that opens a websocket connection and can
 -- issue requests and queries over that connection.
@@ -341,12 +341,12 @@ runRhyoliteWidget
       )
   => QueryMorphism qFrontend qWire
   -- ^ Wire format morphism for queries
-  -> Text
+  -> Client m Text
   -- ^ Websocket url
   -> RhyoliteWidget qFrontend req t m b
   -- ^ The widget to run. This widget can make requests/queries
   -> m (Dynamic t (AppWebSocket t qWire), b)
-runRhyoliteWidget toWire url child = do
+runRhyoliteWidget toWire getUrl child = do
   let defAppWebSocket = AppWebSocket
           { _appWebSocket_notification = never
           , _appWebSocket_response = never
@@ -354,6 +354,7 @@ runRhyoliteWidget toWire url child = do
           , _appWebSocket_connected = constDyn False
           }
   rec (dAppWebSocket :: Dynamic t (AppWebSocket t qWire)) <- prerender (return defAppWebSocket) $ do
+          url <- getUrl
           openWebSocket url request'' nubbedVs
       let (notification :: Event t (QueryResult qWire), response) = (bimap (switch . current) (switch . current) . splitDynPure) $
             ffor dAppWebSocket $ \appWebSocket ->
