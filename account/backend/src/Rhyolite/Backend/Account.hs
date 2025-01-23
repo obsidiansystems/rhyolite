@@ -33,6 +33,8 @@ module Rhyolite.Backend.Account
   , passwordResetToken
   , newNonce
   , handleAccountRequest
+  , finishAccountCreation
+  , forgotPassword
   , AccountMessage (..)
   , AccountTable
   , AuthKey
