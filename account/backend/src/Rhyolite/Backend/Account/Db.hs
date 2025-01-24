@@ -132,7 +132,7 @@ makePasswordHash
   -> m ByteString
 makePasswordHash pw = do
   salt <- liftIO genSaltIO
-  return $ makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) salt 14
+  return $ makePasswordSaltWith pbkdf2 (2^) (encodeUtf8 pw) salt 19
 
 resetPassword
   :: (Database Postgres db)
