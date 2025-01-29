@@ -13,6 +13,8 @@ category:           Web
 
 library
     exposed-modules:  Rhyolite.Backend.Account
+                      Rhyolite.Backend.Account.Db
+                      Rhyolite.Backend.Account.Notify
     build-depends:    base
                     , aeson
                     , beam-core
