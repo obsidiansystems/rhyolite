@@ -100,9 +100,9 @@ withDbLogged opts call =
       dbPath :: String
       dbPath = T.unpack $ _simpleDbServerOptions_dbPath opts
   in withDbUri dbPath $ \dbUri -> do
-    myLog $ "database connection string: " <> showConnectionString dbUri
+    myLog $ "database: connection: " <> showConnectionString dbUri
     withConnectionPool dbUri $ \dbConnPool -> do
-      myLog "connected"
+      myLog "database: connected"
       call dbUri dbConnPool
 
 withSimpleDbServerWithArg
@@ -148,14 +148,14 @@ migrateSimpleDb cfg connection = do
     })
     <- pure $ _simpleDbServerConfig_options cfg
   myLog <- pure $ _simpleDbServerOptions_logger opts
-  myLog "migrating..."
+  myLog "database: migrating..."
   tryRunMigrationsWithEditUpdateAndHooks
     preMigration
     postMigration
     (_simpleDbServerOptions_editMigrationUpdates opts)
     (_simpleDbServerConfig_migrationSchema cfg $ _simpleDbServerConfig_schema cfg)
     connection
-  myLog "migrated"
+  myLog "database: migrated"
 
 runSimpleDbTransaction
   :: forall db a
