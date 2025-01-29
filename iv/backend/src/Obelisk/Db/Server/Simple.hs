@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Obelisk.Db.Server.Simple where
 
+import Data.ByteString
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Default
@@ -10,10 +11,12 @@ import Data.Functor.Identity
 import Data.Map.Monoidal
 import Data.Maybe
 import Data.Pool
+import Data.Text.Encoding
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Database.Beam.AutoMigrate
 import Database.Beam.Postgres
+import Network.URI
 import Obelisk.Beam.Patch.Db
 import qualified Database.PostgreSQL.Simple as PG
 import Obelisk.Api
@@ -79,6 +82,17 @@ withSimpleDbServer cfg handleRequest liveQuery k = withSimpleDbServerWithArg
   (mapLiveQuery (\f -> traverseSubVessel (\_ -> f)) liveQuery)
   (\dbConnPool serveApi -> k dbConnPool $ serveApi ())
 
+redactUserInfo :: String -> String
+redactUserInfo = \case
+  "" -> ""
+  _ -> "<redacted>@"
+
+showConnectionString :: ByteString -> Text
+showConnectionString bs = case fmap (parseURI . T.unpack) $ decodeUtf8' bs of
+  Left _ -> "invalid unicode"
+  Right Nothing -> "invalid URI"
+  Right (Just uri) -> T.pack $ show $ uriToString redactUserInfo uri ""
+
 withSimpleDbServerWithArg
   :: forall db request view arg
   .  _
@@ -92,24 +106,26 @@ withSimpleDbServerWithArg
   -> IO ()
 withSimpleDbServerWithArg cfg handleRequest view k = do
   let opts = _simpleDbServerConfig_options cfg
-  withDbUri (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbUri -> withConnectionPool dbUri $ \dbConnPool -> do
-    let checkedDbSchema = _simpleDbServerConfig_schema cfg
-        dbSchema = deAnnotateDatabase checkedDbSchema
-        myLog = _simpleDbServerOptions_logger opts
-        runDb :: forall a. WriteDb a -> IO a
-        runDb = writeTransactionFromPool myLog dbConnPool
-        requestHandler :: arg -> RequestHandler request IO
-        requestHandler arg = RequestHandler $ \req -> runDb $ handleRequest arg req
-    withResource dbConnPool $ migrateSimpleDb cfg
-    serveDbOverWebsocketsNewWithArg @db @request
-      myLog
-      dbUri
-      dbSchema
-      requestHandler
-      (\(QueryResultPatch d) q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
-      (\q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
-      (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
-      $ \_serviceRegistrar serveApi -> k dbConnPool serveApi
+      myLog = _simpleDbServerOptions_logger opts
+  withDbUri (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbUri -> do
+    myLog $ "database connection string: " <> showConnectionString dbUri
+    withConnectionPool dbUri $ \dbConnPool -> do
+      let checkedDbSchema = _simpleDbServerConfig_schema cfg
+          dbSchema = deAnnotateDatabase checkedDbSchema
+          runDb :: forall a. WriteDb a -> IO a
+          runDb = writeTransactionFromPool myLog dbConnPool
+          requestHandler :: arg -> RequestHandler request IO
+          requestHandler arg = RequestHandler $ \req -> runDb $ handleRequest arg req
+      withResource dbConnPool $ migrateSimpleDb cfg
+      serveDbOverWebsocketsNewWithArg @db @request
+        myLog
+        dbUri
+        dbSchema
+        requestHandler
+        (\(QueryResultPatch d) q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
+        (\q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
+        (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
+        $ \_serviceRegistrar serveApi -> k dbConnPool serveApi
 
 migrateSimpleDb
   :: _
