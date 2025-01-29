@@ -41,6 +41,7 @@ common common
                , monad-loops
                , monoidal-containers
                , mtl
+               , network-uri
                , obelisk-aeson-orphans
                , obelisk-backend
                , obelisk-executable-config-lookup
