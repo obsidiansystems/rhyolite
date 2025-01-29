@@ -9,7 +9,6 @@ import Data.Default
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Map.Monoidal
-import Data.Maybe
 import Data.Pool
 import Data.Text.Encoding
 import Data.Vessel
@@ -93,6 +92,19 @@ showConnectionString bs = case fmap (parseURI . T.unpack) $ decodeUtf8' bs of
   Right Nothing -> "invalid URI"
   Right (Just uri) -> T.pack $ show $ uriToString redactUserInfo uri ""
 
+withDbLogged :: forall db a. SimpleDbServerOptions db -> (ByteString -> Pool PG.Connection -> IO a) -> IO a
+withDbLogged opts call =
+  let myLog :: Text -> IO ()
+      myLog = _simpleDbServerOptions_logger opts
+
+      dbPath :: String
+      dbPath = T.unpack $ _simpleDbServerOptions_dbPath opts
+  in withDbUri dbPath $ \dbUri -> do
+    myLog $ "database connection string: " <> showConnectionString dbUri
+    withConnectionPool dbUri $ \dbConnPool -> do
+      myLog "connected"
+      call dbUri dbConnPool
+
 withSimpleDbServerWithArg
   :: forall db request view arg
   .  _
@@ -107,41 +119,43 @@ withSimpleDbServerWithArg
 withSimpleDbServerWithArg cfg handleRequest view k = do
   let opts = _simpleDbServerConfig_options cfg
       myLog = _simpleDbServerOptions_logger opts
-  withDbUri (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbUri -> do
-    myLog $ "database connection string: " <> showConnectionString dbUri
-    withConnectionPool dbUri $ \dbConnPool -> do
-      let checkedDbSchema = _simpleDbServerConfig_schema cfg
-          dbSchema = deAnnotateDatabase checkedDbSchema
-          runDb :: forall a. WriteDb a -> IO a
-          runDb = writeTransactionFromPool myLog dbConnPool
-          requestHandler :: arg -> RequestHandler request IO
-          requestHandler arg = RequestHandler $ \req -> runDb $ handleRequest arg req
-      withResource dbConnPool $ migrateSimpleDb cfg
-      serveDbOverWebsocketsNewWithArg @db @request
-        myLog
-        dbUri
-        dbSchema
-        requestHandler
-        (\(QueryResultPatch d) q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
-        (\q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
-        (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
-        $ \_serviceRegistrar serveApi -> k dbConnPool serveApi
+  withDbLogged opts $ \dbUri dbConnPool -> do
+    let checkedDbSchema = _simpleDbServerConfig_schema cfg
+        dbSchema = deAnnotateDatabase checkedDbSchema
+        runDb :: forall a. WriteDb a -> IO a
+        runDb = writeTransactionFromPool myLog dbConnPool
+        requestHandler :: arg -> RequestHandler request IO
+        requestHandler arg = RequestHandler $ \req -> runDb $ handleRequest arg req
+    withResource dbConnPool $ migrateSimpleDb cfg
+    serveDbOverWebsocketsNewWithArg @db @request
+      myLog
+      dbUri
+      dbSchema
+      requestHandler
+      (\(QueryResultPatch d) q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_listen view dbSchema d $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
+      (\q -> fmap (fmap IView . getMonoidalMap . getSubVessel . mapV (ResultV . runIdentity)) $ _liveQuery_view view dbSchema $ mapV (\_ -> Proxy) $ mkSubVessel $ MonoidalMap $ fmap getIView q)
+      (viewPipeline (\(Const ()) -> QueryV) (\(ResultV x) -> Identity x))
+      $ \_serviceRegistrar serveApi -> k dbConnPool serveApi
 
 migrateSimpleDb
   :: _
   => SimpleDbServerConfig db
   -> _
-migrateSimpleDb cfg = do
+migrateSimpleDb cfg connection = do
   opts@(SimpleDbServerOptions
     { _simpleDbServerOptions_preMigration = preMigration
     , _simpleDbServerOptions_postMigration = postMigration
     })
     <- pure $ _simpleDbServerConfig_options cfg
+  myLog <- pure $ _simpleDbServerOptions_logger opts
+  myLog "migrating..."
   tryRunMigrationsWithEditUpdateAndHooks
     preMigration
     postMigration
     (_simpleDbServerOptions_editMigrationUpdates opts)
     (_simpleDbServerConfig_migrationSchema cfg $ _simpleDbServerConfig_schema cfg)
+    connection
+  myLog "migrated"
 
 runSimpleDbTransaction
   :: forall db a
@@ -151,8 +165,7 @@ runSimpleDbTransaction
   -> IO a
 runSimpleDbTransaction cfg k = do
   let opts = _simpleDbServerConfig_options cfg
-  withDb (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbConnPool -> do
-    withResource dbConnPool $ \dbConn -> do
-      migrateSimpleDb cfg dbConn
+  withDbLogged opts $ \_ dbConnPool -> do
+    withResource dbConnPool $ migrateSimpleDb cfg
     let myLog = _simpleDbServerOptions_logger opts
     writeTransactionFromPool myLog dbConnPool k
