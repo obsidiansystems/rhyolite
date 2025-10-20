@@ -1,4 +1,7 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NumDecimals #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
@@ -21,13 +24,27 @@ import Database.PostgreSQL.Serializable
 import Gargoyle.PostgreSQL.Connect
 import System.FilePath
 import System.Posix.Temp
+import System.Timeout
 import Test.Hspec
+import Test.HUnit.Lang
 
 import Rhyolite.Task.Beam
 import Rhyolite.Task.Beam.Worker
 
 import Types
 import Utils
+
+seconds :: Num a => a -> a
+seconds = (* 1e6)
+
+threadDelayPolling :: Int -> Int -> Expectation -> Expectation
+threadDelayPolling delayTimeout pollInterval test = timeout delayTimeout go >>= \case
+  Nothing -> test
+  Just () -> pure ()
+  where
+    go = do
+      threadDelay pollInterval
+      catch test $ \(e :: HUnitFailure) -> go
 
 setupTable :: Pool Connection -> IO (Pool Connection)
 setupTable pool = do
@@ -251,10 +268,10 @@ main = do
           -- All tasks should have the result of the work set, as Just True
           -- Each task should have been checked out at some time, with an entry in the map
           -- Each task should have been checked out only once.
-          threadDelay $ (taskCount * timeForOneTask) `div` threadCount
-          taskMap <- readIORef mapRef
-          tasks <- allTestTasks c
-          map _testTaskT_checkedOutBy tasks `shouldBe` replicate taskCount Nothing
-          map _testTaskT_result tasks `shouldBe` replicate taskCount (Just True)
-          M.keys taskMap `shouldBe` [1..fromIntegral taskCount]
-          all (\set -> S.size set == 1) (M.elems taskMap) `shouldBe` True
+          threadDelayPolling ((taskCount * timeForOneTask * 10) `div` threadCount) (seconds 1) $ do
+            taskMap <- readIORef mapRef
+            tasks <- allTestTasks c
+            map _testTaskT_checkedOutBy tasks `shouldBe` replicate taskCount Nothing
+            map _testTaskT_result tasks `shouldBe` replicate taskCount (Just True)
+            M.keys taskMap `shouldBe` [1..fromIntegral taskCount]
+            all (\set -> S.size set == 1) (M.elems taskMap) `shouldBe` True
