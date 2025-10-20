@@ -2,18 +2,20 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 module Obelisk.Db.Server.Simple where
 
+import Data.ByteString
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Default
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Map.Monoidal
-import Data.Maybe
 import Data.Pool
+import Data.Text.Encoding
 import Data.Vessel
 import Data.Vessel.SubVessel
 import Database.Beam.AutoMigrate
 import Database.Beam.Postgres
+import Network.URI
 import Obelisk.Beam.Patch.Db
 import qualified Database.PostgreSQL.Simple as PG
 import Obelisk.Api
@@ -79,6 +81,30 @@ withSimpleDbServer cfg handleRequest liveQuery k = withSimpleDbServerWithArg
   (mapLiveQuery (\f -> traverseSubVessel (\_ -> f)) liveQuery)
   (\dbConnPool serveApi -> k dbConnPool $ serveApi ())
 
+redactUserInfo :: String -> String
+redactUserInfo = \case
+  "" -> ""
+  _ -> "<redacted>@"
+
+showConnectionString :: ByteString -> Text
+showConnectionString bs = case fmap (parseURI . T.unpack) $ decodeUtf8' bs of
+  Left _ -> "invalid unicode"
+  Right Nothing -> "invalid URI"
+  Right (Just uri) -> T.pack $ show $ uriToString redactUserInfo uri ""
+
+withDbLogged :: forall db a. SimpleDbServerOptions db -> (ByteString -> Pool PG.Connection -> IO a) -> IO a
+withDbLogged opts call =
+  let myLog :: Text -> IO ()
+      myLog = _simpleDbServerOptions_logger opts
+
+      dbPath :: String
+      dbPath = T.unpack $ _simpleDbServerOptions_dbPath opts
+  in withDbUri dbPath $ \dbUri -> do
+    myLog $ "database: connection: " <> showConnectionString dbUri
+    withConnectionPool dbUri $ \dbConnPool -> do
+      myLog "database: connected"
+      call dbUri dbConnPool
+
 withSimpleDbServerWithArg
   :: forall db request view arg
   .  _
@@ -92,10 +118,10 @@ withSimpleDbServerWithArg
   -> IO ()
 withSimpleDbServerWithArg cfg handleRequest view k = do
   let opts = _simpleDbServerConfig_options cfg
-  withDbUri (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbUri -> withConnectionPool dbUri $ \dbConnPool -> do
+      myLog = _simpleDbServerOptions_logger opts
+  withDbLogged opts $ \dbUri dbConnPool -> do
     let checkedDbSchema = _simpleDbServerConfig_schema cfg
         dbSchema = deAnnotateDatabase checkedDbSchema
-        myLog = _simpleDbServerOptions_logger opts
         runDb :: forall a. WriteDb a -> IO a
         runDb = writeTransactionFromPool myLog dbConnPool
         requestHandler :: arg -> RequestHandler request IO
@@ -115,17 +141,21 @@ migrateSimpleDb
   :: _
   => SimpleDbServerConfig db
   -> _
-migrateSimpleDb cfg = do
+migrateSimpleDb cfg connection = do
   opts@(SimpleDbServerOptions
     { _simpleDbServerOptions_preMigration = preMigration
     , _simpleDbServerOptions_postMigration = postMigration
     })
     <- pure $ _simpleDbServerConfig_options cfg
+  myLog <- pure $ _simpleDbServerOptions_logger opts
+  myLog "database: migrating..."
   tryRunMigrationsWithEditUpdateAndHooks
     preMigration
     postMigration
     (_simpleDbServerOptions_editMigrationUpdates opts)
     (_simpleDbServerConfig_migrationSchema cfg $ _simpleDbServerConfig_schema cfg)
+    connection
+  myLog "database: migrated"
 
 runSimpleDbTransaction
   :: forall db a
@@ -135,8 +165,7 @@ runSimpleDbTransaction
   -> IO a
 runSimpleDbTransaction cfg k = do
   let opts = _simpleDbServerConfig_options cfg
-  withDb (T.unpack $ _simpleDbServerOptions_dbPath opts) $ \dbConnPool -> do
-    withResource dbConnPool $ \dbConn -> do
-      migrateSimpleDb cfg dbConn
+  withDbLogged opts $ \_ dbConnPool -> do
+    withResource dbConnPool $ migrateSimpleDb cfg
     let myLog = _simpleDbServerOptions_logger opts
     writeTransactionFromPool myLog dbConnPool k
