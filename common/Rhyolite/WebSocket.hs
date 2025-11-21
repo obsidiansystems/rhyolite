@@ -14,7 +14,6 @@ program that pretends to be a user of your app (load-testing comes to mind).
 module Rhyolite.WebSocket where
 
 import Data.Aeson
-import Data.Semigroup ((<>))
 import Data.Some
 import Data.Text (Text)
 import Data.Typeable

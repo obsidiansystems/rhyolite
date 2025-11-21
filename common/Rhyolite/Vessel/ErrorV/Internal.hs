@@ -2,6 +2,7 @@
 -}
 {-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
 {-# Language GeneralizedNewtypeDeriving #-}
@@ -12,6 +13,7 @@
 {-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
 {-# Language TypeFamilies #-}
+{-# Language TypeOperators #-}
 {-# Language UndecidableInstances #-}
 module Rhyolite.Vessel.ErrorV.Internal where
 
