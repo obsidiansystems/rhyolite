@@ -12,8 +12,10 @@ import qualified Network.Mail.Mime as Mail
 deriveJSON defaultOptions ''Mail.Address
 deriveJSON defaultOptions ''Mail.Disposition
 deriveJSON defaultOptions ''Mail.Encoding
-deriveJSON defaultOptions ''Mail.Part
-deriveJSON defaultOptions ''Mail.PartContent
+instance ToJSON Mail.Part where toJSON = $(mkToJSON defaultOptions ''Mail.Part)
+instance FromJSON Mail.Part where parseJSON = $(mkParseJSON defaultOptions ''Mail.Part)
+instance ToJSON Mail.PartContent where toJSON = $(mkToJSON defaultOptions ''Mail.PartContent)
+instance FromJSON Mail.PartContent where parseJSON = $(mkParseJSON defaultOptions ''Mail.PartContent)
 deriveJSON defaultOptions ''Mail.Mail
 
 deriving instance Read Mail.Address
