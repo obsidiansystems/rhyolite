@@ -60,7 +60,6 @@ import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Data.Typeable (Typeable)
 import Data.Vessel
-import Data.Witherable (Filterable(..))
 import qualified Database.PostgreSQL.Simple as Pg
 import Debug.Trace (trace)
 import qualified Network.WebSockets as WS
@@ -68,6 +67,7 @@ import Reflex (Group(..))
 import Reflex.Query.Base (mapQuery, mapQueryResult)
 import Reflex.Query.Class (Query, QueryMorphism(..), QueryResult, SelectedCount(..), crop)
 import Snap.Core (Snap)
+import Witherable (Filterable(..))
 
 import Data.Signed (Signed)
 import Data.Signed.ClientSession as CS (Key, readSignedWithKey)

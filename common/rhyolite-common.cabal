@@ -46,7 +46,7 @@ library
     , transformers-base
     , unordered-containers
     , vessel
-    , witherable
+    , witherable >=0.4 && <0.6
 
   exposed-modules:
     Data.Vessel.Void
