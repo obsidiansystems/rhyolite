@@ -286,28 +286,34 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
   let idleTimeoutMicroseconds = 5 * 60 * 1000000 :: Int -- 5 minutes; prevents idle REPEATABLE READ transactions from holding Postgres snapshots indefinitely
       loop !t caughtUpToSnapshot = do
         --TODO: Get rid of this hack
-        let waitForTransaction caughtUpToSnapshot' = do
-              timeoutVar <- registerDelay idleTimeoutMicroseconds
-              k <- atomically $
-                (readTChan transactions >>= \case -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
-                  Left f ->
-                    pure $ do
-                      waitForTransaction $ unionTxidSnapshot f caughtUpToSnapshot'
-                  Right txn@(xid, changes) ->
-                    if isNothing $ nonEmptyQueryResultPatch changes
-                    then
-                      pure $ waitForTransaction $ insertTxidSnapshot xid caughtUpToSnapshot'
-                    else do
-                      unGetTChan transactions $ Right txn
-                      pure $ pure caughtUpToSnapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
-                ) `orElse` (do
-                  timedOut <- readTVar timeoutVar
-                  check timedOut
-                  pure $ do
-                    putLog "Idle timeout: advancing time to close stale read transaction"
-                    pure caughtUpToSnapshot' -- Idle timeout: advance the time to close the stale read transaction
-                )
-              k
+        let handleItem snapshot' item = case item of -- Process a single transaction item read from the channel
+              Left f -> pure $ waitForTransaction $ unionTxidSnapshot f snapshot'
+              Right txn@(xid, changes) ->
+                if isNothing $ nonEmptyQueryResultPatch changes
+                then pure $ waitForTransaction $ insertTxidSnapshot xid snapshot'
+                else do
+                  unGetTChan transactions $ Right txn
+                  pure $ pure snapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
+            waitForTransaction caughtUpToSnapshot' = do
+              -- Fast path: try a non-blocking read first to avoid allocating a timer unnecessarily.
+              mAction <- atomically $ tryReadTChan transactions >>= \case
+                Nothing -> pure Nothing -- channel is empty; must use slow path
+                Just item -> Just <$> handleItem caughtUpToSnapshot' item
+              case mAction of
+                Just action -> action -- channel had data; run the action without allocating a timer
+                Nothing -> do
+                  -- Slow path: channel is empty; only now allocate the timeout delay and block
+                  timeoutVar <- registerDelay idleTimeoutMicroseconds
+                  k <- atomically $
+                    (readTChan transactions >>= handleItem caughtUpToSnapshot' -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
+                    ) `orElse` (do
+                      timedOut <- readTVar timeoutVar
+                      check timedOut
+                      pure $ do
+                        putLog "Idle timeout: advancing time to close stale read transaction"
+                        pure caughtUpToSnapshot' -- Idle timeout: advance the time to close the stale read transaction
+                    )
+                  k
         caughtUpToSnapshot' <- waitForTransaction caughtUpToSnapshot
         (patches, snapshot, reader) <- stepTransaction caughtUpToSnapshot' mempty
         subsequentReaderReady patches t reader
