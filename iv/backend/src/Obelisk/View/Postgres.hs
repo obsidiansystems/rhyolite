@@ -283,21 +283,30 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
   putLog $ "Reader " <> tshow initialTime <> " opened at snapshot " <> tshow initialSnapshot
   initialReaderReady initialReader
   burnOldTransactions initialSnapshot --TODO: Instead, when creating the replication slot, use EXPORT_SNAPSHOT, and then use that snapshot to create this transaction; otherwise, we might end up with the write transactions visible from this reader not corresponding to a contiguous ordering of transactions, which we can't easily detect or recover from
-  let loop !t caughtUpToSnapshot = do
+  let idleTimeoutMicroseconds = 5 * 60 * 1000000 :: Int -- 5 minutes; prevents idle REPEATABLE READ transactions from holding Postgres snapshots indefinitely
+      loop !t caughtUpToSnapshot = do
         --TODO: Get rid of this hack
         let waitForTransaction caughtUpToSnapshot' = do
-              k <- atomically $ do -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
-                readTChan transactions >>= \case
-                  Left f -> do
+              timeoutVar <- registerDelay idleTimeoutMicroseconds
+              k <- atomically $
+                (readTChan transactions >>= \case -- Wait until at least one transaction has been received; throw away any fences we've received in the mean time (they are redundant)
+                  Left f ->
                     pure $ do
                       waitForTransaction $ unionTxidSnapshot f caughtUpToSnapshot'
                   Right txn@(xid, changes) ->
                     if isNothing $ nonEmptyQueryResultPatch changes
-                    then do
+                    then
                       pure $ waitForTransaction $ insertTxidSnapshot xid caughtUpToSnapshot'
                     else do
                       unGetTChan transactions $ Right txn
                       pure $ pure caughtUpToSnapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
+                ) `orElse` (do
+                  timedOut <- readTVar timeoutVar
+                  check timedOut
+                  pure $ do
+                    putLog "Idle timeout: advancing time to close stale read transaction"
+                    pure caughtUpToSnapshot' -- Idle timeout: advance the time to close the stale read transaction
+                )
               k
         caughtUpToSnapshot' <- waitForTransaction caughtUpToSnapshot
         (patches, snapshot, reader) <- stepTransaction caughtUpToSnapshot' mempty
