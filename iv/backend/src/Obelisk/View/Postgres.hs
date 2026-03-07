@@ -211,8 +211,25 @@ runDbIv putLog (DbDriver withFeed openReader) initialTime startMyIv setTime go =
                 putLog $ "sendPatch " <> tshow (pred t) <> " " <> tshow (tablePatchInfo p)
                 withMVar sendPatchVar $ \sendPatch -> do -- We don't really need to hold this mutex, we just can't send the first one before we've got it
                   forkWorker $ sendPatch (pred t) p
+              onRefreshReader readerTime newReader = do
+                -- Atomically swap out the stale reader at readerTime with the fresh one.
+                -- If the reader has already been closed (e.g. closeTime was called), discard the new reader.
+                let forkClose label reader =
+                      fork $ handle (\(SomeException e) -> putLog ("Idle refresh: Exception while closing " <> label <> ": " <> tshow e)) $
+                        _dbReader_close reader
+                mOldReader <- atomicModifyRef' openReadTransactionsRef $ \conns ->
+                  case IntMap.lookup readerTime conns of
+                    Nothing  -> (conns, Nothing)
+                    Just old -> (IntMap.insert readerTime newReader conns, Just old)
+                case mOldReader of
+                  Nothing -> do
+                    putLog $ "Idle refresh: no reader at time " <> tshow readerTime <> ", discarding new reader"
+                    forkClose "discarded idle reader" newReader
+                  Just old -> do
+                    putLog $ "Refreshed idle reader for time " <> tshow readerTime
+                    forkClose "stale idle transaction" old
           -- Would be nice to use withSingleWorkerWatchdog here but I haven't quite found where the loop is to put it in.
-          withSingleWorker "walkTransactionLog" (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady) $ do
+          withSingleWorker "walkTransactionLog" (walkTransactionLog putLog openReader initialTime transactions onInitialReaderReady onSubsequentReaderReady onRefreshReader) $ do
             takeMVar readyToStartVar
             (sendPatch, bOut) <- startMyIv closeTime readAtTime
             putMVar sendPatchVar sendPatch
@@ -234,8 +251,9 @@ walkTransactionLog
   -> TChan (STM m) (Either TxidSnapshot (Xid, QueryResultPatch (TablesV db) TablePatch)) -- ^ The channel from which the walker can retrieve transactions and snapshot fences.  This is expected to come from a logical decoding slot on the upstream server.
   -> (DbReader db m -> m ()) -- ^ The walker will call this when the initial reader is opened; there's no patch associated with the initial reader.
   -> (QueryResultPatch (TablesV db) TablePatch -> Time -> DbReader db m -> m ()) -- ^ The walker will call this when any reader after the first is ready.  The given patch will be the patch between the prior reader (i.e. reader whose time is the predecessor of this one) and this one.
+  -> (Time -> DbReader db m -> m ()) -- ^ The walker will call this on an idle timeout, passing the time of the existing reader and the fresh replacement reader.  The callback should atomically swap the old reader for the new one without advancing time or emitting a patch.
   -> m Void
-walkTransactionLog putLog openReader initialTime transactions initialReaderReady subsequentReaderReady = do
+walkTransactionLog putLog openReader initialTime transactions initialReaderReady subsequentReaderReady refreshReader = do
   let burnOldTransactions :: TxidSnapshot -> m ()
       burnOldTransactions snapshot = do
         atomically (readTChan transactions) >>= \case
@@ -286,6 +304,10 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
   let idleTimeoutMicroseconds = 5 * 60 * 1000000 :: Int -- 5 minutes; prevents idle REPEATABLE READ transactions from holding Postgres snapshots indefinitely
       loop !t caughtUpToSnapshot = do
         --TODO: Get rid of this hack
+        -- Returns Right once a non-empty transaction is available for processing (with a snapshot
+        -- accumulating any empty-transaction XIDs seen along the way), or Left () on idle timeout.
+        -- Empty transactions are consumed and their XIDs folded into caughtUpToSnapshot', but the
+        -- first non-empty transaction is put back on the channel for stepTransaction to pick up.
         let waitForTransaction caughtUpToSnapshot' = do
               timeoutVar <- registerDelay idleTimeoutMicroseconds
               k <- atomically $
@@ -299,19 +321,28 @@ walkTransactionLog putLog openReader initialTime transactions initialReaderReady
                       pure $ waitForTransaction $ insertTxidSnapshot xid caughtUpToSnapshot'
                     else do
                       unGetTChan transactions $ Right txn
-                      pure $ pure caughtUpToSnapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
+                      pure $ pure $ Right caughtUpToSnapshot' -- This doesn't include the one we just unGetTChan'd, because that will be picked up by stepTransaction, below.  Ours should only be the xids of transactions we got that were empty.
                 ) `orElse` (do
                   timedOut <- readTVar timeoutVar
                   check timedOut
-                  pure $ do
-                    putLog "Idle timeout: advancing time to close stale read transaction"
-                    pure caughtUpToSnapshot' -- Idle timeout: advance the time to close the stale read transaction
+                  pure $ pure $ Left () -- Idle timeout: refresh the reader without advancing time
                 )
               k
-        caughtUpToSnapshot' <- waitForTransaction caughtUpToSnapshot
-        (patches, snapshot, reader) <- stepTransaction caughtUpToSnapshot' mempty
-        subsequentReaderReady patches t reader
-        loop (succ t) snapshot
+        result <- waitForTransaction caughtUpToSnapshot
+        case result of
+          Left () -> do
+            -- Idle timeout: open a fresh reader to replace the stale REPEATABLE READ snapshot,
+            -- but do NOT advance time or emit a no-op patch to avoid spurious downstream work.
+            -- `t` is the time for the *next* reader to be opened on a real transaction; the
+            -- *current* active reader (added by the previous iteration) lives at `pred t`.
+            putLog "Idle timeout: refreshing reader to close stale read transaction"
+            (_, newReader) <- openReader
+            refreshReader (pred t) newReader
+            loop t caughtUpToSnapshot
+          Right caughtUpToSnapshot' -> do
+            (patches, snapshot, reader) <- stepTransaction caughtUpToSnapshot' mempty
+            subsequentReaderReady patches t reader
+            loop (succ t) snapshot
   loop (succ initialTime) initialSnapshot
 
 
