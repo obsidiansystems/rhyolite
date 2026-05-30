@@ -32,9 +32,10 @@ module Rhyolite.DB.NotifyListen
   , getSearchPath
   ) where
 
-import Control.Concurrent (forkIO, killThread)
+import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Concurrent.STM (TChan)
 import qualified Control.Concurrent.STM as STM
+import Control.Exception (SomeAsyncException (..), SomeException, fromException, throwIO, try)
 import Control.Monad (forever)
 import Data.Aeson (FromJSON, ToJSON, encode, decodeStrict')
 import qualified Data.ByteString as BS
@@ -57,6 +58,7 @@ import qualified Database.PostgreSQL.Simple as PG
 import Database.PostgreSQL.Simple.Class
 import qualified Database.PostgreSQL.Simple.Notification as PG
 import GHC.Generics (Generic)
+import System.IO (hPutStrLn, stderr)
 
 -- | Wrapper for the name of the channel over which notifications are sent
 newtype NotificationChannel
@@ -81,23 +83,43 @@ notificationListener
   -- ^ @notifyMessage@ is usually a 'DbNotification'
 notificationListener db = do
   nChan <- STM.newBroadcastTChanIO
-  daemonThread <- forkIO $ withResource db $ \conn -> do
-    let cmd = listenCmd defaultNotificationChannel
-    _ <- PG.execute_ conn cmd
-    forever $ do
-      -- Handle notifications
-      PG.Notification _ channel message <- PG.getNotification conn
-      case channel of
-        _ | channel ==  channelToByteString defaultNotificationChannel -> do
-          -- Notification is on the expected NOTIFY channel
-          case decodeStrict' message of
-            Just a -> STM.atomically $ STM.writeTChan nChan a
-            _ -> putStrLn $ errorMessage defaultNotificationChannel $
-              "Could not parse message: " <> show message
-        _ -> putStrLn $ errorMessage defaultNotificationChannel $
-          "Received a message on unexpected channel: " <> show channel
+  daemonThread <- forkIO $ daemonLoop nChan
   return (nChan, killThread daemonThread)
   where
+    -- Subscribe on a pooled connection and forward decoded notifications
+    -- forever. If the LISTEN connection drops (managed-DB failover, network
+    -- blip), the synchronous exception is caught, logged, and the connection is
+    -- re-established after a short backoff — rather than the daemon thread dying
+    -- uncaught, which both prints a GHC backtrace to stderr and silently stops
+    -- all notification delivery. Asynchronous exceptions (e.g. the 'killThread'
+    -- from the returned finalizer) are re-thrown so the daemon still shuts down
+    -- cleanly.
+    daemonLoop nChan = do
+      result <- try (subscribeAndForward nChan) :: IO (Either SomeException ())
+      case result of
+        Right () -> pure ()
+        Left e
+          | Just (SomeAsyncException _) <- fromException e -> throwIO e
+          | otherwise -> do
+              hPutStrLn stderr $ errorMessage defaultNotificationChannel $
+                "LISTEN connection lost, reconnecting in 5s: " <> show e
+              threadDelay 5000000
+              daemonLoop nChan
+    subscribeAndForward nChan = withResource db $ \conn -> do
+      let cmd = listenCmd defaultNotificationChannel
+      _ <- PG.execute_ conn cmd
+      forever $ do
+        -- Handle notifications
+        PG.Notification _ channel message <- PG.getNotification conn
+        case channel of
+          _ | channel ==  channelToByteString defaultNotificationChannel -> do
+            -- Notification is on the expected NOTIFY channel
+            case decodeStrict' message of
+              Just a -> STM.atomically $ STM.writeTChan nChan a
+              _ -> putStrLn $ errorMessage defaultNotificationChannel $
+                "Could not parse message: " <> show message
+          _ -> putStrLn $ errorMessage defaultNotificationChannel $
+            "Received a message on unexpected channel: " <> show channel
     channelToByteString :: NotificationChannel -> BS.ByteString
     channelToByteString = T.encodeUtf8 . T.pack . unNotificationChannel
     errorMessage :: NotificationChannel -> String -> String

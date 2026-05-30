@@ -2,6 +2,10 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+
+* rhyolite-notify-listen: `notificationListener` now reconnects when its LISTEN connection drops (for example on a database failover or a network interruption). Before, the listener thread died on the first error and notifications stopped until the process restarted. It now logs the error to stderr, waits 5 seconds and listens again on a fresh pool connection. Notifications sent while it is disconnected are not delivered.
+
 ## v1.1.0.0 2024-05-24
 
 * Breaking: Remove Reflex.Dom.Modal.Base and Reflex.Dom.Modal.Class. The `<dialog>` element is now broadly supported by browsers and provides a simpler solution to the problem of opening modals that is also more accessible. See the [documentation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog), and, in particular, this [example](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement#opening_a_modal_dialog), which uses `showModal` and describes how to style the modal backdrop.
