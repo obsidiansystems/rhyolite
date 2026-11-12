@@ -15,7 +15,6 @@ import Control.Exception (SomeException, try)
 import Control.Monad ((<=<), forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Either (isLeft)
-import Data.Semigroup ((<>))
 
 
 -- | Perform a supervised operation with delays in between, on a separate thread. Return an IO action for killing the thread.

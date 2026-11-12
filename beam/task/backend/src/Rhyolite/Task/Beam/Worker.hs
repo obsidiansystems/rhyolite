@@ -12,7 +12,7 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.Thread.Delay
 import Control.Exception.Lifted (bracket)
-import Control.Monad (forM)
+import Control.Monad (forM, void)
 import Control.Monad.Cont
 import Control.Monad.Trans.Control
 import Data.Time

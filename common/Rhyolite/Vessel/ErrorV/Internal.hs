@@ -2,6 +2,7 @@
 -}
 {-# Language ConstraintKinds #-}
 {-# Language DeriveGeneric #-}
+{-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GADTs #-}
 {-# Language GeneralizedNewtypeDeriving #-}
@@ -12,6 +13,7 @@
 {-# Language StandaloneDeriving #-}
 {-# Language TemplateHaskell #-}
 {-# Language TypeFamilies #-}
+{-# Language TypeOperators #-}
 {-# Language UndecidableInstances #-}
 module Rhyolite.Vessel.ErrorV.Internal where
 
@@ -21,6 +23,7 @@ import Data.Constraint
 import Data.Constraint.Extras
 import Data.GADT.Compare
 import Data.GADT.Show
+import Data.Kind (Type)
 import Data.Orphans ()
 import Data.Patch
 import Data.Semigroup
@@ -37,7 +40,7 @@ import Rhyolite.App
 -- | An internal type which specifies the two pieces of an 'ErrorV' container.
 -- When constructing a query, only the View piece is present. When constructing
 -- a result, either the Error or View part will be present but never both.
-data ErrorVK err view (v :: (* -> *) -> *) where
+data ErrorVK err view (v :: (Type -> Type) -> Type) where
   ErrorVK_Error :: ErrorVK err view (SingleV err)
   ErrorVK_View :: ErrorVK err view view
 

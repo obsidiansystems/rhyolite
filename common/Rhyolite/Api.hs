@@ -4,8 +4,8 @@ Description: Request/response API protocol
 This commonly used module details the mechanism that we use to bring
 information from the frontend to the backend of a typical Obelisk app. The
 important datatype here is 'ApiRequest' which is parametrized on three
-application-dependent datatypes: one, of kind @*@, for credentials, and two,
-of kind @k -> *@, respectively for the public and private part of the
+application-dependent datatypes: one, of kind @Type@, for credentials, and two,
+of kind @k -> Type@, respectively for the public and private part of the
 request. As an example, your app could have datatypes like:
 
 @
@@ -42,6 +42,7 @@ module Rhyolite.Api where
 import Data.Aeson
 import Data.Constraint.Extras
 import Data.Constraint.Forall
+import Data.Kind (Type)
 import Data.Some
 
 -- | JSON encoding and decoding constraints on requests
@@ -50,7 +51,7 @@ type Request r = (ForallF ToJSON r, Has ToJSON r, FromJSON (Some r), Has FromJSO
 -- | In most applications, API requests are either authenticated or
 -- unauthenticated. A login request, for example, is usually unauthenticated,
 -- or "public."
-data ApiRequest :: * -> (k -> *) -> (k -> *) -> k -> * where
+data ApiRequest :: Type -> (k -> Type) -> (k -> Type) -> k -> Type where
   ApiRequest_Public :: public a -> ApiRequest cred public private a
   ApiRequest_Private :: cred -> private a -> ApiRequest cred public private a
   deriving (Show)

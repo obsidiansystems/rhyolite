@@ -51,7 +51,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Text.Encoding (decodeUtf8)
-import Data.Witherable (Filterable)
 import GHC.Generics (Generic)
 import Network.URI (URI, parseURI)
 import Obelisk.Frontend.Cookie
@@ -60,6 +59,7 @@ import qualified Reflex as R
 import Reflex.Dom.Core hiding (MonadWidget, Request)
 import Reflex.Host.Class
 import Reflex.Time (throttleBatchWithLag)
+import Witherable (Filterable)
 
 import Rhyolite.Api
 import Rhyolite.WebSocket

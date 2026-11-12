@@ -36,7 +36,6 @@ import Data.Map (Map)
 import Data.Map.Monoidal (MonoidalMap)
 import qualified Data.Map.Monoidal as MMap
 import Data.Proxy
-import Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as Semigroup
 import Data.Semigroup (First(..))
 import Data.These
@@ -44,10 +43,9 @@ import Data.These.Combinators
 import Data.Typeable (Typeable)
 import Data.Vessel
 import Data.Vessel.Void
-import Data.Vessel.Internal (VSum(..))
-import Data.Witherable (Filterable(..))
 import GHC.Generics (Generic)
 import Reflex.Query.Class
+import Witherable (Filterable(..))
 
 -- | Set-subtraction operation for queries.
 class PositivePart q where

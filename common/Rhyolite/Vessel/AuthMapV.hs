@@ -5,6 +5,7 @@
 {-# Language DeriveGeneric #-}
 {-# Language DeriveTraversable #-}
 {-# Language TypeApplications #-}
+{-# Language FlexibleContexts #-}
 {-# Language FlexibleInstances #-}
 {-# Language GeneralizedNewtypeDeriving #-}
 {-# Language StandaloneDeriving #-}
