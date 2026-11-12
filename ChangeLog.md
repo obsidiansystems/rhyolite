@@ -2,6 +2,11 @@
 
 This project's release branch is `master`. This log is written from the perspective of the release branch: when changes hit `master`, they are considered released, and the date should reflect that release.
 
+## Unreleased
+
+* Build with GHC 9: add the imports, extensions and `Data.Kind.Type` spellings that GHC 9 requires, and split the `mime-mail` orphan instances for the mutually recursive `Part` and `PartContent` so the Template Haskell compiles on GHC 9.0 and later.
+* rhyolite-backend, rhyolite-common, rhyolite-frontend: import `Witherable` instead of the deprecated `Data.Witherable`, and require `witherable >=0.4 && <0.6`.
+
 ## v1.1.0.0 2024-05-24
 
 * Breaking: Remove Reflex.Dom.Modal.Base and Reflex.Dom.Modal.Class. The `<dialog>` element is now broadly supported by browsers and provides a simpler solution to the problem of opening modals that is also more accessible. See the [documentation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog), and, in particular, this [example](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement#opening_a_modal_dialog), which uses `showModal` and describes how to style the modal backdrop.
